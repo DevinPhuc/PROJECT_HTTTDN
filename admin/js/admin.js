@@ -1,4 +1,4 @@
-const ADMIN_SESSION_KEY = "jewels-standalone-admin-session";
+const ADMIN_SESSION_KEY = "jewels-admin-session";
 const ADMIN_ACCOUNT = {
   email: "admin@jewels.vn",
   name: "Quản trị viên"
@@ -57,26 +57,26 @@ function getAdminSession() {
 
 const currentSession = getAdminSession();
 if (!currentSession || currentSession.email !== ADMIN_ACCOUNT.email) {
-  window.location.replace("login.html");
+  window.location.replace("../client/index.html?admin=1");
 }
 
 const adminLogoutBtn = document.getElementById("adminLogoutBtn");
 if (adminLogoutBtn) {
   adminLogoutBtn.addEventListener("click", () => {
     localStorage.removeItem(ADMIN_SESSION_KEY);
-    window.location.href = "login.html";
+    window.location.href = "../client/index.html?admin=1";
   });
 }
 
 const STORAGE_KEYS = {
-  accounts: "jewels-standalone-admin-accounts",
-  staff: "jewels-standalone-admin-staff",
-  customers: "jewels-standalone-admin-customers",
-  products: "jewels-standalone-admin-products",
-  stock: "jewels-standalone-admin-stock",
-  invoices: "jewels-standalone-admin-invoices",
-  promotions: "jewels-standalone-admin-promotions",
-  orders: "jewels-standalone-admin-orders"
+  accounts: "jewels-admin-accounts",
+  staff: "jewels-admin-staff",
+  customers: "jewels-admin-customers",
+  products: "jewels-admin-products",
+  stock: "jewels-admin-stock",
+  invoices: "jewels-admin-invoices",
+  promotions: "jewels-admin-promotions",
+  orders: "jewels-admin-orders"
 };
 
 const state = {};

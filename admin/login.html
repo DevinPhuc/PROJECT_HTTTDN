@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Đăng nhập Admin - Jewels</title>
-  <link rel="stylesheet" href="assets/css/theme.css">
+  <link rel="stylesheet" href="../shared/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap" rel="stylesheet">
@@ -50,7 +50,7 @@
       display: flex;
       align-items: end;
       padding: 42px;
-      background: linear-gradient(135deg, rgba(112, 66, 4, 0.9), rgba(64, 42, 17, 0.85)), url("assets/images/banner-image2.jpg") center/cover no-repeat;
+      background: linear-gradient(135deg, rgba(112, 66, 4, 0.9), rgba(64, 42, 17, 0.85)), url("../shared/images/banner-image2.jpg") center/cover no-repeat;
       color: #fff;
     }
 
@@ -247,7 +247,7 @@
 
         <div class="login-meta">
           <label class="remember"><input type="checkbox" name="remember"> Ghi nhớ</label>
-          <a class="helper-link" href="index.html">Bảng quản trị</a>
+          <a class="helper-link" href="../client/index.html">Về trang chủ</a>
         </div>
 
         <button class="login-submit" type="submit">Đăng nhập</button>
@@ -261,7 +261,7 @@
   </div>
 
   <script>
-    const ADMIN_SESSION_KEY = "jewels-standalone-admin-session";
+    const ADMIN_SESSION_KEY = "jewels-admin-session";
     const ADMIN_ACCOUNT = {
       name: "Quản trị viên",
       email: "admin@jewels.vn",
@@ -272,7 +272,7 @@
     const feedback = document.getElementById("adminLoginFeedback");
 
     function redirectToDashboard() {
-      window.location.href = "index.html";
+      window.location.href = "dashboard.html";
     }
 
     try {
