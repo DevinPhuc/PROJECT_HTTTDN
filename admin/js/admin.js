@@ -57,14 +57,14 @@ function getAdminSession() {
 
 const currentSession = getAdminSession();
 if (!currentSession || currentSession.email !== ADMIN_ACCOUNT.email) {
-  window.location.replace("../client/index.html?admin=1");
+  window.location.replace("login.html");
 }
 
 const adminLogoutBtn = document.getElementById("adminLogoutBtn");
 if (adminLogoutBtn) {
   adminLogoutBtn.addEventListener("click", () => {
     localStorage.removeItem(ADMIN_SESSION_KEY);
-    window.location.href = "../client/index.html?admin=1";
+    window.location.href = "login.html";
   });
 }
 
