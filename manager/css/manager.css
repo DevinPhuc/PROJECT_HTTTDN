@@ -706,6 +706,357 @@ body:has(.admin-page) {
   font-weight: 500;
 }
 
+.admin-legacy-content[hidden],
+.hr-view[hidden] {
+  display: none !important;
+}
+
+.admin-hr-portal {
+  display: grid;
+  gap: 20px;
+}
+
+.hr-view {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.hr-view > .panel-heading {
+  margin-bottom: 0;
+}
+
+.hr-view .panel-heading h2 {
+  font-size: 27px;
+}
+
+.hr-table-panel {
+  padding: 0;
+}
+
+.hr-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.hr-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--admin-ink);
+  font-size: 12px;
+  text-align: left;
+}
+
+.hr-table th,
+.hr-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--admin-line);
+  vertical-align: top;
+}
+
+.hr-table thead th {
+  background: #f0f4ef;
+  color: #68746b;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.hr-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.hr-table td strong,
+.hr-table td small {
+  display: block;
+}
+
+.hr-table td small {
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.hr-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hr-status {
+  display: inline-block;
+  padding: 4px 8px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.hr-status-active {
+  background: var(--admin-green-soft);
+  color: var(--admin-green-dark);
+}
+
+.hr-status-leave,
+.hr-status-pending {
+  background: #fbf2df;
+  color: #8b6927;
+}
+
+.hr-status-resigned {
+  background: var(--admin-red-soft);
+  color: var(--admin-red);
+}
+
+.hr-form-panel {
+  padding: 18px;
+}
+
+.hr-form-grid,
+.hr-payroll-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.hr-form-grid h3 {
+  grid-column: 1 / -1;
+  margin: 0 0 3px;
+  color: var(--admin-ink);
+  font-family: var(--heading-font, Georgia, serif);
+  font-size: 21px;
+  font-weight: 500;
+}
+
+.hr-form-grid label,
+.hr-payroll-form label,
+.hr-permission-panel > label {
+  display: grid;
+  gap: 5px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hr-form-grid input,
+.hr-form-grid select,
+.hr-payroll-form input,
+.hr-payroll-form select,
+.hr-permission-panel select,
+.hr-period-control input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #dce1da;
+  border-radius: 2px;
+  outline: none;
+  background: #fff;
+  color: var(--admin-ink);
+  font: 400 12px/1.3 var(--body-font, sans-serif);
+}
+
+.hr-form-grid input:focus,
+.hr-form-grid select:focus,
+.hr-payroll-form input:focus,
+.hr-payroll-form select:focus,
+.hr-permission-panel select:focus,
+.hr-period-control input:focus {
+  border-color: var(--admin-green);
+  box-shadow: 0 0 0 2px rgb(52 91 74 / 12%);
+}
+
+.hr-form-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  grid-column: 1 / -1;
+}
+
+.hr-form-actions p,
+.hr-demo-note {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.hr-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--admin-line);
+  background: var(--admin-paper);
+}
+
+.hr-summary-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px 18px;
+}
+
+.hr-summary-card + .hr-summary-card {
+  border-left: 1px solid var(--admin-line);
+}
+
+.hr-summary-card span {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.hr-summary-card strong {
+  color: var(--admin-green-dark);
+  font-family: var(--heading-font, Georgia, serif);
+  font-size: 21px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.hr-period-control {
+  display: grid;
+  grid-template-columns: auto minmax(150px, 190px);
+  align-items: center;
+  gap: 10px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hr-permission-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 16px;
+}
+
+.hr-permission-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px 18px;
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--admin-line);
+}
+
+.hr-permission-list legend {
+  padding-inline: 6px;
+  color: var(--admin-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hr-permission-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--admin-ink);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.hr-permission-list input {
+  flex: 0 0 auto;
+  margin: 2px 0 0;
+  accent-color: var(--admin-green);
+}
+
+.hr-payroll-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.hr-payroll-form {
+  padding: 19px;
+}
+
+.hr-payroll-form .hr-form-actions {
+  align-items: flex-start;
+}
+
+.hr-payroll-preview h3 {
+  margin: 0 0 10px;
+  color: var(--admin-ink);
+  font-family: var(--heading-font, Georgia, serif);
+  font-size: 21px;
+  font-weight: 500;
+}
+
+.hr-payroll-breakdown {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.hr-payroll-breakdown div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--admin-line);
+  font-size: 11px;
+}
+
+.hr-payroll-breakdown dt {
+  color: var(--admin-muted);
+}
+
+.hr-payroll-breakdown dd {
+  margin: 0;
+  color: var(--admin-ink);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.hr-payroll-breakdown .hr-payroll-net dt,
+.hr-payroll-breakdown .hr-payroll-net dd {
+  color: var(--admin-green-dark);
+  font-weight: 700;
+}
+
+@media (max-width: 980px) {
+  .hr-payroll-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hr-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hr-summary-card:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .hr-summary-card:nth-child(n + 3) {
+    border-top: 1px solid var(--admin-line);
+  }
+}
+
+@media (max-width: 620px) {
+  .hr-form-grid,
+  .hr-payroll-form,
+  .hr-permission-panel,
+  .hr-permission-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hr-form-grid h3,
+  .hr-form-actions,
+  .hr-permission-list {
+    grid-column: auto;
+  }
+
+  .hr-period-control {
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .hr-table {
+    min-width: 720px;
+  }
+}
+
 @media (max-width: 1120px) {
   .admin-page {
     grid-template-columns: 225px minmax(0, 1fr);

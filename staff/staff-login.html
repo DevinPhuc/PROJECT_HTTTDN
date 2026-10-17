@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đăng nhập Admin - Jewels</title>
+  <title>Đăng nhập nhân viên - Jewels</title>
   <link rel="stylesheet" href="../shared/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap" rel="stylesheet">
   <style>
     :root {
-      --admin-primary: #704204;
-      --admin-primary-soft: rgba(112, 66, 4, 0.12);
-      --admin-bg: #f7f3ee;
+      --admin-primary: #176b72;
+      --admin-primary-soft: rgba(23, 107, 114, 0.12);
+      --admin-bg: #eff5f4;
       --admin-panel: #ffffff;
-      --admin-line: #e7dfd5;
-      --admin-text: #1f1a17;
-      --admin-muted: #6e685f;
+      --admin-line: #d9e5e4;
+      --admin-text: #1d3032;
+      --admin-muted: #667a7c;
       --admin-error: #c15542;
     }
 
@@ -27,7 +27,7 @@
       min-height: 100vh;
       display: grid;
       place-items: center;
-      background: radial-gradient(circle at top, #f9f5f0 0%, var(--admin-bg) 40%, #efe7dc 100%);
+      background: radial-gradient(circle at top, #f8fbfa 0%, var(--admin-bg) 48%, #dcebea 100%);
       color: var(--admin-text);
       font-family: var(--body-font);
     }
@@ -50,7 +50,7 @@
       display: flex;
       align-items: end;
       padding: 42px;
-      background: linear-gradient(135deg, rgba(112, 66, 4, 0.9), rgba(64, 42, 17, 0.85)), url("../shared/images/banner-image2.jpg") center/cover no-repeat;
+      background: linear-gradient(135deg, rgba(23, 107, 114, 0.9), rgba(16, 63, 73, 0.88)), url("../shared/images/banner-image2.jpg") center/cover no-repeat;
       color: #fff;
     }
 
@@ -144,8 +144,8 @@
 
     .field input:focus {
       outline: none;
-      border-color: rgba(112, 66, 4, 0.5);
-      box-shadow: 0 0 0 4px rgba(112, 66, 4, 0.08);
+      border-color: rgba(23, 107, 114, 0.5);
+      box-shadow: 0 0 0 4px rgba(23, 107, 114, 0.08);
     }
 
     .login-meta {
@@ -186,7 +186,7 @@
     }
 
     .login-submit:hover {
-      background: #5b3605;
+      background: #104f55;
     }
 
     .login-feedback {
@@ -220,24 +220,24 @@
 </head>
 <body>
   <div class="login-shell">
-    <aside class="login-visual" aria-label="Banner admin">
+    <aside class="login-visual" aria-label="Banner nhân viên">
       <div class="login-visual-inner">
         <div class="brand-mark">J</div>
         <p class="eyebrow" style="color:#fff; opacity:0.8;">Jewels management</p>
-        <h1>Admin portal</h1>
-        <p>Người quản lý theo dõi doanh thu, đơn hàng, kho hàng và hoạt động kinh doanh trong một nơi.</p>
+        <h1>Staff portal</h1>
+        <p>Không gian làm việc dành cho đội ngũ nhân viên Jewels.</p>
       </div>
     </aside>
 
     <section class="login-form-wrap">
-      <p class="eyebrow">Bảo mật quản lý</p>
-      <h2>Đăng nhập admin</h2>
-      <p>Chỉ tài khoản quản trị mới được truy cập hệ thống nội bộ.</p>
+      <p class="eyebrow">Cổng nhân viên</p>
+      <h2>Đăng nhập</h2>
+      <p>Đăng nhập để truy cập bảng làm việc nội bộ.</p>
 
-      <form class="login-form" id="adminLoginForm" novalidate>
+      <form class="login-form" id="staffLoginForm" novalidate>
         <label class="field">
-          Email admin
-          <input name="email" type="email" placeholder="admin@jewels.vn" value="admin@jewels.vn" required>
+          Email nhân viên
+          <input name="email" type="email" placeholder="email@jewels.vn" required>
         </label>
 
         <label class="field">
@@ -250,55 +250,62 @@
         </div>
 
         <button class="login-submit" type="submit">Đăng nhập</button>
-        <p class="login-feedback" id="adminLoginFeedback" role="status" aria-live="polite"></p>
+        <p class="login-feedback" id="staffLoginFeedback" role="status" aria-live="polite"></p>
       </form>
 
-      <div class="admin-note">
-        Tài khoản quản lý: <strong>admin@jewels.vn</strong> / <strong>Admin@123</strong>
-      </div>
     </section>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../shared/js/supabase-config.js"></script>
   <script>
-    const ADMIN_SESSION_KEY = "jewels-admin-session";
-    const ADMIN_ACCOUNT = {
-      name: "Quản trị viên",
-      email: "admin@jewels.vn",
-      password: "Admin@123"
-    };
+    const loginForm = document.getElementById("staffLoginForm");
+    const feedback = document.getElementById("staffLoginFeedback");
+    const supabase = window.jewelsSupabase;
 
-    const loginForm = document.getElementById("adminLoginForm");
-    const feedback = document.getElementById("adminLoginFeedback");
-
-    function redirectToDashboard() {
-      window.location.href = "dashboard.html";
+    async function getAccess(user) {
+      const { data: employee, error } = await supabase.from("employees").select("employee_id,email").eq("email", user.email).maybeSingle();
+      if (error || !employee) return { employee: null, isManager: false };
+      const { data: assignments } = await supabase.from("user_roles").select("role_id,roles(role_name)").eq("employee_id", employee.employee_id);
+      const roleIds = (assignments || []).map((assignment) => assignment.role_id);
+      const roleNames = (assignments || []).map((assignment) => String(assignment.roles?.role_name || "").toLowerCase());
+      const { data: rolePermissions } = roleIds.length
+        ? await supabase.from("role_permissions").select("permissions(permission_code)").in("role_id", roleIds)
+        : { data: [] };
+      const permissionCodes = (rolePermissions || []).map((item) => String(item.permissions?.permission_code || "").toLowerCase());
+      const isManager = roleNames.some((name) => ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(name))
+        || permissionCodes.some((code) => ["manager", "hr_manager", "manage_staff", "manage_employees"].includes(code));
+      return { employee, isManager };
     }
 
-    try {
-      const session = JSON.parse(localStorage.getItem(ADMIN_SESSION_KEY) || "null");
-      if (session && session.email === ADMIN_ACCOUNT.email) {
-        redirectToDashboard();
-      }
-    } catch {
-      localStorage.removeItem(ADMIN_SESSION_KEY);
+    async function redirectIfEmployee() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const access = await getAccess(user);
+      if (access.employee && !access.isManager) window.location.replace("staff-dashboard.html");
+      else if (!access.employee) await supabase.auth.signOut();
     }
 
-    loginForm.addEventListener("submit", (event) => {
+    redirectIfEmployee().catch(() => {});
+
+    loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const formData = new FormData(loginForm);
       const email = String(formData.get("email") || "").trim().toLowerCase();
       const password = String(formData.get("password") || "");
-      const remember = Boolean(formData.get("remember"));
-
-      if (email !== ADMIN_ACCOUNT.email || password !== ADMIN_ACCOUNT.password) {
-        feedback.textContent = "Email hoặc mật khẩu admin không chính xác.";
+      feedback.textContent = "Đang xác thực...";
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        feedback.textContent = "Không thể đăng nhập. Kiểm tra email và mật khẩu.";
         return;
       }
-
-      const session = { name: ADMIN_ACCOUNT.name, email: ADMIN_ACCOUNT.email, remember };
-      localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
-      feedback.textContent = "";
-      redirectToDashboard();
+      const access = await getAccess(data.user);
+      if (!access.employee || access.isManager) {
+        await supabase.auth.signOut();
+        feedback.textContent = "Tài khoản chưa được cấp quyền nhân viên.";
+        return;
+      }
+      window.location.replace("staff-dashboard.html");
     });
   </script>
 </body>

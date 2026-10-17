@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Trang quản lý cho người quản lý của Jewels.">
-  <title>Admin Dashboard - Jewels</title>
+  <meta name="description" content="Không gian làm việc dành cho nhân viên Jewels.">
+  <title>Staff Dashboard - Jewels</title>
   <link rel="stylesheet" href="../shared/css/vendor/bootstrap.min.css">
   <link rel="stylesheet" href="../shared/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="css/staff.css">
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" class="d-none" aria-hidden="true">
@@ -29,29 +29,23 @@
         <div class="admin-brand-mark">J</div>
         <div>
           <span class="admin-brand-label">Jewels</span>
-          <strong>Admin Panel</strong>
+          <strong>Staff Portal</strong>
         </div>
       </div>
 
       <div class="admin-profile-card">
-        <div class="admin-avatar">QT</div>
+        <div class="admin-avatar" id="staffAvatar">HL</div>
         <div>
-          <strong>Quản trị viên</strong>
-          <span>Nguyễn Quỳnh Trang</span>
+          <strong>Nhân viên</strong>
+          <span id="staffSidebarName">Hà Thị Lan</span>
         </div>
       </div>
 
-      <nav class="admin-nav" aria-label="Menu quản lý">
-        <a class="admin-nav-item is-active" href="#overview">Tổng quan</a>
-        <a class="admin-nav-item" href="#accounts">Quản lý tài khoản</a>
-        <a class="admin-nav-item" href="#staff">Quản lý nhân viên</a>
-        <a class="admin-nav-item" href="#customers">Quản lý khách hàng</a>
-        <a class="admin-nav-item" href="#products">Quản lý sản phẩm</a>
-        <a class="admin-nav-item" href="#stock">Quản lý nhập hàng</a>
-        <a class="admin-nav-item" href="#invoices">Quản lý hóa đơn</a>
-        <a class="admin-nav-item" href="#promotions">Quản lý khuyến mãi</a>
-        <a class="admin-nav-item" href="#orders">Quản lý đơn đặt hàng</a>
-        <a class="admin-nav-item" href="#analytics">Thống kê</a>
+      <nav class="admin-nav" aria-label="Chức năng nhân viên">
+        <a class="admin-nav-item is-active" href="#profile" data-staff-view="profile">Thông tin cá nhân</a>
+        <a class="admin-nav-item" href="#leave" data-staff-view="leave">Đơn nghỉ phép</a>
+        <a class="admin-nav-item" href="#salary-month" data-staff-view="salary-month">Lương tháng</a>
+        <a class="admin-nav-item" href="#salary-year" data-staff-view="salary-year">Lương năm</a>
       </nav>
 
       <div class="admin-system-status">
@@ -61,17 +55,78 @@
     </aside>
 
     <section class="admin-main">
-      <header class="admin-topbar" id="overview">
+      <header class="admin-topbar" id="staffHeader">
         <div>
-          <p class="account-eyebrow">BẢNG ĐIỀU KHIỂN</p>
-          <h1>Trang quản lý</h1>
+          <p class="account-eyebrow">KHÔNG GIAN NHÂN VIÊN</p>
+          <h1 id="staffPageTitle">Thông tin cá nhân</h1>
         </div>
         <div class="admin-topbar-actions">
-          <button type="button" class="admin-secondary-btn">Xuất báo cáo</button>
+          <button type="button" class="admin-secondary-btn" data-staff-view="salary-year">Bảng lương năm</button>
           <button type="button" class="admin-logout-btn" id="adminLogoutBtn">Đăng xuất</button>
         </div>
       </header>
 
+      <div class="staff-portal">
+        <section class="staff-view active" data-staff-panel="profile">
+          <div class="staff-section-heading">
+            <div><p class="account-eyebrow">HỒ SƠ CỦA TÔI</p><h2>Thông tin cá nhân</h2></div>
+            <span class="staff-employee-code">Mã nhân viên <strong>JW-024</strong></span>
+          </div>
+          <div class="staff-profile-layout">
+            <form class="staff-panel staff-form" id="profileForm">
+              <h3>Thông tin có thể cập nhật</h3>
+              <label>Họ và tên<input name="name" type="text" required maxlength="100"></label>
+              <label>Email công việc<input name="email" type="email" readonly></label>
+              <label>Ngày sinh<input name="birthDate" type="date"></label>
+              <label>Số điện thoại<input name="phone" type="tel" required maxlength="20"></label>
+              <label class="staff-field-wide">Địa chỉ<input name="address" type="text" maxlength="180"></label>
+              <div class="staff-form-actions"><button type="submit" class="admin-primary-btn">Lưu thay đổi</button><p id="profileFeedback" role="status" aria-live="polite"></p></div>
+            </form>
+            <section class="staff-panel staff-job-card">
+              <p class="account-eyebrow">THÔNG TIN CÔNG VIỆC</p>
+              <dl>
+                <div><dt>Chức vụ</dt><dd>Trưởng nhóm kinh doanh</dd></div>
+                <div><dt>Phòng ban</dt><dd>Kinh doanh</dd></div>
+                <div><dt>Ngày vào làm</dt><dd>12/06/2023</dd></div>
+                <div><dt>Hình thức</dt><dd>Toàn thời gian</dd></div>
+              </dl>
+            </section>
+          </div>
+        </section>
+
+        <section class="staff-view" data-staff-panel="leave" hidden>
+          <div class="staff-section-heading"><div><p class="account-eyebrow">NGHỈ PHÉP & NGHỈ VIỆC</p><h2>Nộp đơn</h2></div></div>
+          <div class="staff-profile-layout">
+            <form class="staff-panel staff-form" id="leaveForm">
+              <h3>Thông tin đơn</h3>
+              <label>Loại đơn<select name="type" id="leaveType" required><option value="Nghỉ phép">Nghỉ phép</option><option value="Nghỉ ốm đau">Nghỉ ốm đau</option><option value="Nghỉ thai sản">Nghỉ thai sản</option><option value="Xin nghỉ việc">Xin nghỉ việc</option></select></label>
+              <label>Ngày bắt đầu<input name="startDate" id="leaveStart" type="date" required></label>
+              <label id="leaveEndField">Ngày kết thúc<input name="endDate" id="leaveEnd" type="date" required></label>
+              <label class="staff-field-wide">Lý do<textarea name="reason" rows="4" maxlength="500" required placeholder="Nhập lý do gửi quản lý..."></textarea></label>
+              <div class="staff-form-actions"><button type="submit" class="admin-primary-btn">Gửi đơn</button><p id="leaveFeedback" role="status" aria-live="polite"></p></div>
+            </form>
+            <aside class="staff-panel staff-leave-note"><h3>Trạng thái xét duyệt</h3><p>Đơn đã gửi sẽ được lưu trong hồ sơ của bạn với trạng thái chờ duyệt.</p><p>Đơn nghỉ việc cần ghi ngày dự kiến làm việc cuối cùng ở phần ngày bắt đầu.</p></aside>
+          </div>
+          <section class="staff-panel staff-history-panel"><div class="staff-section-heading"><div><p class="account-eyebrow">LỊCH SỬ</p><h2>Đơn đã gửi</h2></div></div><div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Loại đơn</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th></tr></thead><tbody id="leaveRows"></tbody></table></div></section>
+        </section>
+
+        <section class="staff-view" data-staff-panel="salary-month" hidden>
+          <div class="staff-section-heading"><div><p class="account-eyebrow">THU NHẬP CÁ NHÂN</p><h2>Bảng lương tháng</h2></div><div class="staff-period-control"><label for="salaryMonth">Chọn tháng</label><input id="salaryMonth" type="month"></div></div>
+          <div id="monthlySalaryContent"></div>
+          <section class="staff-panel staff-rules-panel"><p class="account-eyebrow">CÁCH TÍNH LƯƠNG</p><h3>Công thức áp dụng</h3><div class="staff-formula"><p><strong>Lương theo ngày công</strong><span>Lương cơ bản / ngày công chuẩn × ngày công thực tế</span></p><p><strong>Lương tăng ca</strong><span>Lương giờ × 150% × số giờ tăng ca</span></p><p><strong>Thu nhập trước khấu trừ</strong><span>Lương theo ngày công + phụ cấp + lương tăng ca</span></p><p><strong>Thực nhận</strong><span>Thu nhập trước khấu trừ − bảo hiểm − thuế TNCN</span></p></div><p class="staff-muted">Số liệu minh họa theo hồ sơ cá nhân mẫu; bảng chính thức cần được đồng bộ từ hệ thống tính lương.</p></section>
+        </section>
+
+        <section class="staff-view" data-staff-panel="salary-year" hidden>
+          <div class="staff-section-heading"><div><p class="account-eyebrow">TỔNG HỢP THU NHẬP</p><h2>Bảng lương năm <span id="salaryYearTitle"></span></h2></div><button type="button" class="admin-primary-btn" id="printAnnualBtn">In bảng lương năm</button></div>
+          <section class="staff-panel staff-year-summary" id="annualSummary"></section>
+          <section class="staff-panel staff-history-panel"><div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Tháng</th><th>Ngày công</th><th>Thu nhập</th><th>Khấu trừ</th><th>Thực nhận</th></tr></thead><tbody id="annualRows"></tbody><tfoot id="annualTotals"></tfoot></table></div></section>
+        </section>
+      </div>
+
+      <section class="staff-print-sheet" id="monthlyPrintSheet" hidden aria-label="Bảng lương tháng để in"></section>
+      <section class="staff-print-sheet" id="annualPrintSheet" hidden aria-label="Bảng lương năm để in"></section>
+
+      <div class="staff-legacy-content" hidden>
       <div class="admin-kpis">
         <article class="admin-kpi">
           <span>Doanh thu</span>
@@ -512,10 +567,13 @@
           </div>
         </section>
       </div>
+      </div>
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../shared/js/supabase-config.js"></script>
   <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/staff-current-schema.js"></script>
 </body>
 </html>
