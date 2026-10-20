@@ -1,107 +1,141 @@
-const ADMIN_SESSION_KEY = "jewels-admin-session";
-const ADMIN_ACCOUNT = {
-  email: "admin@jewels.vn",
-  name: "Quản trị viên"
-};
+const ADMIN_TOKEN_KEY = "jewels-admin-token";
 
-const DEFAULT_DATA = {
-  accounts: [
-    { id: 1, name: "Nguyễn Quỳnh Trang", email: "quynhtrang@jewels.vn", role: "Quản lý", status: "Hoạt động" },
-    { id: 2, name: "Đỗ Minh Khánh", email: "minhkhanh@jewels.vn", role: "Quản lý kho", status: "Khóa" },
-    { id: 3, name: "Trần Bảo Ngọc", email: "baongoc@jewels.vn", role: "Support", status: "Hoạt động" }
-  ],
-  staff: [
-    { id: 1, name: "Hà Thị Lan", email: "hathilan@jewels.vn", position: "Sale Lead", status: "Làm việc" },
-    { id: 2, name: "Phạm Quốc Huy", email: "quochuy@jewels.vn", position: "Designer", status: "Nghỉ phép" },
-    { id: 3, name: "Vũ Minh Tâm", email: "minhtam@jewels.vn", position: "Warehouse", status: "Làm việc" }
-  ],
-  customers: [
-    { id: 1, name: "Nguyễn Hữu An", phone: "090 123 1111", segment: "Gold", status: "Hoạt động" },
-    { id: 2, name: "Mai Thanh Thảo", phone: "090 123 2222", segment: "Pearl", status: "Mới" },
-    { id: 3, name: "Lê Hoàng Nam", phone: "090 123 3333", segment: "Silver", status: "Khóa" }
-  ],
-  products: [
-    { id: 1, name: "Dây chuyền Pearl", category: "Trang sức cổ", price: 1290000, stock: 18, status: "Đang mở bán" },
-    { id: 2, name: "Nhẫn vàng 18k", category: "Nhẫn", price: 2850000, stock: 7, status: "Đang mở bán" },
-    { id: 3, name: "Bông tai bạc", category: "Hoa tai", price: 890000, stock: 0, status: "Hết hàng tạm thời" }
-  ],
-  stock: [
-    { id: 1, code: "PO-23091", supplier: "Silver Shine Co.", quantity: 180, date: "2026-10-03" },
-    { id: 2, code: "PO-23088", supplier: "Ruby Atelier", quantity: 96, date: "2026-10-01" },
-    { id: 3, code: "PO-23072", supplier: "Bloom Jewel", quantity: 210, date: "2026-09-28" }
-  ],
-  invoices: [
-    { id: 1, code: "HD-24012", customer: "Nguyễn Hữu An", amount: 3820000, status: "Đã thanh toán" },
-    { id: 2, code: "HD-24009", customer: "Mai Thanh Thảo", amount: 2140000, status: "Đang vận chuyển" },
-    { id: 3, code: "HD-24003", customer: "Lê Hoàng Nam", amount: 890000, status: "Chờ xác nhận" }
-  ],
-  promotions: [
-    { id: 1, name: "Flash Sale", code: "FLASH20", discount: 20, status: "Hoạt động" },
-    { id: 2, name: "Member Day", code: "MEM500", discount: 500000, status: "Hoạt động" },
-    { id: 3, name: "Combo Tặng", code: "COMBO", discount: 10, status: "Hết hạn" }
-  ],
-  orders: [
-    { id: 1, code: "#61024", customer: "Nguyễn Minh Châu", total: 3800000, status: "Đang xử lý" },
-    { id: 2, code: "#61010", customer: "Phan Hương Ly", total: 4200000, status: "Đã xác nhận" },
-    { id: 3, code: "#60998", customer: "Vũ Quỳnh Nga", total: 1700000, status: "Đang giao" }
-  ]
-};
-
-function getAdminSession() {
+function getSession() {
   try {
-    return JSON.parse(localStorage.getItem(ADMIN_SESSION_KEY) || "null");
+    return JSON.parse(localStorage.getItem(ADMIN_TOKEN_KEY) || "null");
   } catch {
     return null;
   }
 }
 
-const currentSession = getAdminSession();
-if (!currentSession || currentSession.email !== ADMIN_ACCOUNT.email) {
-  window.location.replace("login.html");
+function clearSession() {
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
 }
+
+function decodeToken(token) {
+  try {
+    const segment = String(token).split(".")[1] || "";
+    const bytes = Uint8Array.from(atob(segment.replace(/-/g, "+").replace(/_/g, "/")), (char) => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
+function requireSession() {
+  const session = getSession();
+  const payload = session?.token ? decodeToken(session.token) : null;
+  if (!payload || typeof payload.exp !== "number" || payload.exp * 1000 <= Date.now()) {
+    clearSession();
+    window.location.replace("login.html");
+    return null;
+  }
+  return session;
+}
+
+const currentSession = requireSession();
 
 const adminLogoutBtn = document.getElementById("adminLogoutBtn");
 if (adminLogoutBtn) {
   adminLogoutBtn.addEventListener("click", () => {
-    localStorage.removeItem(ADMIN_SESSION_KEY);
+    clearSession();
     window.location.href = "login.html";
   });
 }
 
-const STORAGE_KEYS = {
-  accounts: "jewels-admin-accounts",
-  staff: "jewels-admin-staff",
-  customers: "jewels-admin-customers",
-  products: "jewels-admin-products",
-  stock: "jewels-admin-stock",
-  invoices: "jewels-admin-invoices",
-  promotions: "jewels-admin-promotions",
-  orders: "jewels-admin-orders"
+// Sidebar identity, taken from the session the login function issued out of the database.
+function renderProfile() {
+  const user = currentSession?.user ?? {};
+  const fullName = String(user.full_name || user.username || "");
+  const nameEl = document.getElementById("adminName");
+  if (nameEl) nameEl.textContent = fullName || "Quản trị viên";
+  const roleEl = document.getElementById("adminRole");
+  if (roleEl) roleEl.textContent = user.role || "";
+  const avatar = document.getElementById("adminAvatar");
+  if (avatar) {
+    avatar.textContent = fullName.trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
+  }
+}
+
+const state = {
+  accounts: [],
+  accountsLoading: false,
+  accountsError: "",
+  options: null,
+  roles: [],
+  permissions: [],
+  staff: []
 };
 
-const state = {};
-Object.entries(DEFAULT_DATA).forEach(([key, value]) => {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS[key]) || "null");
-    state[key] = Array.isArray(saved) ? saved : value;
-  } catch {
-    state[key] = value;
-  }
-});
+const ACCOUNT_ERRORS = {
+  missing_fields: "Vui lòng nhập đầy đủ thông tin bắt buộc.",
+  invalid_email: "Email không hợp lệ.",
+  invalid_date_of_birth: "Ngày sinh không hợp lệ.",
+  invalid_hire_date: "Ngày vào làm không hợp lệ.",
+  invalid_reference: "Phòng ban, vị trí hoặc vai trò không hợp lệ.",
+  under_min_age: "Ngày vào làm phải cách ngày sinh ít nhất 15 năm.",
+  unknown_department: "Không tìm thấy phòng ban.",
+  unknown_role: "Không tìm thấy vai trò.",
+  invalid_role: "Vai trò không hợp lệ.",
+  role_name_reserved: "Không thể dùng tên vai trò \"Admin\".",
+  position_department_mismatch: "Vị trí không thuộc phòng ban đã chọn.",
+  duplicate: "Email hoặc mã nhân viên đã tồn tại.",
+  check_violation: "Dữ liệu không hợp lệ.",
+  role_overlap: "Không thể đổi vai trò do trùng khoảng thời gian hiệu lực.",
+  not_found: "Không tìm thấy tài khoản.",
+  account_not_found: "Không tìm thấy tài khoản đăng nhập.",
+  unauthorized: "Phiên đăng nhập đã hết hạn.",
+  network_error: "Không thể kết nối máy chủ. Vui lòng thử lại sau.",
+  server_error: "Máy chủ gặp lỗi. Vui lòng thử lại sau.",
+  server_not_configured: "Máy chủ chưa được cấu hình."
+};
 
-function saveState(key) {
-  localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(state[key]));
+function accountErrorMessage(code) {
+  return ACCOUNT_ERRORS[code] || "Đã xảy ra lỗi. Vui lòng thử lại.";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[char]));
+}
+
+// The form shows dates as dd/mm/yyyy; the API stores and validates yyyy-mm-dd.
+function toDisplayDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value || "") ? value.split("-").reverse().join("/") : (value || "");
+}
+
+function toIsoDate(value) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || "").trim());
+  if (!match) return "";
+  const [, day, month, year] = match;
+  const iso = `${year}-${month}-${day}`;
+  const date = new Date(`${iso}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== iso ? "" : iso;
 }
 
 function getStatusClass(status) {
   const lower = String(status || "").toLowerCase();
-  if (["hoạt động", "làm việc", "đã thanh toán", "đã xác nhận"].some((value) => lower.includes(value))) return "status-online";
-  if (["đang xử lý", "đang vận chuyển", "đang giao", "mới", "chờ duyệt", "chờ xác nhận"].some((value) => lower.includes(value))) return "status-progress";
+  if (["hoạt động", "làm việc"].some((value) => lower.includes(value))) return "status-online";
+  if (["chờ duyệt"].some((value) => lower.includes(value))) return "status-progress";
   return "status-away";
 }
 
-function formatMoney(value) {
-  return new Intl.NumberFormat("vi-VN").format(Number(value || 0)) + "đ";
+function accountStatusLabel(isActive) {
+  return isActive ? "Hoạt động" : "Khóa";
+}
+
+// A soft-deleted account stays in the list, so it needs its own label.
+function accountStatusText(account) {
+  return account.deleted_at ? "Đã xóa" : accountStatusLabel(account.is_active);
+}
+
+function iconSprite(name) {
+  return `<svg aria-hidden="true"><use href="#admin-icon-${name}"></use></svg>`;
 }
 
 function buildRowHeader(columns) {
@@ -136,268 +170,223 @@ function bindModuleNavigation() {
   });
 }
 
-function fillForm(formId, data) {
-  const form = document.getElementById(formId);
-  if (!form) return;
-  const entries = new FormData(form);
-  entries.forEach((_, field) => form.elements[field].value = "");
-  Object.entries(data || {}).forEach(([key, value]) => {
-    const field = form.elements.namedItem(key);
-    if (field) field.value = value;
-  });
-}
-
 function resetForm(formId) {
   const form = document.getElementById(formId);
   if (!form) return;
   form.reset();
-  form.querySelector('input[name="id"]').value = "";
+  const idField = form.querySelector('input[name="employee_id"], input[name="id"], input[name="role_id"]');
+  if (idField) idField.value = "";
+}
+
+async function callAdmin(body) {
+  const { data, error } = await window.sbInvoke("admin-accounts", {
+    headers: { "x-admin-token": currentSession?.token || "" },
+    body
+  });
+
+  if (!error) return { ok: true, status: 200, data };
+
+  if (error.name === "FunctionsHttpError" && error.context) {
+    const status = error.context.status;
+    let payload = null;
+    try {
+      payload = await error.context.json();
+    } catch {
+      payload = null;
+    }
+    if (status === 401) {
+      clearSession();
+      window.location.replace("login.html");
+    }
+    return { ok: false, status, error: payload?.error || "server_error" };
+  }
+
+  return { ok: false, status: 0, error: "network_error" };
+}
+
+async function loadAccounts() {
+  state.accountsLoading = true;
+  state.accountsError = "";
+  renderTables();
+
+  const response = await callAdmin({ action: "list" });
+  state.accountsLoading = false;
+
+  if (!response.ok) {
+    if (response.status === 401) return;
+    state.accountsError = accountErrorMessage(response.error);
+    renderTables();
+    return;
+  }
+
+  state.accounts = Array.isArray(response.data?.accounts) ? response.data.accounts : [];
+  renderTables();
+}
+
+// One call for the whole dashboard boot (accounts, staff, roles, permissions).
+async function loadInitialData() {
+  state.accountsLoading = true;
+  renderTables();
+
+  const response = await callAdmin({ action: "init" });
+  state.accountsLoading = false;
+
+  if (!response.ok) {
+    if (response.status === 401) return;
+    state.accountsError = accountErrorMessage(response.error);
+    renderTables();
+    return;
+  }
+
+  state.accounts = Array.isArray(response.data?.accounts) ? response.data.accounts : [];
+  state.staff = Array.isArray(response.data?.staff) ? response.data.staff : [];
+  state.roles = Array.isArray(response.data?.roles) ? response.data.roles : [];
+  state.permissions = Array.isArray(response.data?.permissions) ? response.data.permissions : [];
+  renderTables();
+}
+
+async function loadOptions() {
+  if (state.options) return state.options;
+
+  const response = await callAdmin({ action: "options" });
+  if (!response.ok) {
+    if (response.status !== 401) {
+      state.accountsError = accountErrorMessage(response.error);
+      renderTables();
+    }
+    return null;
+  }
+
+  state.options = response.data;
+  return state.options;
 }
 
 function renderOverviewBlocks() {
   const overviewAccounts = document.getElementById("overviewAccounts");
   if (overviewAccounts) {
-    overviewAccounts.innerHTML = buildRowHeader(["Người dùng", "Vai trò", "Trạng thái", "Hoạt động"]) + state.accounts.slice(0, 3).map((item) => `
+    overviewAccounts.innerHTML = buildRowHeader(["Người dùng", "Vai trò", "Trạng thái", "Hoạt động"]) + state.accounts.map((item) => `
       <div class="admin-row">
-        <span>${item.name}</span>
-        <span>${item.role}</span>
-        <span><em class="${getStatusClass(item.status)}">${item.status}</em></span>
-        <span>2 phút trước</span>
+        <span>${escapeHtml(item.full_name)}</span>
+        <span>${escapeHtml(item.role_name || "—")}</span>
+        <span><em class="${getStatusClass(accountStatusText(item))}">${escapeHtml(accountStatusText(item))}</em></span>
+        <span>${escapeHtml(item.last_login || "—")}</span>
       </div>
     `).join("");
   }
+
+  const overviewAccountsCount = document.getElementById("overviewAccountsCount");
+  if (overviewAccountsCount) overviewAccountsCount.textContent = `${state.accounts.length} tài khoản`;
 
   const overviewStaff = document.getElementById("overviewStaff");
   if (overviewStaff) {
-    overviewStaff.innerHTML = state.staff.slice(0, 3).map((item) => `
+    overviewStaff.innerHTML = state.staff.map((item) => `
       <div class="mini-row">
-        <span>${item.name}</span>
-        <strong>${item.position}</strong>
+        <span>${escapeHtml(item.full_name)}</span>
+        <strong>${escapeHtml(item.position_title)}</strong>
       </div>
     `).join("");
   }
 
-  const overviewCustomers = document.getElementById("overviewCustomers");
-  if (overviewCustomers) {
-    overviewCustomers.innerHTML = buildRowHeader(["Tên", "VIP", "Giá trị"]) + state.customers.slice(0, 3).map((item) => `
-      <div class="admin-row">
-        <span>${item.name}</span>
-        <span>${item.segment}</span>
-        <span>${formatMoney(Math.max(800000, item.id * 8500000))}</span>
-      </div>
-    `).join("");
-  }
-
-  const overviewProducts = document.getElementById("overviewProducts");
-  if (overviewProducts) {
-    overviewProducts.innerHTML = state.products.slice(0, 3).map((item) => `
-      <article class="product-card">
-        <div class="product-thumb product-thumb-${item.id % 3 === 0 ? "three" : item.id % 2 === 0 ? "two" : "one"}"></div>
-        <h3>${item.name}</h3>
-        <div class="product-meta"><span>SKU: JW-${String(item.id).padStart(3, "0")}</span><strong>${formatMoney(item.price)}</strong></div>
-      </article>
-    `).join("");
-  }
-
-  const overviewStock = document.getElementById("overviewStock");
-  if (overviewStock) {
-    overviewStock.innerHTML = buildRowHeader(["Mã lô", "Nhà cung cấp", "Số lượng"]) + state.stock.slice(0, 3).map((item) => `
-      <div class="admin-row">
-        <span>${item.code}</span>
-        <span>${item.supplier}</span>
-        <span>${item.quantity} sp</span>
-      </div>
-    `).join("");
-  }
-
-  const overviewInvoices = document.getElementById("overviewInvoices");
-  if (overviewInvoices) {
-    overviewInvoices.innerHTML = state.invoices.slice(0, 3).map((item) => `
-      <div class="mini-row">
-        <span>${item.code}</span>
-        <strong>${item.status}</strong>
-      </div>
-    `).join("");
-  }
-
-  const overviewPromotions = document.getElementById("overviewPromotions");
-  if (overviewPromotions) {
-    overviewPromotions.innerHTML = state.promotions.slice(0, 3).map((item) => `
-      <div class="promo-item">
-        <strong>${item.name}</strong>
-        <span>${item.code} · Giảm ${item.discount}${item.discount > 100 ? "đ" : "%"}</span>
-      </div>
-    `).join("");
-  }
-
-  const overviewOrders = document.getElementById("overviewOrders");
-  if (overviewOrders) {
-    overviewOrders.innerHTML = buildRowHeader(["Mã đơn", "Khách hàng", "Tổng tiền", "Trạng thái"]) + state.orders.slice(0, 3).map((item) => `
-      <div class="admin-row">
-        <span>${item.code}</span>
-        <span>${item.customer}</span>
-        <span>${formatMoney(item.total)}</span>
-        <span><em class="${getStatusClass(item.status)}">${item.status}</em></span>
-      </div>
-    `).join("");
-  }
+  const overviewStaffCount = document.getElementById("overviewStaffCount");
+  if (overviewStaffCount) overviewStaffCount.textContent = `${state.staff.length} người`;
 }
 
 function renderAccountsTable() {
-  const search = document.getElementById("accountSearch");
-  const term = (search?.value || "").toLowerCase();
-  const rows = state.accounts.filter((item) => [item.name, item.email, item.role].join(" ").toLowerCase().includes(term));
   const table = document.getElementById("accountsTable");
   if (!table) return;
-  table.innerHTML = buildRowHeader(["Họ tên", "Email", "Vai trò", "Trạng thái", "Hành động"]) + rows.map((item) => `
+
+  if (state.accountsLoading) {
+    table.innerHTML = '<div class="admin-row"><span style="grid-column:1/-1">Đang tải danh sách tài khoản…</span></div>';
+    return;
+  }
+
+  if (state.accountsError) {
+    table.innerHTML = `<div class="admin-row"><span style="grid-column:1/-1">${escapeHtml(state.accountsError)}</span></div>`;
+    return;
+  }
+
+  const search = document.getElementById("accountSearch");
+  const term = (search?.value || "").trim().toLowerCase();
+  const rows = state.accounts.filter((item) => String(item.full_name || "").toLowerCase().includes(term));
+
+  if (!rows.length) {
+    const message = term ? "Không tìm thấy tài khoản phù hợp." : "Chưa có tài khoản nào.";
+    table.innerHTML = `<div class="admin-row"><span style="grid-column:1/-1">${message}</span></div>`;
+    return;
+  }
+
+  table.innerHTML = buildRowHeader(["Họ tên", "Email", "Vai trò", "Trạng thái", "Hành động"]) + rows.map((item) => {
+    const status = accountStatusText(item);
+    const actions = item.deleted_at
+      ? `<button type="button" class="mini-btn icon-btn" data-restore="${escapeHtml(item.employee_id)}" title="Khôi phục tài khoản" aria-label="Khôi phục tài khoản">${iconSprite("restore")}</button>`
+      : `
+        <button type="button" class="mini-btn icon-btn" data-toggle-lock="${escapeHtml(item.employee_id)}"
+          title="${item.is_active ? "Khóa tài khoản" : "Mở khóa tài khoản"}"
+          aria-label="${item.is_active ? "Khóa tài khoản" : "Mở khóa tài khoản"}">
+          ${iconSprite(item.is_active ? "lock" : "unlock")}
+        </button>
+        <button type="button" class="mini-btn icon-btn" data-edit="accounts" data-id="${escapeHtml(item.employee_id)}" title="Sửa" aria-label="Sửa">
+          ${iconSprite("edit")}
+        </button>
+        <button type="button" class="mini-btn icon-btn danger" data-delete="accounts" data-id="${escapeHtml(item.employee_id)}" title="Xóa" aria-label="Xóa">
+          ${iconSprite("delete")}
+        </button>`;
+
+    return `
     <div class="admin-row">
-      <span>${item.name}</span>
-      <span>${item.email}</span>
-      <span>${item.role}</span>
-      <span><em class="${getStatusClass(item.status)}">${item.status}</em></span>
-      <span class="table-actions">
-        <button type="button" class="mini-btn" data-edit="accounts" data-id="${item.id}">Sửa</button>
-        <button type="button" class="mini-btn danger" data-delete="accounts" data-id="${item.id}">Xóa</button>
-      </span>
-    </div>
-  `).join("");
+      <span>${escapeHtml(item.full_name)}</span>
+      <span>${escapeHtml(item.email)}</span>
+      <span>${escapeHtml(item.role_name || "—")}</span>
+      <span><em class="${getStatusClass(status)}">${escapeHtml(status)}</em></span>
+      <span class="table-actions">${actions}</span>
+    </div>`;
+  }).join("");
+}
+
+function roleSelectHtml(account) {
+  if (account.role_name === "Admin") {
+    return '<select class="role-select" disabled><option value="">Admin</option></select>';
+  }
+  const options = ['<option value="">— Chọn vai trò —</option>'].concat(
+    state.roles.map((role) => (
+      `<option value="${escapeHtml(role.role_id)}" ${String(role.role_id) === String(account.role_id) ? "selected" : ""}>${escapeHtml(role.role_name)}</option>`
+    ))
+  );
+  return `<select class="role-select" data-employee="${escapeHtml(account.employee_id)}">${options.join("")}</select>`;
 }
 
 function renderStaffTable() {
-  const search = document.getElementById("staffSearch");
-  const term = (search?.value || "").toLowerCase();
-  const rows = state.staff.filter((item) => [item.name, item.email, item.position, item.status].join(" ").toLowerCase().includes(term));
   const table = document.getElementById("staffTable");
   if (!table) return;
-  table.innerHTML = buildRowHeader(["Họ tên", "Email", "Chức vụ", "Trạng thái", "Hành động"]) + rows.map((item) => `
-    <div class="admin-row">
-      <span>${item.name}</span>
-      <span>${item.email}</span>
-      <span>${item.position}</span>
-      <span><em class="${getStatusClass(item.status)}">${item.status}</em></span>
-      <span class="table-actions">
-        <button type="button" class="mini-btn" data-edit="staff" data-id="${item.id}">Sửa</button>
-        <button type="button" class="mini-btn danger" data-delete="staff" data-id="${item.id}">Xóa</button>
-      </span>
-    </div>
-  `).join("");
-}
 
-function renderCustomersTable() {
-  const search = document.getElementById("customerSearch");
-  const term = (search?.value || "").toLowerCase();
-  const rows = state.customers.filter((item) => [item.name, item.phone, item.segment, item.status].join(" ").toLowerCase().includes(term));
-  const table = document.getElementById("customersTable");
-  if (!table) return;
-  table.innerHTML = buildRowHeader(["Tên", "SĐT", "VIP", "Trạng thái", "Hành động"]) + rows.map((item) => `
-    <div class="admin-row">
-      <span>${item.name}</span>
-      <span>${item.phone}</span>
-      <span>${item.segment}</span>
-      <span><em class="${getStatusClass(item.status)}">${item.status}</em></span>
-      <span class="table-actions">
-        <button type="button" class="mini-btn" data-edit="customers" data-id="${item.id}">Sửa</button>
-        <button type="button" class="mini-btn danger" data-delete="customers" data-id="${item.id}">Xóa</button>
-      </span>
-    </div>
-  `).join("");
-}
+  if (state.accountsLoading) {
+    table.innerHTML = '<div class="admin-row"><span style="grid-column:1/-1">Đang tải danh sách nhân viên…</span></div>';
+    return;
+  }
 
-function renderProductsTable() {
-  const search = document.getElementById("productSearch");
-  const term = (search?.value || "").toLowerCase();
-  const rows = state.products.filter((item) => [item.name, item.category, item.status].join(" ").toLowerCase().includes(term));
-  const table = document.getElementById("productsTable");
-  if (!table) return;
-  table.innerHTML = buildRowHeader(["Sản phẩm", "Danh mục", "Giá", "Tồn kho", "Hành động"]) + rows.map((item) => `
-    <div class="admin-row">
-      <span>${item.name}</span>
-      <span>${item.category}</span>
-      <span>${formatMoney(item.price)}</span>
-      <span>${item.stock}</span>
-      <span class="table-actions">
-        <button type="button" class="mini-btn" data-edit="products" data-id="${item.id}">Sửa</button>
-        <button type="button" class="mini-btn danger" data-delete="products" data-id="${item.id}">Xóa</button>
-      </span>
-    </div>
-  `).join("");
-}
+  if (state.accountsError) {
+    table.innerHTML = `<div class="admin-row"><span style="grid-column:1/-1">${escapeHtml(state.accountsError)}</span></div>`;
+    return;
+  }
 
-function renderStockTable() {
-  const search = document.getElementById("stockSearch");
-  const term = (search?.value || "").toLowerCase();
-  const rows = state.stock.filter((item) => [item.code, item.supplier].join(" ").toLowerCase().includes(term));
-  const table = document.getElementById("stockTable");
-  if (!table) return;
-  table.innerHTML = buildRowHeader(["Mã phiếu", "Nhà cung cấp", "Số lượng", "Ngày nhập", "Hành động"]) + rows.map((item) => `
-    <div class="admin-row">
-      <span>${item.code}</span>
-      <span>${item.supplier}</span>
-      <span>${item.quantity}</span>
-      <span>${item.date}</span>
-      <span class="table-actions">
-        <button type="button" class="mini-btn" data-edit="stock" data-id="${item.id}">Sửa</button>
-        <button type="button" class="mini-btn danger" data-delete="stock" data-id="${item.id}">Xóa</button>
-      </span>
-    </div>
-  `).join("");
-}
+  const search = document.getElementById("staffSearch");
+  const term = (search?.value || "").trim().toLowerCase();
+  const rows = state.accounts.filter((item) =>
+    [item.full_name, item.email].join(" ").toLowerCase().includes(term));
 
-function renderInvoicesTable() {
-  const search = document.getElementById("invoiceSearch");
-  const term = (search?.value || "").toLowerCase();
-  const rows = state.invoices.filter((item) => [item.code, item.customer, item.status].join(" ").toLowerCase().includes(term));
-  const table = document.getElementById("invoicesTable");
-  if (!table) return;
-  table.innerHTML = buildRowHeader(["Mã HD", "Khách hàng", "Tổng tiền", "Trạng thái", "Hành động"]) + rows.map((item) => `
-    <div class="admin-row">
-      <span>${item.code}</span>
-      <span>${item.customer}</span>
-      <span>${formatMoney(item.amount)}</span>
-      <span><em class="${getStatusClass(item.status)}">${item.status}</em></span>
-      <span class="table-actions">
-        <button type="button" class="mini-btn" data-edit="invoices" data-id="${item.id}">Sửa</button>
-        <button type="button" class="mini-btn danger" data-delete="invoices" data-id="${item.id}">Xóa</button>
-      </span>
-    </div>
-  `).join("");
-}
+  if (!rows.length) {
+    const message = term ? "Không tìm thấy nhân viên phù hợp." : "Chưa có nhân viên nào.";
+    table.innerHTML = `<div class="admin-row"><span style="grid-column:1/-1">${message}</span></div>`;
+    return;
+  }
 
-function renderPromotionsTable() {
-  const search = document.getElementById("promotionSearch");
-  const term = (search?.value || "").toLowerCase();
-  const rows = state.promotions.filter((item) => [item.name, item.code, item.status].join(" ").toLowerCase().includes(term));
-  const table = document.getElementById("promotionsTable");
-  if (!table) return;
-  table.innerHTML = buildRowHeader(["Tên", "Mã", "Giảm", "Trạng thái", "Hành động"]) + rows.map((item) => `
-    <div class="admin-row">
-      <span>${item.name}</span>
-      <span>${item.code}</span>
-      <span>${item.discount > 100 ? formatMoney(item.discount) : `${item.discount}%`}</span>
-      <span><em class="${getStatusClass(item.status)}">${item.status}</em></span>
+  table.innerHTML = buildRowHeader(["Họ tên", "Email", "Vai trò", "Hành động"]) + rows.map((item) => `
+    <div class="admin-row staff-row">
+      <span>${escapeHtml(item.full_name)}</span>
+      <span>${escapeHtml(item.email)}</span>
+      <span>${roleSelectHtml(item)}</span>
       <span class="table-actions">
-        <button type="button" class="mini-btn" data-edit="promotions" data-id="${item.id}">Sửa</button>
-        <button type="button" class="mini-btn danger" data-delete="promotions" data-id="${item.id}">Xóa</button>
-      </span>
-    </div>
-  `).join("");
-}
-
-function renderOrdersTable() {
-  const search = document.getElementById("orderSearch");
-  const term = (search?.value || "").toLowerCase();
-  const rows = state.orders.filter((item) => [item.code, item.customer, item.status].join(" ").toLowerCase().includes(term));
-  const table = document.getElementById("ordersTable");
-  if (!table) return;
-  table.innerHTML = buildRowHeader(["Mã đơn", "Khách hàng", "Tổng tiền", "Trạng thái", "Hành động"]) + rows.map((item) => `
-    <div class="admin-row">
-      <span>${item.code}</span>
-      <span>${item.customer}</span>
-      <span>${formatMoney(item.total)}</span>
-      <span><em class="${getStatusClass(item.status)}">${item.status}</em></span>
-      <span class="table-actions">
-        <button type="button" class="mini-btn" data-edit="orders" data-id="${item.id}">Sửa</button>
-        <button type="button" class="mini-btn danger" data-delete="orders" data-id="${item.id}">Xóa</button>
+        <button type="button" class="mini-btn" data-assign-role="${escapeHtml(item.employee_id)}" ${item.role_name === "Admin" ? "disabled" : ""}>Lưu</button>
       </span>
     </div>
   `).join("");
@@ -407,16 +396,11 @@ function renderTables() {
   renderOverviewBlocks();
   renderAccountsTable();
   renderStaffTable();
-  renderCustomersTable();
-  renderProductsTable();
-  renderStockTable();
-  renderInvoicesTable();
-  renderPromotionsTable();
-  renderOrdersTable();
+  renderRoleCards();
 }
 
 function attachTableSearch() {
-  ["accountSearch", "staffSearch", "customerSearch", "productSearch", "stockSearch", "invoiceSearch", "promotionSearch", "orderSearch"].forEach((inputId) => {
+  ["accountSearch", "staffSearch"].forEach((inputId) => {
     const input = document.getElementById(inputId);
     if (!input) return;
     input.addEventListener("input", () => {
@@ -425,129 +409,486 @@ function attachTableSearch() {
   });
 }
 
-function openAddForm(moduleKey) {
-  const formIdMap = {
-    accounts: "accountForm",
-    staff: "staffForm",
-    customers: "customerForm",
-    products: "productForm",
-    stock: "stockForm",
-    invoices: "invoiceForm",
-    promotions: "promotionForm",
-    orders: "orderForm"
-  };
-  const form = document.getElementById(formIdMap[moduleKey]);
+function fillSelectOptions(select, items, valueKey, labelKey, placeholder) {
+  if (!select) return;
+  const head = placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : "";
+  select.innerHTML = head + items.map((item) => (
+    `<option value="${escapeHtml(item[valueKey])}">${escapeHtml(item[labelKey])}</option>`
+  )).join("");
+}
+
+function renderPositionOptions(departmentId, selectedPositionId) {
+  const form = document.getElementById("accountForm");
   if (!form) return;
-  resetForm(formIdMap[moduleKey]);
+  const positions = (state.options?.positions || []).filter((item) => item.department_id === departmentId);
+  fillSelectOptions(form.elements.position_id, positions, "position_id", "position_title", "Chọn vị trí");
+  if (selectedPositionId) form.elements.position_id.value = selectedPositionId;
+}
+
+// The role is assigned separately in the "Vai trò & Quyền" section.
+function fillAccountOptions(account) {
+  const form = document.getElementById("accountForm");
+  if (!form || !state.options) return;
+  fillSelectOptions(form.elements.department_id, state.options.departments || [], "department_id", "department_name", "Chọn phòng ban");
+  if (account?.department_id) form.elements.department_id.value = account.department_id;
+  renderPositionOptions(account?.department_id || "", account?.position_id || "");
+}
+
+function showAccountForm() {
+  const form = document.getElementById("accountForm");
+  if (!form) return;
+  form.hidden = false;
   const firstField = form.querySelector("input:not([type='hidden']), select");
   firstField?.focus();
 }
 
-function openEditForm(moduleKey, id) {
-  const formIdMap = {
-    accounts: "accountForm",
-    staff: "staffForm",
-    customers: "customerForm",
-    products: "productForm",
-    stock: "stockForm",
-    invoices: "invoiceForm",
-    promotions: "promotionForm",
-    orders: "orderForm"
-  };
-  const collection = state[moduleKey];
-  const record = collection.find((item) => String(item.id) === String(id));
-  if (!record) return;
-  fillForm(formIdMap[moduleKey], record);
-}
-
-function deleteRecord(moduleKey, id) {
-  state[moduleKey] = state[moduleKey].filter((item) => String(item.id) !== String(id));
-  saveState(moduleKey);
-  renderTables();
-}
-
-function saveModuleRecord(moduleKey, formId) {
-  const form = document.getElementById(formId);
+function hideAccountForm() {
+  const form = document.getElementById("accountForm");
   if (!form) return;
-  const formData = Object.fromEntries(new FormData(form).entries());
-  const id = formData.id ? Number(formData.id) : Date.now();
-  const record = { ...formData, id };
+  form.hidden = true;
+  resetForm("accountForm");
+  const message = document.getElementById("accountFormMessage");
+  if (message) message.textContent = "";
+}
 
-  if (formData.id) {
-    state[moduleKey] = state[moduleKey].map((item) => String(item.id) === String(formData.id) ? { ...item, ...record } : item);
-  } else {
-    state[moduleKey].push(record);
+async function openAccountAdd() {
+  const form = document.getElementById("accountForm");
+  if (!form) return;
+  resetForm("accountForm");
+  const options = await loadOptions();
+  if (!options) return;
+  fillAccountOptions(null);
+  form.elements.is_active.value = "true";
+  showAccountForm();
+}
+
+async function openAccountEdit(employeeId) {
+  const account = state.accounts.find((item) => String(item.employee_id) === String(employeeId));
+  if (!account) return;
+
+  const options = await loadOptions();
+  if (!options) return;
+
+  const form = document.getElementById("accountForm");
+  if (!form) return;
+  resetForm("accountForm");
+  form.elements.employee_id.value = account.employee_id;
+  form.elements.employee_code.value = account.employee_code;
+  form.elements.full_name.value = account.full_name;
+  form.elements.email.value = account.email;
+  form.elements.gender.value = account.gender;
+  form.elements.date_of_birth.value = toDisplayDate(account.date_of_birth);
+  form.elements.hire_date.value = toDisplayDate(account.hire_date);
+  fillAccountOptions(account);
+  form.elements.is_active.value = account.is_active ? "true" : "false";
+  showAccountForm();
+}
+
+async function submitAccountForm(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const message = document.getElementById("accountFormMessage");
+  const saveButton = form.querySelector('button[type="submit"]');
+  const values = Object.fromEntries(new FormData(form).entries());
+
+  const dateOfBirth = toIsoDate(values.date_of_birth);
+  const hireDate = toIsoDate(values.hire_date);
+
+  const payload = {
+    employee_code: values.employee_code,
+    full_name: values.full_name,
+    email: values.email,
+    gender: values.gender,
+    date_of_birth: dateOfBirth,
+    hire_date: hireDate,
+    department_id: values.department_id,
+    position_id: values.position_id,
+    is_active: values.is_active === "true"
+  };
+
+  if (!payload.employee_code || !payload.full_name || !payload.email || !values.date_of_birth
+    || !values.hire_date || !payload.department_id || !payload.position_id) {
+    message.textContent = accountErrorMessage("missing_fields");
+    return;
   }
 
-  saveState(moduleKey);
+  if (!dateOfBirth) {
+    message.textContent = accountErrorMessage("invalid_date_of_birth");
+    return;
+  }
+
+  if (!hireDate) {
+    message.textContent = accountErrorMessage("invalid_hire_date");
+    return;
+  }
+
+  message.textContent = "";
+  saveButton.disabled = true;
+
+  const response = await callAdmin(values.employee_id
+    ? { action: "update", employee_id: values.employee_id, ...payload }
+    : { action: "create", ...payload });
+
+  saveButton.disabled = false;
+
+  if (!response.ok) {
+    if (response.status === 401) return;
+    message.textContent = accountErrorMessage(response.error);
+    return;
+  }
+
+  hideAccountForm();
+  await loadAccounts();
+}
+
+async function setAccountActive(employeeId, button) {
+  const account = state.accounts.find((item) => String(item.employee_id) === String(employeeId));
+  if (!account) return;
+
+  button.disabled = true;
+  const response = await callAdmin({
+    action: "set_active",
+    employee_id: employeeId,
+    is_active: !account.is_active
+  });
+  button.disabled = false;
+
+  if (!response.ok) {
+    if (response.status === 401) return;
+    state.accountsError = accountErrorMessage(response.error);
+    renderTables();
+    return;
+  }
+
+  await loadAccounts();
+}
+
+// Recover a soft-deleted account: it comes back active and usable.
+async function restoreAccount(employeeId, button) {
+  const account = state.accounts.find((item) => String(item.employee_id) === String(employeeId));
+  if (!account) return;
+
+  button.disabled = true;
+  const response = await callAdmin({ action: "restore", employee_id: employeeId });
+  button.disabled = false;
+
+  if (!response.ok) {
+    if (response.status === 401) return;
+    state.accountsError = accountErrorMessage(response.error);
+    renderTables();
+    return;
+  }
+
+  await loadAccounts();
+}
+
+async function removeAccount(employeeId) {
+  const account = state.accounts.find((item) => String(item.employee_id) === String(employeeId));
+  if (!account) return;
+  if (!window.confirm(`Xóa tài khoản của ${account.full_name}? Tài khoản vẫn hiển thị trong danh sách nhưng không thể đăng nhập.`)) return;
+
+  const response = await callAdmin({ action: "delete", employee_id: employeeId });
+  if (!response.ok) {
+    if (response.status === 401) return;
+    state.accountsError = accountErrorMessage(response.error);
+    renderTables();
+    return;
+  }
+
+  await loadAccounts();
+}
+
+async function loadRoles() {
+  const response = await callAdmin({ action: "roles" });
+  if (!response.ok) {
+    if (response.status !== 401) {
+      state.accountsError = accountErrorMessage(response.error);
+      renderTables();
+    }
+    return;
+  }
+  state.roles = Array.isArray(response.data?.roles) ? response.data.roles : [];
+}
+
+async function loadPermissions() {
+  if (state.permissions.length) return state.permissions;
+
+  const response = await callAdmin({ action: "permissions" });
+  if (!response.ok) {
+    if (response.status !== 401) {
+      state.accountsError = accountErrorMessage(response.error);
+      renderTables();
+    }
+    return state.permissions;
+  }
+  state.permissions = Array.isArray(response.data?.permissions) ? response.data.permissions : [];
+  return state.permissions;
+}
+
+function renderRoleCards() {
+  const container = document.getElementById("roleCards");
+  if (!container) return;
+  if (!state.roles.length) {
+    container.innerHTML = '<p class="panel-note">Chưa có vai trò nào.</p>';
+    return;
+  }
+
+  const byId = new Map(state.permissions.map((permission) => [permission.permission_id, permission]));
+  container.innerHTML = state.roles.map((role) => {
+    const items = (role.permission_ids || []).map((id) => byId.get(id)).filter(Boolean);
+
+    const body = items.length
+      ? items.map((item) => `<span class="permission-item">${escapeHtml(item.description || item.permission_code)}</span>`).join("")
+      : '<p class="panel-note">Chưa có quyền hạn nào.</p>';
+
+    return `
+      <article class="role-card">
+        <div class="role-card-head">
+          <div>
+            <strong>${escapeHtml(role.role_name)}</strong>
+            ${role.description ? `<span>${escapeHtml(role.description)}</span>` : ""}
+          </div>
+          <button type="button" class="mini-btn" data-edit-role="${escapeHtml(role.role_id)}">Sửa</button>
+        </div>
+        <div class="role-card-body">${body}</div>
+      </article>`;
+  }).join("");
+}
+
+function renderPermissionGroups(selectedIds) {
+  const container = document.getElementById("permissionGroups");
+  if (!container) return;
+  const selected = new Set(selectedIds || []);
+  const groups = new Map();
+  state.permissions.forEach((permission) => {
+    if (!groups.has(permission.module_name)) groups.set(permission.module_name, []);
+    groups.get(permission.module_name).push(permission);
+  });
+
+  container.innerHTML = [...groups.entries()].map(([moduleName, items]) => `
+    <div class="permission-group">
+      <div class="permission-group-header">
+        <strong>${escapeHtml(moduleName)}</strong>
+        <button type="button" class="mini-btn" data-select-all="group">Chọn tất cả</button>
+      </div>
+      <div class="permission-items">
+        ${items.map((item) => `
+          <label class="permission-item">
+            <input type="checkbox" name="permission_id" value="${escapeHtml(item.permission_id)}" ${selected.has(item.permission_id) ? "checked" : ""}>
+            <span>${escapeHtml(item.description || item.permission_code)}</span>
+          </label>`).join("")}
+      </div>
+    </div>`).join("");
+}
+
+function showRoleForm() {
+  const form = document.getElementById("roleForm");
+  if (!form) return;
+  form.hidden = false;
+  form.querySelector("input[name='role_name']")?.focus();
+}
+
+function hideRoleForm() {
+  const form = document.getElementById("roleForm");
+  if (!form) return;
+  form.hidden = true;
+  resetForm("roleForm");
+  const message = document.getElementById("roleFormMessage");
+  if (message) message.textContent = "";
+}
+
+async function openRoleAdd() {
+  const form = document.getElementById("roleForm");
+  if (!form) return;
+  resetForm("roleForm");
+  await loadPermissions();
+  renderPermissionGroups([]);
+  document.getElementById("roleFormTitle").textContent = "Thêm vai trò";
+  showRoleForm();
+}
+
+async function openRoleEdit(roleId) {
+  const role = state.roles.find((item) => String(item.role_id) === String(roleId));
+  if (!role) return;
+
+  const form = document.getElementById("roleForm");
+  if (!form) return;
+  resetForm("roleForm");
+  await loadPermissions();
+  form.elements.role_id.value = role.role_id;
+  form.elements.role_name.value = role.role_name;
+  form.elements.description.value = role.description || "";
+  renderPermissionGroups(role.permission_ids || []);
+  document.getElementById("roleFormTitle").textContent = "Sửa vai trò";
+  showRoleForm();
+}
+
+async function submitRoleForm(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const message = document.getElementById("roleFormMessage");
+  const saveButton = form.querySelector('button[type="submit"]');
+  const roleName = form.elements.role_name.value.trim();
+  const roleId = form.elements.role_id.value;
+
+  if (!roleName) {
+    message.textContent = accountErrorMessage("missing_fields");
+    return;
+  }
+
+  const permissionIds = [...form.querySelectorAll('input[name="permission_id"]:checked')]
+    .map((input) => input.value);
+
+  message.textContent = "";
+  saveButton.disabled = true;
+  const response = await callAdmin({
+    action: roleId ? "update_role" : "create_role",
+    role_id: roleId || undefined,
+    role_name: roleName,
+    description: form.elements.description.value.trim(),
+    permission_ids: permissionIds
+  });
+  saveButton.disabled = false;
+
+  if (!response.ok) {
+    if (response.status === 401) return;
+    message.textContent = accountErrorMessage(response.error);
+    return;
+  }
+
+  hideRoleForm();
+  await loadRoles();
   renderTables();
-  resetForm(formId);
+}
+
+function setRoleTab(tabName) {
+  document.querySelectorAll("[data-role-tab]").forEach((tab) => {
+    const active = tab.dataset.roleTab === tabName;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  document.querySelectorAll("[data-role-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.rolePanel !== tabName;
+  });
+}
+
+async function saveEmployeeRole(employeeId, button) {
+  const select = button.closest(".staff-row")?.querySelector("select.role-select");
+  const roleId = select?.value || "";
+  if (!roleId) {
+    window.alert("Vui lòng chọn vai trò.");
+    return;
+  }
+
+  button.disabled = true;
+  const response = await callAdmin({ action: "assign_role", employee_id: employeeId, role_id: roleId });
+  button.disabled = false;
+
+  if (!response.ok) {
+    if (response.status === 401) return;
+    window.alert(accountErrorMessage(response.error));
+    return;
+  }
+
+  await loadAccounts();
 }
 
 function attachCrudActions() {
   document.querySelectorAll("[data-add]").forEach((button) => {
-    button.addEventListener("click", () => openAddForm(button.dataset.add));
+    button.addEventListener("click", () => {
+      if (button.dataset.add === "accounts") openAccountAdd();
+    });
   });
 
   document.querySelectorAll("[data-reset]").forEach((button) => {
-    button.addEventListener("click", () => resetForm({
-      accounts: "accountForm",
-      staff: "staffForm",
-      customers: "customerForm",
-      products: "productForm",
-      stock: "stockForm",
-      invoices: "invoiceForm",
-      promotions: "promotionForm",
-      orders: "orderForm"
-    }[button.dataset.reset] || ""));
+    button.addEventListener("click", () => {
+      if (button.dataset.reset === "accounts") hideAccountForm();
+      else if (button.dataset.reset === "staff") hideRoleForm();
+    });
   });
 
-  document.querySelectorAll("[data-edit]").forEach((button) => {
-    button.addEventListener("click", () => openEditForm(button.dataset.edit, button.dataset.id));
+  document.querySelectorAll("[data-role-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => setRoleTab(tab.dataset.roleTab));
   });
 
-  document.querySelectorAll("[data-delete]").forEach((button) => {
-    button.addEventListener("click", () => deleteRecord(button.dataset.delete, button.dataset.id));
+  document.getElementById("addRoleBtn")?.addEventListener("click", openRoleAdd);
+
+  document.addEventListener("click", (event) => {
+    const editBtn = event.target.closest("[data-edit]");
+    if (editBtn && editBtn.dataset.edit === "accounts") {
+      openAccountEdit(editBtn.dataset.id);
+      return;
+    }
+    const editRoleBtn = event.target.closest("[data-edit-role]");
+    if (editRoleBtn) {
+      openRoleEdit(editRoleBtn.dataset.editRole);
+      return;
+    }
+    const lockBtn = event.target.closest("[data-toggle-lock]");
+    if (lockBtn) {
+      setAccountActive(lockBtn.dataset.toggleLock, lockBtn);
+      return;
+    }
+    const restoreBtn = event.target.closest("[data-restore]");
+    if (restoreBtn) {
+      restoreAccount(restoreBtn.dataset.restore, restoreBtn);
+      return;
+    }
+    const deleteBtn = event.target.closest("[data-delete]");
+    if (deleteBtn && deleteBtn.dataset.delete === "accounts") {
+      removeAccount(deleteBtn.dataset.id);
+      return;
+    }
+    const assignBtn = event.target.closest("[data-assign-role]");
+    if (assignBtn) saveEmployeeRole(assignBtn.dataset.assignRole, assignBtn);
   });
 
-  document.getElementById("accountForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveModuleRecord("accounts", "accountForm");
+  const accountForm = document.getElementById("accountForm");
+  if (accountForm) {
+    accountForm.addEventListener("submit", submitAccountForm);
+    accountForm.elements.department_id.addEventListener("change", (event) => {
+      renderPositionOptions(event.target.value, "");
+    });
+  }
+
+  const roleForm = document.getElementById("roleForm");
+  if (roleForm) {
+    roleForm.addEventListener("submit", submitRoleForm);
+    roleForm.addEventListener("click", (event) => {
+      const selectAll = event.target.closest("[data-select-all]");
+      if (!selectAll) return;
+      const scope = selectAll.dataset.selectAll === "group"
+        ? selectAll.closest(".permission-group")
+        : document.getElementById("permissionGroups");
+      scope?.querySelectorAll('input[name="permission_id"]').forEach((input) => { input.checked = true; });
+    });
+  }
+
+  // Either floating form closes on Escape, the same as any other dialog.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (accountForm && !accountForm.hidden) hideAccountForm();
+    if (roleForm && !roleForm.hidden) hideRoleForm();
   });
-  document.getElementById("staffForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveModuleRecord("staff", "staffForm");
-  });
-  document.getElementById("customerForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveModuleRecord("customers", "customerForm");
-  });
-  document.getElementById("productForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveModuleRecord("products", "productForm");
-  });
-  document.getElementById("stockForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveModuleRecord("stock", "stockForm");
-  });
-  document.getElementById("invoiceForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveModuleRecord("invoices", "invoiceForm");
-  });
-  document.getElementById("promotionForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveModuleRecord("promotions", "promotionForm");
-  });
-  document.getElementById("orderForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    saveModuleRecord("orders", "orderForm");
+
+  // Clicking the backdrop outside a floating form closes it too. The controls that
+  // open a form are exempt, since their click reaches this listener as it bubbles.
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-add], #addRoleBtn, [data-edit], [data-edit-role]")) return;
+    if (accountForm && !accountForm.hidden && !accountForm.contains(event.target)) hideAccountForm();
+    if (roleForm && !roleForm.hidden && !roleForm.contains(event.target)) hideRoleForm();
   });
 }
 
 bindModuleNavigation();
 attachTableSearch();
 attachCrudActions();
+renderProfile();
 renderTables();
+
+if (currentSession) {
+  loadInitialData();
+}
 
 const hash = window.location.hash.replace("#", "");
 if (hash && document.querySelector(`.admin-module[data-module="${hash}"]`)) {
