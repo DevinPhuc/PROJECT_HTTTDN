@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng nhập Admin - Jewels</title>
+  <link rel="stylesheet" href="../shared/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fpympioazglsrsshiqij.supabase.co" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --admin-primary: #704204;
+      --admin-primary-soft: rgba(112, 66, 4, 0.12);
+      --admin-bg: #f7f3ee;
+      --admin-panel: #ffffff;
+      --admin-line: #e7dfd5;
+      --admin-text: #1f1a17;
+      --admin-muted: #6e685f;
+      --admin-error: #c15542;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, #f9f5f0 0%, var(--admin-bg) 40%, #efe7dc 100%);
+      color: var(--admin-text);
+      font-family: var(--body-font);
+    }
+
+    .login-shell {
+      width: min(940px, calc(100% - 32px));
+      min-height: 640px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      border: 1px solid var(--admin-line);
+      border-radius: 28px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 30px 70px rgba(39, 27, 11, 0.12);
+    }
+
+    .login-visual {
+      position: relative;
+      display: flex;
+      align-items: end;
+      padding: 42px;
+      background: linear-gradient(135deg, rgba(112, 66, 4, 0.9), rgba(64, 42, 17, 0.85)), url("../shared/images/banner-image2.jpg") center/cover no-repeat;
+      color: #fff;
+    }
+
+    .login-visual::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(12, 8, 5, 0.2);
+    }
+
+    .login-visual-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-mark {
+      display: inline-grid;
+      place-items: center;
+      width: 62px;
+      height: 62px;
+      margin-bottom: 24px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.18);
+      font-family: "Cormorant Upright", serif;
+      font-size: 2.6rem;
+      font-weight: 700;
+    }
+
+    .login-visual h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2.7rem, 4vw, 4.3rem);
+      line-height: 0.95;
+      font-weight: 500;
+    }
+
+    .login-visual p {
+      margin: 0;
+      max-width: 360px;
+      color: rgba(255,255,255,0.86);
+      font-size: 1rem;
+    }
+
+    .login-form-wrap {
+      padding: 42px 38px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .login-form-wrap p {
+      margin: 0;
+      color: var(--admin-muted);
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--admin-primary);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .login-form-wrap h2 {
+      margin: 0 0 10px;
+      font-size: clamp(2.2rem, 4vw, 3rem);
+      line-height: 1;
+      color: var(--admin-text);
+    }
+
+    .login-form {
+      display: grid;
+      gap: 18px;
+      margin-top: 30px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+      color: var(--admin-text);
+      font-weight: 600;
+    }
+
+    .field input {
+      height: 52px;
+      padding: 0 16px;
+      border: 1px solid var(--admin-line);
+      border-radius: 12px;
+      background: #fff;
+      font: inherit;
+      color: var(--admin-text);
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: rgba(112, 66, 4, 0.5);
+      box-shadow: 0 0 0 4px rgba(112, 66, 4, 0.08);
+    }
+
+    .password-wrap {
+      position: relative;
+      display: grid;
+    }
+
+    .password-wrap input {
+      padding-right: 52px;
+    }
+
+    /* Our custom button replaces the browser's built-in reveal eye (Edge/IE). */
+    .password-wrap input::-ms-reveal {
+      display: none;
+    }
+
+    .toggle-password {
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--admin-muted);
+      cursor: pointer;
+    }
+
+    .toggle-password:hover {
+      color: var(--admin-primary);
+      background: var(--admin-primary-soft);
+    }
+
+    .toggle-password svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .login-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: -4px;
+      font-size: 0.9rem;
+    }
+
+    .remember {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--admin-muted);
+    }
+
+    .remember input {
+      accent-color: var(--admin-primary);
+    }
+
+    .helper-link {
+      color: var(--admin-primary);
+      text-decoration: none;
+    }
+
+    .login-submit {
+      height: 54px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--admin-primary);
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .login-submit:hover {
+      background: #5b3605;
+    }
+
+    .admin-toast {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translate(-50%, -16px);
+      width: min(420px, calc(100% - 32px));
+      padding: 14px 18px;
+      border: 1px solid var(--admin-error);
+      border-radius: 14px;
+      background: #fff;
+      color: var(--admin-error);
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-align: center;
+      box-shadow: 0 18px 40px rgba(39, 27, 11, 0.18);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+      z-index: 10;
+    }
+
+    .admin-toast.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, 0);
+    }
+
+    @media (max-width: 720px) {
+      .login-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .login-visual {
+        min-height: 260px;
+      }
+
+      .login-form-wrap {
+        padding: 28px 22px 34px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-shell">
+    <aside class="login-visual" aria-label="Banner admin">
+      <div class="login-visual-inner">
+        <div class="brand-mark">J</div>
+        <p class="eyebrow" style="color:#fff; opacity:0.8;">Jewels management</p>
+        <h1>Admin portal</h1>
+        <p>Người quản lý theo dõi doanh thu, đơn hàng, kho hàng và hoạt động kinh doanh trong một nơi.</p>
+      </div>
+    </aside>
+
+    <section class="login-form-wrap">
+      <p class="eyebrow">Bảo mật quản lý</p>
+      <h2>Đăng nhập admin</h2>
+      <p>Chỉ tài khoản quản trị mới được truy cập hệ thống nội bộ.</p>
+
+      <form class="login-form" id="adminLoginForm" novalidate>
+        <label class="field">
+          Email
+          <input name="email" type="email" placeholder="admin@jewels.vn" value="admin@jewels.vn" required>
+        </label>
+
+        <div class="field">
+          <label for="adminPassword">Mật khẩu</label>
+          <div class="password-wrap">
+            <input name="password" id="adminPassword" type="password" placeholder="Nhập mật khẩu" required>
+            <button class="toggle-password" id="togglePassword" type="button" aria-label="Hiện mật khẩu" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+                <line id="eyeSlash" x1="4" y1="4" x2="20" y2="20" style="display:none"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="login-meta">
+          <label class="remember"><input type="checkbox" name="remember"> Ghi nhớ</label>
+        </div>
+
+        <button class="login-submit" type="submit">Đăng nhập</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="admin-toast" id="adminLoginToast" role="alert" aria-live="assertive"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <script src="../shared/js/supabase-client.js"></script>
+  <script>
+    const ADMIN_TOKEN_KEY = "jewels-admin-token";
+    const loginForm = document.getElementById("adminLoginForm");
+    const toast = document.getElementById("adminLoginToast");
+    const passwordInput = document.getElementById("adminPassword");
+    const toggleButton = document.getElementById("togglePassword");
+    const eyeSlash = document.getElementById("eyeSlash");
+
+    const ERROR_MESSAGES = {
+      invalid_credentials: "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
+      account_locked: "Tài khoản đang tạm khóa. Vui lòng thử lại sau 15 phút.",
+      forbidden: "Tài khoản này không có quyền quản trị."
+    };
+
+    let toastTimer;
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 5000);
+    }
+
+    function getSession() {
+      try {
+        return JSON.parse(localStorage.getItem(ADMIN_TOKEN_KEY) || "null");
+      } catch {
+        return null;
+      }
+    }
+
+    function decodeToken(token) {
+      try {
+        const segment = String(token).split(".")[1] || "";
+        const bytes = Uint8Array.from(atob(segment.replace(/-/g, "+").replace(/_/g, "/")), (char) => char.charCodeAt(0));
+        return JSON.parse(new TextDecoder().decode(bytes));
+      } catch {
+        return null;
+      }
+    }
+
+    const existingSession = getSession();
+    const existingPayload = existingSession?.token ? decodeToken(existingSession.token) : null;
+    if (existingPayload && typeof existingPayload.exp === "number" && existingPayload.exp * 1000 > Date.now()) {
+      window.location.href = "dashboard.html";
+    }
+
+    toggleButton.addEventListener("click", () => {
+      const show = passwordInput.type === "password";
+      passwordInput.type = show ? "text" : "password";
+      toggleButton.setAttribute("aria-label", show ? "Ẩn mật khẩu" : "Hiện mật khẩu");
+      toggleButton.setAttribute("aria-pressed", String(show));
+      eyeSlash.style.display = show ? "" : "none";
+      passwordInput.focus();
+    });
+
+    // Fire-and-forget: boots the function and opens its database connection while
+    // the user types, so the first submit does not pay the ~1s cold start.
+    window.sbInvoke?.("admin-login", { body: { warm: true } })?.catch(() => {});
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(loginForm);
+      const username = String(formData.get("email") || "").trim();
+      const password = String(formData.get("password") || "");
+
+      if (!username || !password) {
+        showToast("Vui lòng nhập đầy đủ email và mật khẩu.");
+        return;
+      }
+
+      const submitButton = loginForm.querySelector(".login-submit");
+      submitButton.disabled = true;
+
+      try {
+        const { data, error } = await window.sbInvoke("admin-login", {
+          body: { username, password }
+        });
+
+        let payload = data;
+        if (error) {
+          payload = null;
+          if (error.name === "FunctionsHttpError" && error.context) {
+            try {
+              payload = await error.context.json();
+            } catch {
+              payload = null;
+            }
+          }
+        }
+
+        if (!payload) {
+          console.error(error);
+          showToast(error?.name === "FunctionsFetchError"
+            ? "Không kết nối được máy chủ. Kiểm tra mạng (VPN/proxy) rồi thử lại."
+            : "Không thể đăng nhập. Vui lòng thử lại sau.");
+          return;
+        }
+
+        if (payload.ok !== true) {
+          showToast(ERROR_MESSAGES[payload.error] || "Đăng nhập thất bại. Vui lòng thử lại.");
+          passwordInput.value = "";
+          passwordInput.focus();
+          return;
+        }
+
+        localStorage.setItem(ADMIN_TOKEN_KEY, JSON.stringify({
+          token: payload.token,
+          user: payload.user
+        }));
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        console.error(err);
+        showToast("Không thể kết nối máy chủ. Vui lòng thử lại sau.");
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
