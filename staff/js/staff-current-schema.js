@@ -74,7 +74,7 @@ function populateProfile() {
   const fields = {
     name: employee.full_name,
     email: employee.email,
-    birthDate: employee.date_of_birth || "",
+    birthDate: (employee.date_of_birth || "").slice(0, 10),
     phone: contact?.phone_number || "",
     address: contact?.address || ""
   };
