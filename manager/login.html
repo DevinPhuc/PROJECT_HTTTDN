@@ -327,35 +327,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../shared/js/supabase-config.js"></script>
   <script>
-    const ADMIN_TOKEN_KEY = "jewels-admin-token";
     const loginForm = document.getElementById("adminLoginForm");
-    const feedback = document.getElementById("adminLoginFeedback");
-    const supabase = window.jewelsSupabase;
+    // Session, token and error mapping now live in shared/js/portal-api.js;
+    // the manager portal just uses its own "manager" key.
+    const portal = window.jewelsPortal;
 
-    async function getAccess(user) {
-      const { data: employee, error } = await supabase.from("employees").select("employee_id,email").eq("email", user.email).maybeSingle();
-      if (error || !employee) return { employee: null, isManager: false };
-      const { data: assignments } = await supabase.from("user_roles").select("role_id,roles(role_name)").eq("employee_id", employee.employee_id);
-      const roleIds = (assignments || []).map((assignment) => assignment.role_id);
-      const roleNames = (assignments || []).map((assignment) => String(assignment.roles?.role_name || "").toLowerCase());
-      const { data: rolePermissions } = roleIds.length
-        ? await supabase.from("role_permissions").select("permissions(permission_code)").in("role_id", roleIds)
-        : { data: [] };
-      const permissionCodes = (rolePermissions || []).map((item) => String(item.permissions?.permission_code || "").toLowerCase());
-      const isManager = roleNames.some((name) => ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(name))
-        || permissionCodes.some((code) => ["manager", "hr_manager", "manage_staff", "manage_employees"].includes(code));
-      return { employee, isManager };
-    }
+    if (portal.validSession("manager")) window.location.replace("dashboard.html");
 
-    async function redirectIfAdmin() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const access = await getAccess(user);
-      if (access.isManager) window.location.replace("dashboard.html");
-      else if (!access.employee) await supabase.auth.signOut();
-    }
-
-    redirectIfAdmin().catch(() => {});
     const toast = document.getElementById("adminLoginToast");
     const passwordInput = document.getElementById("adminPassword");
     const toggleButton = document.getElementById("togglePassword");
@@ -364,7 +342,7 @@
     const ERROR_MESSAGES = {
       invalid_credentials: "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
       account_locked: "Tài khoản đang tạm khóa. Vui lòng thử lại sau 15 phút.",
-      forbidden: "Tài khoản này không có quyền quản trị."
+      forbidden: "Tài khoản này không có quyền quản lý."
     };
 
     let toastTimer;
@@ -373,30 +351,6 @@
       toast.classList.add("show");
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => toast.classList.remove("show"), 5000);
-    }
-
-    function getSession() {
-      try {
-        return JSON.parse(localStorage.getItem(ADMIN_TOKEN_KEY) || "null");
-      } catch {
-        return null;
-      }
-    }
-
-    function decodeToken(token) {
-      try {
-        const segment = String(token).split(".")[1] || "";
-        const bytes = Uint8Array.from(atob(segment.replace(/-/g, "+").replace(/_/g, "/")), (char) => char.charCodeAt(0));
-        return JSON.parse(new TextDecoder().decode(bytes));
-      } catch {
-        return null;
-      }
-    }
-
-    const existingSession = getSession();
-    const existingPayload = existingSession?.token ? decodeToken(existingSession.token) : null;
-    if (existingPayload && typeof existingPayload.exp === "number" && existingPayload.exp * 1000 > Date.now()) {
-      window.location.href = "dashboard.html";
     }
 
     toggleButton.addEventListener("click", () => {
@@ -417,62 +371,27 @@
       const formData = new FormData(loginForm);
       const username = String(formData.get("email") || "").trim();
       const password = String(formData.get("password") || "");
-      feedback.textContent = "Đang xác thực...";
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        feedback.textContent = "Không thể đăng nhập. Kiểm tra email và mật khẩu.";
-        return;
-      }
-      const access = await getAccess(data.user);
-      if (!access.isManager) {
-        await supabase.auth.signOut();
-        feedback.textContent = "Tài khoản chưa được cấp vai trò quản lý nhân sự.";
 
       if (!username || !password) {
         showToast("Vui lòng nhập đầy đủ email và mật khẩu.");
         return;
       }
-      window.location.replace("dashboard.html");
 
       const submitButton = loginForm.querySelector(".login-submit");
       submitButton.disabled = true;
 
       try {
-        const { data, error } = await window.sbInvoke("admin-login", {
-          body: { username, password }
-        });
-
-        let payload = data;
-        if (error) {
-          payload = null;
-          if (error.name === "FunctionsHttpError" && error.context) {
-            try {
-              payload = await error.context.json();
-            } catch {
-              payload = null;
-            }
+        const result = await portal.signIn("manager", { username, password });
+        if (result.error) {
+          if (result.error === "network_error") {
+            showToast("Không kết nối được máy chủ. Kiểm tra mạng (VPN/proxy) rồi thử lại.");
+          } else {
+            showToast(ERROR_MESSAGES[result.error] || "Đăng nhập thất bại. Vui lòng thử lại.");
           }
-        }
-
-        if (!payload) {
-          console.error(error);
-          showToast(error?.name === "FunctionsFetchError"
-            ? "Không kết nối được máy chủ. Kiểm tra mạng (VPN/proxy) rồi thử lại."
-            : "Không thể đăng nhập. Vui lòng thử lại sau.");
-          return;
-        }
-
-        if (payload.ok !== true) {
-          showToast(ERROR_MESSAGES[payload.error] || "Đăng nhập thất bại. Vui lòng thử lại.");
           passwordInput.value = "";
           passwordInput.focus();
           return;
         }
-
-        localStorage.setItem(ADMIN_TOKEN_KEY, JSON.stringify({
-          token: payload.token,
-          user: payload.user
-        }));
         window.location.href = "dashboard.html";
       } catch (err) {
         console.error(err);

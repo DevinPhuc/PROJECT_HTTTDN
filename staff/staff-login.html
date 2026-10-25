@@ -258,53 +258,42 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../shared/js/supabase-config.js"></script>
+  <script src="../shared/js/portal-api.js"></script>
   <script>
     const loginForm = document.getElementById("staffLoginForm");
     const feedback = document.getElementById("staffLoginFeedback");
-    const supabase = window.jewelsSupabase;
+    const portal = window.jewelsPortal;
 
-    async function getAccess(user) {
-      const { data: employee, error } = await supabase.from("employees").select("employee_id,email").eq("email", user.email).maybeSingle();
-      if (error || !employee) return { employee: null, isManager: false };
-      const { data: assignments } = await supabase.from("user_roles").select("role_id,roles(role_name)").eq("employee_id", employee.employee_id);
-      const roleIds = (assignments || []).map((assignment) => assignment.role_id);
-      const roleNames = (assignments || []).map((assignment) => String(assignment.roles?.role_name || "").toLowerCase());
-      const { data: rolePermissions } = roleIds.length
-        ? await supabase.from("role_permissions").select("permissions(permission_code)").in("role_id", roleIds)
-        : { data: [] };
-      const permissionCodes = (rolePermissions || []).map((item) => String(item.permissions?.permission_code || "").toLowerCase());
-      const isManager = roleNames.some((name) => ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(name))
-        || permissionCodes.some((code) => ["manager", "hr_manager", "manage_staff", "manage_employees"].includes(code));
-      return { employee, isManager };
-    }
+    // A valid session goes straight in; the dashboard re-checks access on boot.
+    if (portal.validSession("staff")) window.location.replace("staff-dashboard.html");
 
-    async function redirectIfEmployee() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const access = await getAccess(user);
-      if (access.employee && !access.isManager) window.location.replace("staff-dashboard.html");
-      else if (!access.employee) await supabase.auth.signOut();
-    }
+    // Fire-and-forget warm-up, same trick the admin login page uses.
+    window.sbInvoke?.("admin-login", { body: { warm: true } })?.catch(() => {});
 
-    redirectIfEmployee().catch(() => {});
+    const MESSAGES = {
+      invalid_credentials: "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
+      account_locked: "Tài khoản đang tạm khóa. Vui lòng thử lại sau 15 phút.",
+      forbidden: "Tài khoản không được phép truy cập cổng nhân viên.",
+      network_error: "Không thể kết nối máy chủ. Vui lòng thử lại sau.",
+      server_error: "Máy chủ gặp lỗi. Vui lòng thử lại sau."
+    };
 
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const formData = new FormData(loginForm);
-      const email = String(formData.get("email") || "").trim().toLowerCase();
+      const email = String(formData.get("email") || "").trim();
       const password = String(formData.get("password") || "");
+      if (!email || !password) {
+        feedback.textContent = "Vui lòng nhập đầy đủ email và mật khẩu.";
+        return;
+      }
       feedback.textContent = "Đang xác thực...";
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        feedback.textContent = "Không thể đăng nhập. Kiểm tra email và mật khẩu.";
+      const result = await portal.signIn("staff", { username: email, password });
+      if (result.error) {
+        feedback.textContent = MESSAGES[result.error] || "Đã xảy ra lỗi. Vui lòng thử lại.";
         return;
       }
-      const access = await getAccess(data.user);
-      if (!access.employee || access.isManager) {
-        await supabase.auth.signOut();
-        feedback.textContent = "Tài khoản chưa được cấp quyền nhân viên.";
-        return;
-      }
+      feedback.textContent = "";
       window.location.replace("staff-dashboard.html");
     });
   </script>
