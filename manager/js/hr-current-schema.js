@@ -1,11 +1,11 @@
-const supabase = window.jewelsSupabase;
+// Manager portal data layer: all access goes through the hr-portal edge
+// function (see shared/js/portal-api.js); the browser never touches tables.
+const portal = window.jewelsPortal;
+const callHr = (body) => portal.callPortal("manager", "hr-portal", body, { loginUrl: "login.html" });
 const STATUS_LABELS = { active: "Đang làm", on_leave: "Đang nghỉ phép", resigned: "Đã nghỉ việc" };
 const STATUS_TO_DB = { "Đang làm": "active", "Đang nghỉ phép": "on_leave", "Đã nghỉ việc": "resigned" };
 const LEAVE_TYPES = { annual: "Nghỉ phép", sick: "Nghỉ ốm đau", maternity: "Nghỉ thai sản", resignation: "Xin nghỉ việc" };
 const LEAVE_STATUSES = { pending: "Chờ duyệt", approved: "Đã duyệt", rejected: "Từ chối" };
-const MANAGER_ROLE_NAMES = ["manager", "hr_manager", "quản lý", "quản lý nhân sự"];
-const HR_PERMISSION_CODES = ["manager", "hr_manager", "manage_staff", "manage_employees"];
-let currentUser;
 let currentEmployee;
 let employees = [];
 let contacts = new Map();
@@ -16,6 +16,7 @@ let permissions = [];
 let roleAssignments = new Map();
 let rolePermissionIds = new Map();
 let payrollCache = [];
+let attendanceCache = [];
 let requests = [];
 let selectedEmployeeId = "";
 
@@ -61,6 +62,11 @@ function statusBadge(status) {
   return badge;
 }
 
+function capitalized(value) {
+  const text = String(value || "");
+  return text ? text[0].toUpperCase() + text.slice(1) : "";
+}
+
 function employeePosition(employee) {
   return positions.find((position) => position.position_id === employee.position_id);
 }
@@ -92,40 +98,34 @@ document.querySelectorAll("[data-hr-view]").forEach((link) => link.addEventListe
 }));
 
 async function loadLookups() {
-  const results = await Promise.all([
-    supabase.from("employees").select("*").order("full_name"),
-    supabase.from("employee_contacts").select("employee_id,phone_number,address"),
-    supabase.from("positions").select("position_id,department_id,position_title,description"),
-    supabase.from("departments").select("department_id,department_name,description"),
-    supabase.from("roles").select("role_id,role_name,description"),
-    supabase.from("permissions").select("permission_id,permission_code,description"),
-    supabase.from("user_roles").select("employee_id,role_id"),
-    supabase.from("role_permissions").select("role_id,permission_id"),
-    supabase.from("leave_requests").select("*").order("start_date", { ascending: false }),
-    supabase.from("payroll").select("*").order("pay_year", { ascending: false }).order("pay_month", { ascending: false })
-  ]);
-  const failed = results.find((result) => result.error);
-  if (failed) throw failed.error;
-  [employees] = [results[0].data || []];
-  contacts = new Map((results[1].data || []).map((contact) => [contact.employee_id, contact]));
-  positions = results[2].data || [];
-  departments = results[3].data || [];
-  roles = results[4].data || [];
-  permissions = results[5].data || [];
+  const result = await callHr({ action: "boot" });
+  if (!result.ok) throw new Error(result.error);
+  const data = result.data;
+  currentEmployee = data.actor || null;
+  employees = (data.employees || []).map((employee) => ({
+    ...employee,
+    position_id: employee.position_id ?? employee.current_position_id
+  }));
+  contacts = new Map((data.contacts || []).map((contact) => [contact.employee_id, contact]));
+  positions = data.positions || [];
+  departments = data.departments || [];
+  roles = data.roles || [];
+  permissions = data.permissions || [];
   roleAssignments = new Map();
-  (results[6].data || []).forEach((assignment) => {
+  (data.user_roles || []).forEach((assignment) => {
     const list = roleAssignments.get(assignment.employee_id) || [];
     list.push(assignment.role_id);
     roleAssignments.set(assignment.employee_id, list);
   });
   rolePermissionIds = new Map();
-  (results[7].data || []).forEach((assignment) => {
+  (data.role_permissions || []).forEach((assignment) => {
     const list = rolePermissionIds.get(assignment.role_id) || [];
     list.push(assignment.permission_id);
     rolePermissionIds.set(assignment.role_id, list);
   });
-  requests = results[8].data || [];
-  payrollCache = results[9].data || [];
+  requests = data.leave_requests || [];
+  payrollCache = data.payroll || [];
+  attendanceCache = data.attendance || [];
 }
 
 function latestPayroll(employeeId) {
@@ -150,7 +150,7 @@ function renderEmployees() {
   const matches = employees.filter((employee) => [employee.full_name, employee.employee_code, employee.email, positionName(employee), departmentName(employee)].join(" ").toLowerCase().includes(term));
   if (!matches.length) {
     const row = document.createElement("tr");
-    addCell(row, employees.length ? "Không có nhân sự phù hợp." : "Chưa có nhân sự trong Supabase.").colSpan = 6;
+    addCell(row, employees.length ? "Không có nhân sự phù hợp." : "Chưa có nhân sự trong phạm vi của bạn.").colSpan = 6;
     body.append(row);
   }
   matches.forEach((employee) => {
@@ -215,59 +215,31 @@ document.getElementById("employeesBody").addEventListener("click", async (event)
   const employee = employees.find((item) => item.employee_id === button.dataset.employeeId);
   if (!employee) return;
   if (button.dataset.employeeAction === "edit") { showEmployeeForm(employee); return; }
-  if (!window.confirm(`Xóa hồ sơ ${employee.full_name}? Các bảng liên quan có thể giữ lịch sử theo ràng buộc Supabase.`)) return;
-  const { error } = await supabase.from("employees").delete().eq("employee_id", employee.employee_id);
-  if (error) { window.alert("Không thể xóa hồ sơ. Kiểm tra bản ghi liên quan và quyền Supabase."); return; }
+  if (!window.confirm(`Xóa hồ sơ ${employee.full_name}? Các bản ghi liên quan (tài khoản, đơn nghỉ, lương, chấm công) cũng sẽ bị xóa.`)) return;
+  const result = await callHr({ action: "employee_delete", id: employee.employee_id });
+  if (!result.ok || (result.error && result.error === "forbidden")) { window.alert("Không thể xóa hồ sơ. Kiểm tra bản ghi liên quan và quyền của bạn."); return; }
   await loadLookups(); renderAll();
 });
-
-async function saveContact(employeeId, phone, address = null) {
-  const { data, error } = await supabase.from("employee_contacts").select("employee_id,address").eq("employee_id", employeeId).limit(1);
-  if (error) throw error;
-  if (data.length) {
-    const result = await supabase.from("employee_contacts").update({ phone_number: phone, address: address ?? data[0].address }).eq("employee_id", employeeId);
-    if (result.error) throw result.error;
-  } else {
-    const result = await supabase.from("employee_contacts").insert({ employee_id: employeeId, phone_number: phone, address });
-    if (result.error) throw result.error;
-  }
-}
-
-async function assignRole(employeeId, roleId) {
-  const removed = await supabase.from("user_roles").delete().eq("employee_id", employeeId);
-  if (removed.error) throw removed.error;
-  const inserted = await supabase.from("user_roles").insert({ employee_id: employeeId, role_id: roleId });
-  if (inserted.error) throw inserted.error;
-}
 
 document.getElementById("employeeForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const values = Object.fromEntries(new FormData(form).entries());
-  const employeePayload = {
+  const result = await callHr({
+    action: "employee_save",
+    id: values.id || undefined,
     full_name: String(values.name).trim(),
     email: String(values.email).trim().toLowerCase(),
     position_id: values.positionId,
-    education: values.education,
     hire_date: values.hireDate,
-    employment_status: STATUS_TO_DB[values.employmentStatus] || "active"
-  };
-  const isEditing = Boolean(values.id);
-  const saved = isEditing
-    ? await supabase.from("employees").update(employeePayload).eq("employee_id", values.id).select("employee_id").single()
-    : await supabase.from("employees").insert({ ...employeePayload, employee_code: `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}` }).select("employee_id").single();
-  if (saved.error) { feedback("employeeFeedback", "Không lưu được hồ sơ nhân sự.", true); return; }
-  try {
-    await saveContact(saved.data.employee_id, String(values.phone || "").trim());
-    await assignRole(saved.data.employee_id, values.roleId);
-    document.getElementById("employeeFormPanel").hidden = true;
-    feedback("employeeFeedback", "");
-    await loadLookups(); renderAll();
-  } catch (error) {
-    console.error(error);
-    feedback("employeeFeedback", "Hồ sơ đã lưu nhưng không thể lưu liên hệ/vai trò. Kiểm tra RLS.", true);
-    await loadLookups(); renderAll();
-  }
+    employment_status: STATUS_TO_DB[values.employmentStatus] || "active",
+    phone_number: String(values.phone || "").trim(),
+    role_id: values.roleId || undefined
+  });
+  if (!result.ok) { feedback("employeeFeedback", "Không lưu được hồ sơ nhân sự.", true); return; }
+  document.getElementById("employeeFormPanel").hidden = true;
+  feedback("employeeFeedback", "");
+  await loadLookups(); renderAll();
 });
 
 function renderRequests() {
@@ -299,8 +271,8 @@ document.getElementById("requestFilter").value = "pending";
 document.getElementById("requestFilter").addEventListener("change", renderRequests);
 document.getElementById("requestsBody").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-review-status]"); if (!button) return;
-  const { error } = await supabase.from("leave_requests").update({ status: button.dataset.reviewStatus, approved_by: currentEmployee.employee_id, reviewed_at: new Date().toISOString() }).eq("leave_request_id", button.dataset.requestId);
-  if (error) { window.alert("Không cập nhật được đơn. Kiểm tra quyền và trạng thái hợp lệ của bảng."); return; }
+  const result = await callHr({ action: "leave_review", leave_request_id: button.dataset.requestId, status: button.dataset.reviewStatus });
+  if (!result.ok) { window.alert(result.error === "forbidden" ? "Bạn không có quyền duyệt đơn này." : "Không cập nhật được đơn. Kiểm tra trạng thái hợp lệ."); return; }
   await loadLookups(); renderAll();
 });
 
@@ -349,10 +321,10 @@ function tenureLabel(employee) {
 function renderStaffStats() {
   const body = document.getElementById("staffStatsBody"); body.replaceChildren();
   employees.forEach((employee) => {
-    const row = document.createElement("tr"); const salary = payrollCache.find((record) => record.employee_id === employee.employee_id);
+    const row = document.createElement("tr"); const salary = latestPayroll(employee.employee_id);
     addCell(row, employee.full_name); addCell(row, employee.education || "-"); addCell(row, salary ? money(salary.base_salary) : "Chưa có lương"); addCell(row, dateLabel(employee.hire_date)); addCell(row, tenureLabel(employee)); body.append(row);
   });
-  const salaries = employees.map((employee) => payrollCache.find((record) => record.employee_id === employee.employee_id)?.base_salary).filter(Number.isFinite);
+  const salaries = employees.map((employee) => latestPayroll(employee.employee_id)?.base_salary).filter(Number.isFinite);
   const avg = salaries.length ? salaries.reduce((sum, value) => sum + Number(value), 0) / salaries.length : 0;
   const counts = employees.reduce((result, employee) => { const key = employee.education || "Chưa cập nhật"; result[key] = (result[key] || 0) + 1; return result; }, {});
   const common = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
@@ -396,14 +368,8 @@ document.getElementById("savePermissionsBtn").addEventListener("click", async ()
   const employee = selectedPermissionEmployee(); const roleId = document.getElementById("permissionRole").value;
   if (!employee || !roleId) return;
   const permissionIds = [...document.querySelectorAll("#permissionOptions input:checked")].map((input) => input.value);
-  const removed = await supabase.from("role_permissions").delete().eq("role_id", roleId);
-  if (removed.error) { feedback("permissionFeedback", "Không thể cập nhật quyền vai trò.", true); return; }
-  if (permissionIds.length) {
-    const inserted = await supabase.from("role_permissions").insert(permissionIds.map((permissionId) => ({ role_id: roleId, permission_id: permissionId })));
-    if (inserted.error) { feedback("permissionFeedback", "Vai trò đã được cập nhật một phần; kiểm tra lại RLS.", true); await loadLookups(); renderAll(); return; }
-  }
-  const currentRole = roleAssignments.get(employee.employee_id) || [];
-  if (!currentRole.includes(roleId)) await assignRole(employee.employee_id, roleId);
+  const result = await callHr({ action: "permissions_save", employee_id: employee.employee_id, role_id: roleId, permission_ids: permissionIds });
+  if (!result.ok) { feedback("permissionFeedback", result.error === "forbidden" ? "Bạn không có quyền phân vai trò này." : "Không thể cập nhật quyền vai trò.", true); return; }
   feedback("permissionFeedback", `Đã lưu quyền của ${employee.full_name}.`);
   await loadLookups(); renderAll();
 });
@@ -420,12 +386,10 @@ function selectedPeriod() {
 async function loadAttendanceAndPayroll() {
   const employee = selectedPayrollEmployee(); if (!employee) return;
   const period = selectedPeriod();
-  const [attendanceResult, payrollResult] = await Promise.all([
-    supabase.from("attendance_records").select("*").eq("employee_id", employee.employee_id).gte("work_date", period.start).lte("work_date", period.end).order("work_date"),
-    supabase.from("payroll").select("*").eq("employee_id", employee.employee_id).eq("pay_year", period.year).eq("pay_month", period.month).maybeSingle()
-  ]);
-  if (attendanceResult.error || payrollResult.error) throw attendanceResult.error || payrollResult.error;
-  const records = attendanceResult.data || []; const payroll = payrollResult.data;
+  const records = attendanceCache
+    .filter((record) => record.employee_id === employee.employee_id && record.work_date >= period.start && record.work_date <= period.end)
+    .sort((a, b) => a.work_date.localeCompare(b.work_date));
+  const payroll = payrollCache.find((record) => record.employee_id === employee.employee_id && Number(record.pay_year) === period.year && Number(record.pay_month) === period.month);
   document.getElementById("payrollForm").elements.namedItem("workDays").value = records.filter((record) => record.status === "present").length;
   document.getElementById("payrollForm").elements.namedItem("overtimeHours").value = records.reduce((sum, record) => sum + Number(record.overtime_hours || 0), 0);
   document.getElementById("payrollForm").elements.namedItem("baseSalary").value = payroll?.base_salary ?? 0;
@@ -433,7 +397,7 @@ async function loadAttendanceAndPayroll() {
   document.getElementById("payrollForm").elements.namedItem("tax").value = payroll?.personal_income_tax ?? 0;
   document.getElementById("payrollForm").elements.namedItem("insuranceRate").value = payroll?.insurance_rate ?? 10.5;
   const tbody = document.getElementById("attendanceBody"); tbody.replaceChildren();
-  records.forEach((record) => { const row = document.createElement("tr"); addCell(row, dateLabel(record.work_date)); addCell(row, record.status); addCell(row, `${record.overtime_hours || 0} giờ`); addCell(row, record.notes || "-"); tbody.append(row); });
+  records.forEach((record) => { const row = document.createElement("tr"); addCell(row, dateLabel(record.work_date)); addCell(row, capitalized(record.status) || record.status); addCell(row, `${record.overtime_hours || 0} giờ`); addCell(row, record.notes || "-"); tbody.append(row); });
   renderPayrollPreview();
 }
 
@@ -461,96 +425,73 @@ function renderPayrollPreview() {
   });
 }
 
-async function renderPayrollTable() {
+function renderPayrollTable() {
   const period = selectedPeriod(); document.getElementById("payrollTableTitle").textContent = `Bảng lương tháng ${String(period.month).padStart(2, "0")}/${period.year}`;
-  const { data, error } = await supabase.from("payroll").select("*").eq("pay_year", period.year).eq("pay_month", period.month);
-  if (error) throw error;
-  const map = new Map((data || []).map((record) => [record.employee_id, record])); const body = document.getElementById("payrollBody"); body.replaceChildren();
-  employees.forEach((employee) => { const record = map.get(employee.employee_id); const row = document.createElement("tr"); addCell(row, employee.full_name); if (record) { addCell(row, `${record.work_days ?? "-"}/${record.standard_days ?? "-"}`); addCell(row, `${record.overtime_hours || 0} giờ`); addCell(row, money(record.gross_salary)); addCell(row, money(record.total_deductions || Number(record.gross_salary) - Number(record.net_salary))); addCell(row, money(record.net_salary)); } else { addCell(row, "-"); addCell(row, "-"); addCell(row, "Chưa tính lương"); addCell(row, "-"); addCell(row, "-"); } body.append(row); });
+  const map = new Map(payrollCache.filter((record) => Number(record.pay_year) === period.year && Number(record.pay_month) === period.month).map((record) => [record.employee_id, record]));
+  const body = document.getElementById("payrollBody"); body.replaceChildren();
+  employees.forEach((employee) => { const record = map.get(employee.employee_id); const row = document.createElement("tr"); addCell(row, employee.full_name); if (record) { addCell(row, `${record.work_days ?? "-"}/${record.standard_days ?? "-"}`); addCell(row, Number(record.overtime_pay) > 0 ? money(record.overtime_pay) : "-"); addCell(row, money(record.gross_salary)); addCell(row, money(record.total_deductions || Number(record.gross_salary) - Number(record.net_salary))); addCell(row, money(record.net_salary)); } else { addCell(row, "-"); addCell(row, "-"); addCell(row, "Chưa tính lương"); addCell(row, "-"); addCell(row, "-"); } body.append(row); });
 }
 
 async function savePayroll(event) {
   event.preventDefault(); const employee = selectedPayrollEmployee(); const period = selectedPeriod(); const result = payrollCalculation();
   if (!employee || !result) { feedback("payrollFeedback", "Kiểm tra ngày công và khoản lương.", true); return; }
-  const payload = { employee_id: employee.employee_id, pay_year: period.year, pay_month: period.month, base_salary: result.baseSalary, bonus: result.allowance, overtime_hours: result.overtimeHours, overtime_pay: result.overtimePay, work_days: result.workDays, standard_days: result.standardDays, insurance_rate: result.insuranceRate, insurance_amount: result.insuranceAmount, personal_income_tax: result.tax, total_deductions: result.totalDeductions, gross_salary: result.grossSalary, net_salary: result.netSalary };
-  const existing = payrollCache.find((record) => record.employee_id === employee.employee_id && Number(record.pay_year) === period.year && Number(record.pay_month) === period.month);
-  const resultQuery = existing
-    ? await supabase.from("payroll").update(payload).eq("payroll_id", existing.payroll_id)
-    : await supabase.from("payroll").insert(payload);
-  if (resultQuery.error) { feedback("payrollFeedback", "Không lưu được lương. Kiểm tra migration và quyền Supabase.", true); return; }
+  const response = await callHr({
+    action: "payroll_save", employee_id: employee.employee_id, pay_year: period.year, pay_month: period.month,
+    base_salary: result.baseSalary, allowance: result.allowance, overtime_pay: result.overtimePay,
+    work_days: result.workDays, standard_days: result.standardDays, insurance_amount: result.insuranceAmount,
+    personal_income_tax: result.tax, total_deductions: result.totalDeductions,
+    gross_salary: result.grossSalary, net_salary: result.netSalary
+  });
+  if (!response.ok) { feedback("payrollFeedback", response.error === "invalid_amounts" ? "Số tiền không hợp lệ (thực nhận phải ≤ tổng thu nhập)." : "Không lưu được lương. Kiểm tra số liệu và quyền.", true); return; }
   feedback("payrollFeedback", `Đã lưu lương cho ${employee.full_name}.`);
   await loadLookups(); renderAll();
 }
 
 document.getElementById("payrollEmployee").addEventListener("change", () => loadAttendanceAndPayroll().catch(() => feedback("payrollFeedback", "Không tải được chấm công/lương.", true)));
 document.getElementById("payrollMonth").value = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-document.getElementById("payrollMonth").addEventListener("change", () => Promise.all([loadAttendanceAndPayroll(), renderPayrollTable()]).catch(() => showError("Không tải được kỳ lương.")));
+document.getElementById("payrollMonth").addEventListener("change", () => Promise.resolve(loadAttendanceAndPayroll()).catch(() => showError("Không tải được kỳ lương.")));
 document.getElementById("payrollForm").addEventListener("input", renderPayrollPreview);
 document.getElementById("payrollForm").addEventListener("submit", (event) => savePayroll(event).catch(() => feedback("payrollFeedback", "Không thể lưu lương.", true)));
 document.getElementById("attendanceDate").value = new Date().toISOString().slice(0, 10);
 document.getElementById("attendanceForm").addEventListener("submit", async (event) => {
   event.preventDefault(); const employee = selectedPayrollEmployee(); if (!employee) return;
   const values = Object.fromEntries(new FormData(event.currentTarget).entries());
-  const payload = { employee_id: employee.employee_id, work_date: values.workDate, status: values.status, overtime_hours: Number(values.overtimeHours), notes: String(values.notes || "").trim() || null };
-  const existing = await supabase.from("attendance_records").select("attendance_id").eq("employee_id", employee.employee_id).eq("work_date", values.workDate).limit(1);
-  if (existing.error) { feedback("attendanceFeedback", "Không thể kiểm tra ngày công hiện có.", true); return; }
-  const result = existing.data.length
-    ? await supabase.from("attendance_records").update(payload).eq("attendance_id", existing.data[0].attendance_id)
-    : await supabase.from("attendance_records").insert(payload);
-  const { error } = result;
-  if (error) { feedback("attendanceFeedback", "Không lưu được ngày công.", true); return; }
-  feedback("attendanceFeedback", "Đã lưu ngày công."); await loadAttendanceAndPayroll(); await renderPayrollTable();
-});
-
-function renderPermissions() {
-  const selected = selectedPermissionEmployee(); const roleId = document.getElementById("permissionRole").value || roleAssignments.get(selected?.employee_id)?.[0];
-  const allowed = new Set(rolePermissionIds.get(roleId) || []); const container = document.getElementById("permissionOptions"); container.replaceChildren();
-  permissions.forEach((permission) => { const label = document.createElement("label"); const check = document.createElement("input"); check.type = "checkbox"; check.value = permission.permission_id; check.checked = allowed.has(permission.permission_id); const text = document.createElement("span"); text.textContent = permission.description || permission.permission_code; label.append(check, text); container.append(label); });
-}
-
-document.getElementById("permissionEmployee").addEventListener("change", () => { const employee = selectedPermissionEmployee(); fillRoleSelect(document.getElementById("permissionRole"), roleAssignments.get(employee?.employee_id)?.[0] || ""); renderPermissions(); });
-document.getElementById("permissionRole").addEventListener("change", renderPermissions);
-document.getElementById("savePermissionsBtn").addEventListener("click", async () => {
-  const employee = selectedPermissionEmployee(); const roleId = document.getElementById("permissionRole").value; if (!employee || !roleId) return;
-  const current = roleAssignments.get(employee.employee_id) || [];
-  if (!current.includes(roleId)) { await assignRole(employee.employee_id, roleId); }
-  const selectedIds = [...document.querySelectorAll("#permissionOptions input:checked")].map((input) => input.value);
-  const removed = await supabase.from("role_permissions").delete().eq("role_id", roleId);
-  if (removed.error) { feedback("permissionFeedback", "Không lưu được quyền.", true); return; }
-  if (selectedIds.length) { const inserted = await supabase.from("role_permissions").insert(selectedIds.map((permission_id) => ({ role_id: roleId, permission_id }))); if (inserted.error) { feedback("permissionFeedback", "Không lưu được quyền.", true); return; } }
-  feedback("permissionFeedback", "Đã lưu phân quyền vai trò."); await loadLookups(); renderAll();
+  const result = await callHr({
+    action: "attendance_save", employee_id: employee.employee_id, work_date: values.workDate,
+    status: values.status, overtime_hours: Number(values.overtimeHours), notes: String(values.notes || "").trim() || null
+  });
+  if (!result.ok) { feedback("attendanceFeedback", result.error === "forbidden" ? "Bạn không có quyền chấm công cho nhân sự này." : "Không lưu được ngày công.", true); return; }
+  feedback("attendanceFeedback", "Đã lưu ngày công.");
+  await loadLookups(); await loadAttendanceAndPayroll(); renderPayrollTable();
 });
 
 async function renderAll() {
   renderEmployees(); renderRequests(); renderMonthlyReport(); renderStaffStats(); renderEmployeeSelects(); renderPermissions();
-  if (selectedEmployeeId) { await loadAttendanceAndPayroll(); await renderPayrollTable(); }
+  if (selectedEmployeeId) { await loadAttendanceAndPayroll(); renderPayrollTable(); }
 }
 
 async function initHrPortal() {
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) { window.location.replace("login.html"); return; }
-  currentUser = user;
-  const { data: employee } = await supabase.from("employees").select("employee_id").eq("email", user.email).maybeSingle();
-  if (!employee) { await supabase.auth.signOut(); window.location.replace("login.html"); return; }
-  const { data: assignments } = await supabase.from("user_roles").select("role_id,roles(role_name)").eq("employee_id", employee.employee_id);
-  const roleIds = (assignments || []).map((assignment) => assignment.role_id);
-  const roleNames = (assignments || []).map((assignment) => String(assignment.roles?.role_name || "").toLowerCase());
-  const { data: permissionRows } = roleIds.length ? await supabase.from("role_permissions").select("permissions(permission_code)").in("role_id", roleIds) : { data: [] };
-  const codes = (permissionRows || []).map((row) => String(row.permissions?.permission_code || "").toLowerCase());
-  if (!roleNames.some((name) => MANAGER_ROLE_NAMES.includes(name)) && !codes.some((code) => HR_PERMISSION_CODES.includes(code))) {
-    await supabase.auth.signOut(); window.location.replace("login.html"); return;
-  }
-  currentEmployee = employee;
+  if (!portal.requireSession("manager", "login.html")) return;
+  // hr-portal verifies manager role and department scope on every request.
   try {
     await loadLookups();
-    fillSelect(document.getElementById("employeePosition"), positions, "position_id", (position) => position.position_title);
-    fillRoleSelect(document.getElementById("employeeRole"));
-    document.getElementById("payrollForm").elements.namedItem("workDays").value = 0;
-    await renderAll();
-    const initial = window.location.hash.slice(1);
-    setView(document.querySelector(`[data-hr-panel="${initial}"]`) ? initial : "employees");
-  } catch (error) { console.error(error); showError("Không tải được dữ liệu. Kiểm tra migration, role permission và RLS."); }
+  } catch (error) {
+    if (error.message === "forbidden" || error.message === "unauthorized") {
+      portal.clearSession("manager");
+      window.location.replace("login.html");
+      return;
+    }
+    console.error(error);
+    showError("Không tải được dữ liệu. Vui lòng thử lại sau.");
+    return;
+  }
+  fillSelect(document.getElementById("employeePosition"), positions, "position_id", (position) => position.position_title);
+  fillRoleSelect(document.getElementById("employeeRole"));
+  document.getElementById("payrollForm").elements.namedItem("workDays").value = 0;
+  await renderAll();
+  const initial = window.location.hash.slice(1);
+  setView(document.querySelector(`[data-hr-panel="${initial}"]`) ? initial : "employees");
 }
 
-document.getElementById("adminLogoutBtn").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "login.html"; });
-initHrPortal().catch((error) => { console.error(error); showError("Không thể kết nối Supabase."); });
+document.getElementById("adminLogoutBtn").addEventListener("click", () => { portal.clearSession("manager"); window.location.href = "login.html"; });
+initHrPortal().catch((error) => { console.error(error); showError("Không thể kết nối máy chủ."); });
