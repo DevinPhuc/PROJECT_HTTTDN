@@ -10,7 +10,7 @@
   }
  
   window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true }
+    auth: { persistSession: false }
   });
 
   // A reset/closed connection never reaches the function, so retrying is safe:
