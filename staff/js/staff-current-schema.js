@@ -1,12 +1,14 @@
-const supabase = window.jewelsSupabase;
+// Staff portal data layer: all access goes through the staff-portal edge
+// function (see shared/js/portal-api.js); the browser never touches tables.
+const portal = window.jewelsPortal;
+const callStaff = (body) => portal.callPortal("staff", "staff-portal", body, { loginUrl: "staff-login.html" });
 const VIEW_PERMISSION_ALIASES = {
   profile: ["profile", "view_profile", "update_profile"],
   leave: ["leave", "submit_leave", "view_leave_requests"],
   "salary-month": ["salary_month", "view_monthly_payroll", "view_payroll_monthly", "view_payroll"],
   "salary-year": ["salary_year", "view_annual_payroll", "view_payroll_yearly"]
 };
-const LEAVE_TYPES = { "Nghỉ phép": "annual", "Nghỉ ốm đau": "sick", "Nghỉ thai sản": "maternity", "Xin nghỉ việc": "resignation" };
-const LEAVE_TYPE_LABELS = Object.fromEntries(Object.entries(LEAVE_TYPES).map(([label, value]) => [value, label]));
+const LEAVE_TYPE_LABELS = { annual: "Nghỉ phép", sick: "Nghỉ ốm đau", maternity: "Nghỉ thai sản", resignation: "Xin nghỉ việc" };
 const LEAVE_STATUS_LABELS = { pending: "Chờ duyệt", approved: "Đã duyệt", rejected: "Từ chối" };
 let employee;
 let contact;
@@ -87,60 +89,46 @@ function populateProfile() {
   document.querySelector(".staff-employee-code strong").textContent = employee.employee_code || "-";
 }
 
-async function loadProfile() {
-  const [contactResult, positionResult] = await Promise.all([
-    supabase.from("employee_contacts").select("employee_id,phone_number,address").eq("employee_id", employee.employee_id).limit(1),
-    employee.position_id
-      ? supabase.from("positions").select("position_id,position_title,department_id").eq("position_id", employee.position_id).maybeSingle()
-      : Promise.resolve({ data: null, error: null })
-  ]);
-  if (contactResult.error || positionResult.error) throw contactResult.error || positionResult.error;
-  contact = contactResult.data?.[0] || null;
-  position = positionResult.data;
-  if (position?.department_id) {
-    const result = await supabase.from("departments").select("department_id,department_name").eq("department_id", position.department_id).maybeSingle();
-    if (result.error) throw result.error;
-    department = result.data;
-  }
-  populateProfile();
-}
-
 async function saveProfile(event) {
   event.preventDefault();
   const formData = new FormData(event.currentTarget);
-  const { error } = await supabase.rpc("update_my_hr_profile", {
-    p_full_name: String(formData.get("name") || "").trim(),
-    p_phone_number: String(formData.get("phone") || "").trim(),
-    p_address: String(formData.get("address") || "").trim(),
-    p_date_of_birth: formData.get("birthDate") || null
+  const result = await callStaff({
+    action: "update_profile",
+    full_name: String(formData.get("name") || "").trim(),
+    phone_number: String(formData.get("phone") || "").trim(),
+    address: String(formData.get("address") || "").trim(),
+    date_of_birth: formData.get("birthDate") || null
   });
   const feedback = document.getElementById("profileFeedback");
-  feedback.textContent = error ? "Không thể lưu hồ sơ. Vui lòng kiểm tra migration/RLS." : "Đã lưu thông tin cá nhân.";
-  if (!error) {
-    const result = await supabase.from("employees").select("*").eq("employee_id", employee.employee_id).single();
-    if (result.error) throw result.error;
-    employee = result.data;
-    await loadProfile();
+  feedback.textContent = result.ok ? "Đã lưu thông tin cá nhân." : (result.error === "invalid_profile" ? "Vui lòng nhập đầy đủ họ tên và ngày sinh." : "Không thể lưu hồ sơ. Vui lòng thử lại.");
+  if (result.ok) {
+    employee = result.data.employee;
+    contact = result.data.contact;
+    populateProfile();
   }
 }
 
 document.getElementById("profileForm").addEventListener("submit", (event) => saveProfile(event).catch(() => { document.getElementById("profileFeedback").textContent = "Không thể lưu hồ sơ."; }));
 
 function statusLabel(status) {
-  return LEAVE_STATUS_LABELS[status] || status;
+  return LEAVE_STATUS_LABELS[String(status || "").toLowerCase()] || status;
 }
 
-async function renderLeaveRequests() {
-  const { data, error } = await supabase.from("leave_requests").select("*").eq("employee_id", employee.employee_id).order("start_date", { ascending: false });
-  if (error) throw error;
+async function renderLeaveRequests(data) {
+  if (!data) {
+    const result = await callStaff({ action: "leave_list" });
+    if (!result.ok) throw new Error(result.error);
+    data = result.data;
+  }
   const rows = document.getElementById("leaveRows"); rows.replaceChildren();
-  if (!data.length) {
+  const requests = data.requests || [];
+  if (!requests.length) {
     const row = document.createElement("tr"); const cell = document.createElement("td"); cell.colSpan = 4; cell.className = "staff-empty-cell"; cell.textContent = "Bạn chưa gửi đơn nào."; row.append(cell); rows.append(row); return;
   }
-  data.forEach((request) => {
+  requests.forEach((request) => {
     const row = document.createElement("tr");
     const period = request.leave_type === "resignation" ? `Ngày dự kiến cuối: ${dateLabel(request.start_date)}` : `${dateLabel(request.start_date)} - ${dateLabel(request.end_date)}`;
-    [LEAVE_TYPE_LABELS[request.leave_type] || "Chưa phân loại", period, request.reason].forEach((value) => { const cell = document.createElement("td"); cell.textContent = value; row.append(cell); });
+    [LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type_label || "Chưa phân loại", period, request.reason].forEach((value) => { const cell = document.createElement("td"); cell.textContent = value; row.append(cell); });
     const statusCell = document.createElement("td"); const badge = document.createElement("span"); badge.className = "staff-status-pending"; badge.textContent = statusLabel(request.status); statusCell.append(badge); row.append(statusCell); rows.append(row);
   });
 }
@@ -155,9 +143,15 @@ document.getElementById("leaveType").addEventListener("change", updateLeaveType)
 document.getElementById("leaveStart").addEventListener("change", (event) => { document.getElementById("leaveEnd").min = event.target.value; });
 document.getElementById("leaveForm").addEventListener("submit", async (event) => {
   event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries());
-  const { error } = await supabase.from("leave_requests").insert({ employee_id: employee.employee_id, leave_type: LEAVE_TYPES[values.type], start_date: values.startDate, end_date: values.endDate || null, reason: String(values.reason || "").trim(), status: "pending" });
-  if (error) { document.getElementById("leaveFeedback").textContent = "Không thể gửi đơn. Kiểm tra migration/RLS."; return; }
-  event.currentTarget.reset(); updateLeaveType(); document.getElementById("leaveFeedback").textContent = "Đơn đã được gửi."; await renderLeaveRequests();
+  const result = await callStaff({ action: "leave_create", type: values.type, start_date: values.startDate, end_date: values.endDate || null, reason: String(values.reason || "").trim() });
+  const feedback = document.getElementById("leaveFeedback");
+  feedback.textContent = result.ok ? "Đơn đã được gửi."
+    : { invalid_type: "Loại nghỉ không hợp lệ.", invalid_dates: "Ngày nghỉ không hợp lệ.", missing_reason: "Vui lòng nhập lý do.", leave_rule: "Số ngày vượt quy định của loại nghỉ này." }[result.error]
+      || "Không thể gửi đơn. Vui lòng thử lại.";
+  if (result.ok) {
+    event.currentTarget.reset(); updateLeaveType();
+    await renderLeaveRequests(result.data);
+  }
 });
 
 function addCell(row, value, tag = "td") {
@@ -189,8 +183,9 @@ function payrollFor(month, year) {
 
 async function loadMonthlyPayroll() {
   const [year, month] = document.getElementById("salaryMonth").value.split("-").map(Number);
-  const { data, error } = await supabase.from("payroll").select("*").eq("employee_id", employee.employee_id).eq("pay_year", year).eq("pay_month", month).maybeSingle();
-  const content = document.getElementById("monthlySalaryContent"); content.replaceChildren(); if (error) throw error;
+  const result = await callStaff({ action: "payroll_month", year, month });
+  const content = document.getElementById("monthlySalaryContent"); content.replaceChildren(); if (!result.ok) throw new Error(result.error);
+  const data = result.data.payroll;
   if (!data) { const empty = document.createElement("p"); empty.className = "staff-panel staff-empty-state"; empty.textContent = "Chưa có bảng lương cho tháng này."; content.append(empty); return; }
   const summary = document.createElement("section"); summary.className = "staff-salary-summary"; const amount = document.createElement("div");
   const label = document.createElement("span"); label.textContent = "Thực nhận"; const value = document.createElement("strong"); value.textContent = money(data.net_salary); const period = document.createElement("small"); period.textContent = monthLabel(year, month); amount.append(label, value, period);
@@ -202,10 +197,14 @@ async function loadMonthlyPayroll() {
   table.append(body); panel.append(titleRow, table); content.append(summary, panel);
 }
 
-async function loadAnnualPayroll() {
+async function loadAnnualPayroll(data) {
   const year = new Date().getFullYear(); document.getElementById("salaryYearTitle").textContent = year;
-  const { data, error } = await supabase.from("payroll").select("*").eq("employee_id", employee.employee_id).eq("pay_year", year).order("pay_month"); if (error) throw error;
-  payrollRecords = data || []; const recordMap = new Map(payrollRecords.map((record) => [Number(record.pay_month), record]));
+  if (!data) {
+    const result = await callStaff({ action: "payroll_year", year });
+    if (!result.ok) throw new Error(result.error);
+    data = result.data;
+  }
+  payrollRecords = data.payroll || []; const recordMap = new Map(payrollRecords.map((record) => [Number(record.pay_month), record]));
   const rows = document.getElementById("annualRows"); rows.replaceChildren();
   for (let month = 1; month <= 12; month += 1) { const record = recordMap.get(month); const row = document.createElement("tr"); addCell(row, `Tháng ${String(month).padStart(2, "0")}`); if (record) { addCell(row, `${record.work_days ?? "-"} ngày`); addCell(row, money(record.gross_salary)); addCell(row, money(record.total_deductions || Number(record.gross_salary) - Number(record.net_salary))); addCell(row, money(record.net_salary)); } else { addCell(row, "-"); addCell(row, "Chưa có dữ liệu"); addCell(row, "-"); addCell(row, "-"); } rows.append(row); }
   const totals = payrollRecords.reduce((sum, record) => ({ gross: sum.gross + Number(record.gross_salary || 0), deduction: sum.deduction + Number(record.total_deductions || Number(record.gross_salary || 0) - Number(record.net_salary || 0)), net: sum.net + Number(record.net_salary || 0), days: sum.days + Number(record.work_days || 0) }), { gross: 0, deduction: 0, net: 0, days: 0 });
@@ -226,30 +225,27 @@ function printAnnual() {
 }
 
 async function loadStaffPortal() {
-  const { data: { user }, error: authError } = await supabase.auth.getUser(); if (authError || !user) { window.location.replace("staff-login.html"); return; }
-  const { data: employeeData, error } = await supabase.from("employees").select("*").eq("email", user.email).single();
-  if (error || !employeeData) { showPageError("Chưa tìm thấy hồ sơ nhân sự liên kết email này."); return; }
-  employee = employeeData;
-  const [roleResult, permissionResult] = await Promise.all([
-    supabase.from("user_roles").select("role_id,roles(role_name)").eq("employee_id", employee.employee_id),
-    supabase.from("roles").select("role_id,role_permissions(permission_id,permissions(permission_code))")
-  ]);
-  if (roleResult.error || permissionResult.error) throw roleResult.error || permissionResult.error;
-  const assignedRoleIds = new Set((roleResult.data || []).map((item) => item.role_id));
-  permissionCodes = (permissionResult.data || []).filter((role) => assignedRoleIds.has(role.role_id)).flatMap((role) => (role.role_permissions || []).map((link) => String(link.permissions?.permission_code || "").toLowerCase()));
-  if ((roleResult.data || []).some((item) => ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(String(item.roles?.role_name || "").toLowerCase()))) { window.location.replace("../manager/dashboard.html"); return; }
-  await loadProfile();
+  if (!portal.requireSession("staff", "staff-login.html")) return;
+  const boot = await callStaff({ action: "boot" });
+  if (!boot.ok || !boot.data.employee) { showPageError("Không tải được hồ sơ nhân sự. Vui lòng đăng nhập lại."); return; }
+  employee = boot.data.employee;
+  contact = boot.data.contact;
+  position = boot.data.position;
+  department = position ? { department_id: position.department_id, department_name: position.department_name } : null;
+  permissionCodes = boot.data.permissionCodes || [];
+  if ((boot.data.roleNames || []).some((name) => ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(String(name).toLowerCase()))) { window.location.replace("../manager/dashboard.html"); return; }
+  populateProfile();
   const now = new Date(); document.getElementById("salaryMonth").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   document.getElementById("salaryMonth").addEventListener("change", () => loadMonthlyPayroll().catch(() => showPageError("Không tải được bảng lương.")));
   document.getElementById("printAnnualBtn").addEventListener("click", printAnnual);
   document.getElementById("leaveStart").min = now.toISOString().slice(0, 10); updateLeaveType();
-  document.getElementById("adminLogoutBtn").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "staff-login.html"; });
+  document.getElementById("adminLogoutBtn").addEventListener("click", () => { portal.clearSession("staff"); window.location.href = "staff-login.html"; });
   setView(window.location.hash.slice(1) || "profile");
   const tasks = [];
   if (allowedView("leave")) tasks.push(renderLeaveRequests());
   if (allowedView("salary-month")) tasks.push(loadMonthlyPayroll());
   if (allowedView("salary-year")) tasks.push(loadAnnualPayroll());
-  const results = await Promise.allSettled(tasks); if (results.some((result) => result.status === "rejected")) showPageError("Không tải được dữ liệu. Kiểm tra migration/RLS.");
+  const results = await Promise.allSettled(tasks); if (results.some((result) => result.status === "rejected")) showPageError("Không tải được dữ liệu. Vui lòng thử lại sau.");
 }
 
-initStaffPortal().catch(() => showPageError("Không thể kết nối Supabase."));
+loadStaffPortal().catch(() => showPageError("Không thể kết nối máy chủ."));
