@@ -197,6 +197,26 @@ async function roleInScope(actor: Actor, roleId: string): Promise<boolean> {
   return (await scopedRoleIds(actor)).includes(roleId);
 }
 
+// The Admin role is the superuser marker (same rule portal_login applies:
+// Admin → all portals, everything). Managers may never touch it.
+async function isAdminRole(roleId: string): Promise<boolean> {
+  const rows = await sql!`
+    select 1 from public.roles
+    where role_id = ${roleId}::uuid and role_name = 'Admin'
+    limit 1`;
+  return rows.length > 0;
+}
+
+async function employeeHoldsAdminRole(employeeId: string): Promise<boolean> {
+  const rows = await sql!`
+    select 1 from public.user_roles ur
+    join public.roles r on r.role_id = ur.role_id
+    where ur.employee_id = ${employeeId}::uuid and r.role_name = 'Admin'
+      and ur.valid_to is null
+    limit 1`;
+  return rows.length > 0;
+}
+
 function tagged(ids: string[]): string[] {
   return ids.length ? ids : ["00000000-0000-0000-0000-000000000000"];
 }
@@ -263,7 +283,7 @@ async function bootAction(actor: Actor): Promise<Response> {
 
   return json({
     ok: true,
-    actor: { employee_id: actor.employee_id, department_id: actor.department_id },
+    actor: { employee_id: actor.employee_id, department_id: actor.department_id, is_admin: actor.department_id === null },
     employees,
     contacts,
     positions,
@@ -296,9 +316,27 @@ async function contactTx(tx: typeof sql, employeeId: string, phone: string, addr
 }
 
 async function roleAssignTx(tx: typeof sql, actor: Actor, employeeId: string, roleId: string): Promise<void> {
+  // History lines are closed instead of deleted so past assignments survive.
+  // With inclusive '[]' overlap ranges, same-day lines collide with a new
+  // open line: re-assigning the currently open role is a no-op, same-day
+  // history lines for the target role are dropped (fully subsumed), and
+  // older open lines close the day before the new start.
+  const [current] = await tx`
+    select 1 from public.user_roles
+    where employee_id = ${employeeId}::uuid and role_id = ${roleId}::uuid
+      and valid_to is null
+    limit 1`;
+  if (current) return;
   await tx`
     delete from public.user_roles
-    where employee_id = ${employeeId}::uuid`;
+    where employee_id = ${employeeId}::uuid and role_id = ${roleId}::uuid
+      and valid_from >= (now() at time zone 'Asia/Ho_Chi_Minh')::date`;
+  await tx`
+    update public.user_roles
+    set valid_to = greatest(
+      valid_from,
+      (now() at time zone 'Asia/Ho_Chi_Minh')::date - 1)
+    where employee_id = ${employeeId}::uuid and valid_to is null`;
   await tx`
     insert into public.user_roles (employee_id, role_id, valid_from, assigned_by)
     values (${employeeId}::uuid, ${roleId}::uuid,
@@ -325,7 +363,15 @@ async function employeeSaveAction(actor: Actor, body: Record<string, unknown>): 
     if (!await employeeInScope(actor, id)) return json({ ok: false, error: "forbidden" }, 403);
   }
   if (!isUUID(positionId)) return json({ ok: false, error: "invalid_employee" }, 400);
-  if (roleId && !await roleInScope(actor, roleId)) return json({ ok: false, error: "forbidden" }, 403);
+  if (roleId) {
+    if (!await roleInScope(actor, roleId)) return json({ ok: false, error: "forbidden" }, 403);
+    if (actor.department_id !== null && await isAdminRole(roleId)) {
+      return json({ ok: false, error: "forbidden" }, 403); // managers never grant Admin
+    }
+  }
+  if (id && actor.department_id !== null && await employeeHoldsAdminRole(id)) {
+    return json({ ok: false, error: "forbidden" }, 403); // managers never edit Admin holders
+  }
   // Managers may only create/update inside their own department.
   const [position] = await sql!`
     select department_id from public.positions
@@ -378,6 +424,9 @@ async function employeeDeleteAction(actor: Actor, body: Record<string, unknown>)
   const id = str(body.id);
   if (!UUID_RE.test(id)) return json({ ok: false, error: "invalid_employee" }, 400);
   if (!await employeeInScope(actor, id)) return json({ ok: false, error: "forbidden" }, 403);
+  if (actor.department_id !== null && await employeeHoldsAdminRole(id)) {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
 
   try {
     await sql!.begin(async (tx) => {
@@ -408,6 +457,8 @@ async function roleAssignAction(actor: Actor, body: Record<string, unknown>): Pr
   if (!UUID_RE.test(employeeId) || !UUID_RE.test(roleId)) return json({ ok: false, error: "invalid_request" }, 400);
   if (!await employeeInScope(actor, employeeId)) return json({ ok: false, error: "forbidden" }, 403);
   if (!await roleInScope(actor, roleId)) return json({ ok: false, error: "forbidden" }, 403);
+  if (actor.department_id !== null && await isAdminRole(roleId)) return json({ ok: false, error: "forbidden" }, 403);
+  if (actor.department_id !== null && await employeeHoldsAdminRole(employeeId)) return json({ ok: false, error: "forbidden" }, 403);
 
   try {
     await sql!.begin(async (tx) => {
@@ -428,28 +479,32 @@ async function permissionsSaveAction(actor: Actor, body: Record<string, unknown>
     : [];
   if (!UUID_RE.test(employeeId) || !UUID_RE.test(roleId)) return json({ ok: false, error: "invalid_request" }, 400);
   if (!await employeeInScope(actor, employeeId)) return json({ ok: false, error: "forbidden" }, 403);
+  // role_permissions rows are global config shared by every department: the
+  // Admin portal owns them. Managers may assign roles but never rewrite the
+  // permission set of any role.
+  if (actor.department_id !== null) return json({ ok: false, error: "forbidden" }, 403);
 
-  const roleScope = actor.department_id === null ? [] : await scopedRoleIds(actor);
-  if (actor.department_id !== null && !roleScope.includes(roleId)) {
-    return json({ ok: false, error: "forbidden" }, 403);
-  }
+  try {
+    await sql!.begin(async (tx) => {
+      const [assigned] = await tx`
+        select 1 from public.user_roles
+        where employee_id = ${employeeId}::uuid and role_id = ${roleId}::uuid
+          and valid_to is null`;
+      if (!assigned) await roleAssignTx(tx, actor, employeeId, roleId);
 
-  await sql!.begin(async (tx) => {
-    const [assigned] = await tx`
-      select 1 from public.user_roles
-      where employee_id = ${employeeId}::uuid and role_id = ${roleId}::uuid`;
-    if (!assigned) await roleAssignTx(tx, actor, employeeId, roleId);
-
-    await tx`
-      delete from public.role_permissions
-      where role_id = ${roleId}::uuid`;
-    if (permissionIds.length) {
       await tx`
-        insert into public.role_permissions (role_id, permission_id)
-        select ${roleId}::uuid, perm
-        from unnest(${sql.array(permissionIds)}::uuid[]) as perm`;
-    }
-  });
+        delete from public.role_permissions
+        where role_id = ${roleId}::uuid`;
+      if (permissionIds.length) {
+        await tx`
+          insert into public.role_permissions (role_id, permission_id)
+          select ${roleId}::uuid, perm
+          from unnest(${sql.array(permissionIds)}::uuid[]) as perm`;
+      }
+    });
+  } catch (err) {
+    return dbError(err);
+  }
 
   return json({ ok: true });
 }
@@ -462,10 +517,14 @@ async function leaveReviewAction(actor: Actor, body: Record<string, unknown>): P
 
   try {
     const [leave] = await sql`
-      select employee_id from public.leave_requests
+      select employee_id, lower(status::text) as status from public.leave_requests
       where leave_request_id = ${requestId}::uuid
       limit 1`;
     if (!leave) return json({ ok: false, error: "invalid_reference" }, 400);
+    if (leave.status !== "pending") return json({ ok: false, error: "already_decided" }, 400);
+    if (String(leave.employee_id) === actor.employee_id) {
+      return json({ ok: false, error: "forbidden" }, 403); // no self-approval
+    }
     if (!await employeeInScope(actor, String(leave.employee_id))) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
@@ -502,19 +561,27 @@ async function attendanceSaveAction(actor: Actor, body: Record<string, unknown>)
         select attendance_id from public.attendance_records
         where employee_id = ${employeeId}::uuid and work_date = ${workDate}::date
         limit 1`;
+      // Live constraints: overtime_hours > 0 requires a type (Weekday capped
+      // at 4h, Holiday uncapped) plus consent.
+      const overtimeType = overtimeHours === 0 ? null : (overtimeHours <= 4 ? "Weekday" : "Holiday");
+      const overtimeConsent = overtimeHours === 0 ? null : true;
       if (existing) {
         await tx`
           update public.attendance_records
           set status = ${ATTENDANCE_STATUS[statusInput]},
               overtime_hours = ${overtimeHours},
+              overtime_type = ${overtimeType},
+              ot_consent = ${overtimeConsent},
               notes = ${notes}
           where attendance_id = ${existing.attendance_id}`;
       } else {
         await tx`
           insert into public.attendance_records
-            (employee_id, work_date, status, overtime_hours, night_hours, notes)
+            (employee_id, work_date, status, overtime_hours, night_hours,
+             overtime_type, ot_consent, notes)
           values (${employeeId}::uuid, ${workDate}::date,
-                  ${ATTENDANCE_STATUS[statusInput]}, ${overtimeHours}, 0, ${notes})`;
+                  ${ATTENDANCE_STATUS[statusInput]}, ${overtimeHours}, 0,
+                  ${overtimeType}, ${overtimeConsent}, ${notes})`;
       }
     });
   } catch (err) {

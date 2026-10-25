@@ -272,7 +272,15 @@ document.getElementById("requestFilter").addEventListener("change", renderReques
 document.getElementById("requestsBody").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-review-status]"); if (!button) return;
   const result = await callHr({ action: "leave_review", leave_request_id: button.dataset.requestId, status: button.dataset.reviewStatus });
-  if (!result.ok) { window.alert(result.error === "forbidden" ? "Bạn không có quyền duyệt đơn này." : "Không cập nhật được đơn. Kiểm tra trạng thái hợp lệ."); return; }
+  if (!result.ok) {
+    const reasons = {
+      forbidden: "Bạn không có quyền duyệt đơn này (không duyệt đơn của chính mình).",
+      already_decided: "Đơn này đã được xử lý trước đó.",
+      invalid_reference: "Không tìm thấy đơn nghỉ."
+    };
+    window.alert(reasons[result.error] || "Không cập nhật được đơn. Kiểm tra trạng thái hợp lệ.");
+    return;
+  }
   await loadLookups(); renderAll();
 });
 
@@ -353,9 +361,18 @@ function renderPermissions() {
   const employee = selectedPermissionEmployee();
   const roleId = document.getElementById("permissionRole").value || roleAssignments.get(employee?.employee_id)?.[0];
   const selected = new Set(rolePermissionIds.get(roleId) || []);
+  // role_permissions are global config owned by the admin portal in the
+  // server contract; managers see them read-only here.
+  const readOnly = !currentEmployee?.is_admin;
+  const saveBtn = document.getElementById("savePermissionsBtn");
+  saveBtn.disabled = readOnly;
+  document.getElementById("permissionFeedback").textContent =
+    readOnly ? "Chỉ Admin mới được chỉnh sửa quyền của vai trò (giám sát chỉ đọc)." : "";
   const container = document.getElementById("permissionOptions"); container.replaceChildren();
   permissions.forEach((permission) => {
-    const label = document.createElement("label"); const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = permission.permission_id; checkbox.checked = selected.has(permission.permission_id);
+    const label = document.createElement("label"); const checkbox = document.createElement("input");
+    checkbox.type = "checkbox"; checkbox.value = permission.permission_id; checkbox.checked = selected.has(permission.permission_id);
+    if (readOnly) checkbox.disabled = true;
     const text = document.createElement("span"); text.textContent = permission.description || permission.permission_code; label.append(checkbox, text); container.append(label);
   });
 }
