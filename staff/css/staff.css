@@ -168,6 +168,17 @@ body:has(.admin-page) {
   padding: 34px clamp(20px, 3vw, 48px) 48px;
 }
 
+.staff-demo-notice {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border: 1px solid #d6a54b;
+  border-radius: 8px;
+  background: #fff6dc;
+  color: #59420e;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .admin-topbar {
   display: flex;
   align-items: center;

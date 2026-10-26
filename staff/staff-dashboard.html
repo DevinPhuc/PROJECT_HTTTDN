@@ -21,8 +21,6 @@
     <symbol id="admin-chart" viewBox="0 0 16 16"><path d="M.5 14.5h15v1H.5zm1-2.2V7.5h2v4.8zm4 0V4.5h2v7.8zm4 0V2.5h2v9.8zm4 0V8.5h2v3.8z"/></symbol>
   </svg>
 
-
-
   <main class="admin-page">
     <aside class="admin-sidebar">
       <div class="admin-brand-block">
@@ -55,13 +53,16 @@
     </aside>
 
     <section class="admin-main">
+      <p id="staffDemoNotice" class="staff-demo-notice" role="status" hidden>
+        CHẾ ĐỘ XEM THỬ — Dữ liệu trên trang này là dữ liệu giả, mọi thay đổi chỉ tồn tại trong phiên hiện tại và không kết nối cơ sở dữ liệu.
+      </p>
       <header class="admin-topbar" id="staffHeader">
         <div>
           <p class="account-eyebrow">KHÔNG GIAN NHÂN VIÊN</p>
           <h1 id="staffPageTitle">Thông tin cá nhân</h1>
         </div>
         <div class="admin-topbar-actions">
-          <button type="button" class="admin-secondary-btn" data-staff-view="salary-year">Bảng lương năm</button>
+          <!-- <button type="button" class="admin-secondary-btn" data-staff-view="salary-year">Bảng lương năm</button> -->
           <button type="button" class="admin-logout-btn" id="adminLogoutBtn">Đăng xuất</button>
         </div>
       </header>
