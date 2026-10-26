@@ -18,7 +18,7 @@ Review and run `database/migrations/20261017_hr_existing_tables.sql` once in Sup
 
 The HR manager needs an Auth user whose email matches `employees.email`, plus a `user_roles` assignment to a role named `manager`, `hr_manager`, `Quản lý`, or `Quản lý nhân sự`, or a role with a permission code such as `manager`, `hr_manager`, `manage_staff`, or `manage_employees`. Other system admins do not automatically receive HR access. Staff Auth accounts are linked to employees by matching email. Add the employee's `position_id` and `employee_contacts` row as needed.
 
-The staff UI reads these permission-code aliases: `profile`/`view_profile`, `leave`/`submit_leave`, `salary_month`/`view_monthly_payroll`/`view_payroll`, and `salary_year`/`view_annual_payroll`/`view_payroll_yearly`.
+The staff UI reads these permission-code aliases (must match `permissions.permission_code` in the DB): `employee.view`/`employee.edit` for profile, `leave.create`/`leave.view` for leave, `payroll.view` for monthly payroll, and `payroll.print`/`payroll.view` for annual payroll.
 
 The project URL and browser-safe publishable key are in `shared/js/supabase-config.js`. Never put a Supabase secret/service-role key in browser code or commit one. A secret key was shared in chat; revoke/rotate it in Supabase.
 

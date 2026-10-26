@@ -249,7 +249,7 @@
           <label class="remember"><input type="checkbox" name="remember"> Ghi nhớ</label>
         </div>
 
-        <button class="login-submit" type="submit">Đăng nhập</button>
+        <button class="login-submit" type="submit" disabled>Đăng nhập</button>
         <p class="login-feedback" id="staffLoginFeedback" role="status" aria-live="polite"></p>
       </form>
 
@@ -278,8 +278,7 @@
       server_error: "Máy chủ gặp lỗi. Vui lòng thử lại sau."
     };
 
-    loginForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
+    loginForm.addEventListener("submit", async (event) => {      event.preventDefault();
       const formData = new FormData(loginForm);
       const email = String(formData.get("email") || "").trim();
       const password = String(formData.get("password") || "");
@@ -296,6 +295,9 @@
       feedback.textContent = "";
       window.location.replace("staff-dashboard.html");
     });
+
+    // JS is alive and the handler is attached; only now is submitting safe.
+    loginForm.querySelector(".login-submit").disabled = false;
   </script>
 </body>
 </html>

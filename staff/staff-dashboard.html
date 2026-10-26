@@ -575,6 +575,11 @@
   <script src="../shared/js/supabase-client.js"></script>
   <script src="../shared/js/portal-api.js"></script>
   <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
-  <script src="js/staff-current-schema.js"></script>
+  <script src="js/staff-core.js"></script>
+  <script src="js/staff-profile.js"></script>
+  <script src="js/staff-leave.js"></script>
+  <script src="js/staff-salary-month.js"></script>
+  <script src="js/staff-salary-year.js"></script>
+  <script>loadStaffPortal().catch(() => showPageError("Không thể kết nối máy chủ."));</script>
 </body>
 </html>
