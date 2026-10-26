@@ -981,7 +981,7 @@ body:has(.admin-page) {
 }
 
 .staff-pay-table tbody th {
-  width: 65%;
+  width: 25%;
   color: var(--admin-muted);
   font-weight: 500;
 }
@@ -989,6 +989,24 @@ body:has(.admin-page) {
 .staff-pay-table tbody td {
   text-align: right;
   white-space: nowrap;
+}
+
+.staff-pay-table tbody td.staff-pay-calculation {
+  min-width: 250px;
+  color: var(--admin-muted);
+  text-align: left;
+  white-space: normal;
+}
+
+.staff-pay-table tbody td.staff-pay-amount {
+  font-weight: 600;
+}
+
+.staff-pay-table .staff-gross-row th,
+.staff-pay-table .staff-gross-row td {
+  border-top: 1px solid var(--admin-line);
+  color: var(--admin-ink);
+  font-weight: 700;
 }
 
 .staff-pay-table .staff-net-row th,

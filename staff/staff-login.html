@@ -261,16 +261,16 @@
   <script>
     const loginForm = document.getElementById("staffLoginForm");
     const feedback = document.getElementById("staffLoginFeedback");
-    const supabase = window.jewelsSupabase;
+    const supabaseClient = window.jewelsSupabase;
 
     async function getAccess(user) {
-      const { data: employee, error } = await supabase.from("employees").select("employee_id,email").eq("email", user.email).maybeSingle();
+      const { data: employee, error } = await supabaseClient.from("employees").select("employee_id,email").eq("email", user.email).maybeSingle();
       if (error || !employee) return { employee: null, isManager: false };
-      const { data: assignments } = await supabase.from("user_roles").select("role_id,roles(role_name)").eq("employee_id", employee.employee_id);
+      const { data: assignments } = await supabaseClient.from("user_roles").select("role_id,roles(role_name)").eq("employee_id", employee.employee_id);
       const roleIds = (assignments || []).map((assignment) => assignment.role_id);
       const roleNames = (assignments || []).map((assignment) => String(assignment.roles?.role_name || "").toLowerCase());
       const { data: rolePermissions } = roleIds.length
-        ? await supabase.from("role_permissions").select("permissions(permission_code)").in("role_id", roleIds)
+        ? await supabaseClient.from("role_permissions").select("permissions(permission_code)").in("role_id", roleIds)
         : { data: [] };
       const permissionCodes = (rolePermissions || []).map((item) => String(item.permissions?.permission_code || "").toLowerCase());
       const isManager = roleNames.some((name) => ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(name))
@@ -279,11 +279,11 @@
     }
 
     async function redirectIfEmployee() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabaseClient.auth.getUser();
       if (!user) return;
       const access = await getAccess(user);
       if (access.employee && !access.isManager) window.location.replace("staff-dashboard.html");
-      else if (!access.employee) await supabase.auth.signOut();
+      else if (!access.employee) await supabaseClient.auth.signOut();
     }
 
     redirectIfEmployee().catch(() => {});
@@ -294,14 +294,14 @@
       const email = String(formData.get("email") || "").trim().toLowerCase();
       const password = String(formData.get("password") || "");
       feedback.textContent = "Đang xác thực...";
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if (error) {
         feedback.textContent = "Không thể đăng nhập. Kiểm tra email và mật khẩu.";
         return;
       }
       const access = await getAccess(data.user);
       if (!access.employee || access.isManager) {
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
         feedback.textContent = "Tài khoản chưa được cấp quyền nhân viên.";
         return;
       }

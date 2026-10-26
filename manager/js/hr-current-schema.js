@@ -1,3 +1,4 @@
+(() => {
 const supabase = window.jewelsSupabase;
 const STATUS_LABELS = { active: "Đang làm", on_leave: "Đang nghỉ phép", resigned: "Đã nghỉ việc" };
 const STATUS_TO_DB = { "Đang làm": "active", "Đang nghỉ phép": "on_leave", "Đã nghỉ việc": "resigned" };
@@ -554,3 +555,4 @@ async function initHrPortal() {
 
 document.getElementById("adminLogoutBtn").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "login.html"; });
 initHrPortal().catch((error) => { console.error(error); showError("Không thể kết nối Supabase."); });
+})();
