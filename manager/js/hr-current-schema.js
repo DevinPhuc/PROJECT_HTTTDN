@@ -510,5 +510,56 @@ async function initHrPortal() {
   setView(document.querySelector(`[data-hr-panel="${initial}"]`) ? initial : "employees");
 }
 
-document.getElementById("adminLogoutBtn").addEventListener("click", () => { portal.clearSession("manager"); window.location.href = "login.html"; });
+const profileToggle = document.getElementById("adminProfileToggle");
+const profileMenu = document.getElementById("adminProfileMenu");
+const profileCard = document.querySelector(".admin-profile-card");
+
+function setProfileMenuOpen(open) {
+  profileToggle.setAttribute("aria-expanded", String(open));
+  profileMenu.classList.toggle("show-menu", open);
+}
+
+profileToggle.addEventListener("click", () => {
+  const isOpen = profileToggle.getAttribute("aria-expanded") === "true";
+  setProfileMenuOpen(!isOpen);
+});
+
+document.addEventListener("click", (event) => {
+  if (!profileCard.contains(event.target)) setProfileMenuOpen(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    setProfileMenuOpen(false);
+    setLogoutModalOpen(false);
+  }
+});
+
+const logoutModal = document.getElementById("logoutModal");
+const confirmLogoutBtn = document.getElementById("confirmLogoutBtn");
+const cancelLogoutBtn = document.getElementById("cancelLogoutBtn");
+
+function setLogoutModalOpen(open) {
+  logoutModal.hidden = !open;
+}
+
+document.getElementById("adminLogoutBtn").addEventListener("click", () => {
+  setProfileMenuOpen(false);
+  setLogoutModalOpen(true);
+  cancelLogoutBtn.focus();
+});
+
+cancelLogoutBtn.addEventListener("click", () => {
+  setLogoutModalOpen(false);
+});
+
+confirmLogoutBtn.addEventListener("click", () => {
+  portal.clearSession("manager");
+  window.location.href = "login.html";
+});
+
+logoutModal.addEventListener("click", (event) => {
+  if (event.target === logoutModal) setLogoutModalOpen(false);
+});
+
 initHrPortal().catch((error) => { console.error(error); showError("Không thể kết nối máy chủ."); });
