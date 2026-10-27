@@ -95,8 +95,68 @@ body:has(.admin-page) {
 
 .admin-profile-card {
   padding: 0 8px;
+  align-items: flex-start;
+}
+.admin-profile-content {
+  min-width: 0;
+  width: 100%;
+}
+.admin-profile-toggle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between; /* Đẩy chữ 'v' sát mép phải */
+  gap: 9px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
 }
 
+.admin-profile-toggle:focus-visible {
+  outline: 1px solid #d7bd83;
+  outline-offset: 4px;
+}
+
+/* Kỹ thuật vẽ chữ 'v' (chevron) bằng CSS */
+.admin-profile-chevron {
+  width: 7px;
+  height: 7px;
+  margin-top: 4px;
+  flex: 0 0 auto;
+  border-right: 1px solid #d7c7a5;
+  border-bottom: 1px solid #d7c7a5;
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.admin-profile-toggle[aria-expanded="true"] .admin-profile-chevron {
+  transform: translateY(3px) rotate(225deg);
+}
+
+.admin-profile-menu {
+  max-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.25s ease;
+}
+
+.admin-profile-menu.show-menu {
+  max-height: 60px;
+  margin-top: 12px;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.admin-profile-menu .admin-logout-btn {
+  width: 100%;
+}
 .admin-avatar {
   display: grid;
   width: 40px;
@@ -125,7 +185,13 @@ body:has(.admin-page) {
   display: grid;
   gap: 4px;
 }
-
+.nav-png-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 10px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
 .admin-nav-item {
   display: flex;
   align-items: center;
@@ -135,7 +201,10 @@ body:has(.admin-page) {
   color: #c6cec9;
   font-size: 13px;
   text-decoration: none;
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
 }
 
 .admin-nav-item:hover,
@@ -225,7 +294,10 @@ body:has(.admin-page) {
   cursor: pointer;
   font: 600 12px/1.2 var(--body-font, sans-serif);
   text-decoration: none;
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
 }
 
 .admin-primary-btn {
@@ -257,6 +329,45 @@ body:has(.admin-page) {
 .admin-logout-btn:hover {
   border-color: var(--admin-red);
   background: var(--admin-red-soft);
+}
+
+.logout-modal {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(20 30 25 / 45%);
+}
+
+.logout-modal-content {
+  width: min(100%, 380px);
+  padding: 26px;
+  border: 1px solid var(--admin-line);
+  border-radius: 4px;
+  background: var(--admin-paper);
+  box-shadow: 0 16px 40px rgb(20 30 25 / 18%);
+}
+
+.logout-modal-content h2 {
+  margin: 0 0 22px;
+  color: var(--admin-ink);
+  font-family: var(--heading-font, Georgia, serif);
+  font-size: 25px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.logout-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.logout-modal-actions button {
+  min-width: 90px;
 }
 
 .admin-kpis {
@@ -349,7 +460,9 @@ body:has(.admin-page) {
 
 .admin-row {
   display: grid;
-  grid-template-columns: minmax(110px, 1.25fr) minmax(90px, 1fr) minmax(78px, 0.8fr) minmax(88px, 1fr) minmax(100px, 0.9fr);
+  grid-template-columns:
+    minmax(110px, 1.25fr) minmax(90px, 1fr) minmax(78px, 0.8fr)
+    minmax(88px, 1fr) minmax(100px, 0.9fr);
   align-items: center;
   gap: 12px;
   min-width: 650px;
@@ -374,7 +487,9 @@ body:has(.admin-page) {
 }
 
 #overviewAccounts .admin-row {
-  grid-template-columns: minmax(130px, 1.3fr) minmax(100px, 0.9fr) minmax(95px, 0.8fr) minmax(100px, 0.8fr);
+  grid-template-columns:
+    minmax(130px, 1.3fr) minmax(100px, 0.9fr) minmax(95px, 0.8fr)
+    minmax(100px, 0.8fr);
   min-width: 540px;
 }
 
@@ -385,7 +500,9 @@ body:has(.admin-page) {
 }
 
 #overviewOrders .admin-row {
-  grid-template-columns: minmax(100px, 0.8fr) minmax(150px, 1.3fr) minmax(110px, 0.9fr) minmax(120px, 1fr);
+  grid-template-columns:
+    minmax(100px, 0.8fr) minmax(150px, 1.3fr) minmax(110px, 0.9fr)
+    minmax(120px, 1fr);
   min-width: 540px;
 }
 
@@ -553,15 +670,30 @@ body:has(.admin-page) {
 }
 
 .product-thumb-one {
-  background: linear-gradient(135deg, #d4c8a9 0 34%, #f1eee6 34% 65%, #aaa98b 65%);
+  background: linear-gradient(
+    135deg,
+    #d4c8a9 0 34%,
+    #f1eee6 34% 65%,
+    #aaa98b 65%
+  );
 }
 
 .product-thumb-two {
-  background: linear-gradient(135deg, #c7d0c3 0 35%, #edf0e9 35% 68%, #899d8c 68%);
+  background: linear-gradient(
+    135deg,
+    #c7d0c3 0 35%,
+    #edf0e9 35% 68%,
+    #899d8c 68%
+  );
 }
 
 .product-thumb-three {
-  background: linear-gradient(135deg, #dbc3bd 0 34%, #f3ece8 34% 67%, #b18577 67%);
+  background: linear-gradient(
+    135deg,
+    #dbc3bd 0 34%,
+    #f3ece8 34% 67%,
+    #b18577 67%
+  );
 }
 
 .product-card h3 {
