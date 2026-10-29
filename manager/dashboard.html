@@ -220,11 +220,12 @@
                 /></label>
                 <label
                   >Trình độ<select name="education">
-                    <option>Trung học phổ thông</option>
-                    <option>Trung cấp</option>
-                    <option>Cao đẳng</option>
-                    <option>Đại học</option>
-                    <option>Sau đại học</option>
+                    <option value="">Chưa cập nhật</option>
+                    <option value="Trung học phổ thông">Trung học phổ thông</option>
+                    <option value="Trung cấp">Trung cấp</option>
+                    <option value="Cao đẳng">Cao đẳng</option>
+                    <option value="Đại học">Đại học</option>
+                    <option value="Sau đại học">Sau đại học</option>
                   </select></label
                 >
                 <label
@@ -314,12 +315,25 @@
                 <p class="account-eyebrow">BIẾN ĐỘNG NHÂN SỰ</p>
                 <h2>Tình hình nhân sự theo tháng</h2>
               </div>
-              <label class="hr-period-control"
-                >Tháng báo cáo<input id="staffReportMonth" type="month"
-              /></label>
+              <div class="hr-report-controls">
+                <label class="hr-period-control"
+                  >Tháng báo cáo<input id="staffReportMonth" type="month"
+                /></label>
+                <button type="button" class="admin-secondary-btn" id="exportMonthlyReportBtn" title="Tải các dòng đang hiển thị theo bộ lọc hiện tại">Tải CSV</button>
+              </div>
             </div>
             <div class="hr-summary-grid" id="monthlyStaffSummary"></div>
             <section class="admin-panel hr-table-panel">
+              <div class="hr-report-table-tools">
+                <input id="monthlyStaffSearch" class="admin-search" type="search" placeholder="Tìm theo tên, phòng ban, chức vụ..." aria-label="Tìm nhân sự trong báo cáo tháng" />
+                <select id="monthlyStaffFilter" class="admin-search" aria-label="Lọc trạng thái báo cáo">
+                  <option value="all">Tất cả trạng thái</option>
+                  <option value="active">Có làm việc trong tháng</option>
+                  <option value="on_leave">Có nghỉ phép trong tháng</option>
+                  <option value="resigned">Nghỉ việc trong tháng</option>
+                  <option value="unknown">Chưa có lịch sử</option>
+                </select>
+              </div>
               <div class="hr-table-wrap">
                 <table class="hr-table">
                   <thead>
@@ -327,7 +341,7 @@
                       <th>Nhân sự</th>
                       <th>Phòng ban</th>
                       <th>Chức vụ</th>
-                      <th>Tình trạng tháng</th>
+                      <th>Diễn biến trong tháng</th>
                       <th>Ghi chú</th>
                     </tr>
                   </thead>
@@ -343,8 +357,25 @@
                 <p class="account-eyebrow">TỔNG QUAN HỒ SƠ</p>
                 <h2>Trình độ, lương & thâm niên</h2>
               </div>
+              <button type="button" class="admin-secondary-btn" id="exportStaffStatsBtn" title="Tải các dòng đang hiển thị theo bộ lọc hiện tại">Tải CSV</button>
             </div>
             <div class="hr-summary-grid" id="staffStatsSummary"></div>
+            <div class="hr-distribution-grid">
+              <section class="admin-panel hr-distribution-panel">
+                <h3>Phân bố trình độ</h3>
+                <div id="educationDistribution" class="hr-distribution" aria-live="polite"></div>
+              </section>
+              <section class="admin-panel hr-distribution-panel">
+                <h3>Phân bố thâm niên</h3>
+                <div id="tenureDistribution" class="hr-distribution" aria-live="polite"></div>
+              </section>
+            </div>
+            <div class="hr-report-table-tools">
+              <input id="staffStatsSearch" class="admin-search" type="search" placeholder="Tìm nhân sự..." aria-label="Tìm nhân sự trong thống kê hồ sơ" />
+              <select id="staffStatsEducationFilter" class="admin-search" aria-label="Lọc theo trình độ">
+                <option value="all">Tất cả trình độ</option>
+              </select>
+            </div>
             <section class="admin-panel hr-table-panel">
               <div class="hr-table-wrap">
                 <table class="hr-table">
@@ -353,6 +384,7 @@
                       <th>Nhân sự</th>
                       <th>Trình độ</th>
                       <th>Lương cơ bản</th>
+                      <th>Kỳ lương</th>
                       <th>Ngày vào làm</th>
                       <th>Thâm niên</th>
                     </tr>
@@ -372,15 +404,12 @@
             </div>
             <section class="admin-panel hr-permission-panel">
               <label>Nhân sự<select id="permissionEmployee"></select></label>
-              <label
-                >Vai trò<select id="permissionRole">
-                  <option>Nhân viên</option>
-                  <option>Trưởng nhóm</option>
-                  <option>Quản lý nhân sự</option>
-                </select></label
-              >
+              <label>Vai trò muốn gán<select id="permissionRole"></select></label>
+              <p id="permissionCurrentRole" class="hr-permission-current"></p>
+              <p id="permissionChangeSummary" class="hr-permission-change" aria-live="polite"></p>
               <fieldset class="hr-permission-list">
-                <legend>Quyền của vai trò</legend>
+                <legend>So sánh quyền hiện tại và sau khi đổi vai trò</legend>
+                <div class="hr-permission-columns" aria-hidden="true"><span>Quyền</span><span>Hiện tại</span><span>Sau khi đổi</span></div>
                 <div id="permissionOptions"></div>
               </fieldset>
               <div class="hr-form-actions">
@@ -389,14 +418,36 @@
                   class="admin-primary-btn"
                   id="savePermissionsBtn"
                 >
-                  Lưu phân quyền
+                  Gán vai trò cho nhân sự
                 </button>
                 <p id="permissionFeedback" role="status" aria-live="polite"></p>
               </div>
             </section>
+            <section class="admin-panel hr-role-history-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">LỊCH SỬ PHÂN CÔNG</p>
+                  <h2>Vai trò đã áp dụng</h2>
+                </div>
+              </div>
+              <div class="hr-table-wrap">
+                <table class="hr-table">
+                  <thead>
+                    <tr>
+                      <th>Vai trò</th>
+                      <th>Bắt đầu hiệu lực</th>
+                      <th>Kết thúc hiệu lực</th>
+                      <th>Người gán</th>
+                    </tr>
+                  </thead>
+                  <tbody id="roleHistoryBody"></tbody>
+                </table>
+              </div>
+            </section>
             <p class="hr-demo-note">
-              Quyền được lưu theo hồ sơ và vai trò. Bản demo chưa có máy chủ để
-              thực thi kiểm soát truy cập.
+              Nhân viên và trưởng nhóm nhận các quyền đã cấu hình cho vai trò.
+              Chọn vai trò để xem quyền, sau đó gán cho nhân sự; thay đổi được
+              lưu vào lịch sử phân công. Quyền chung của từng vai trò do Admin cấu hình.
             </p>
           </section>
 

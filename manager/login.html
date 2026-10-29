@@ -361,8 +361,7 @@
       passwordInput.focus();
     });
 
-    // Fire-and-forget: boots the function and opens its database connection while
-    // the user types, so the first submit does not pay the ~1s cold start.
+    // Fire-and-forget: warms the function connection while the user types.
     window.sbInvoke?.("admin-login", { body: { warm: true } })?.catch(() => {});
 
     loginForm.addEventListener("submit", async (event) => {
