@@ -26,6 +26,7 @@ const LEAVE_STATUSES = {
 };
 let currentEmployee;
 let employees = [];
+let currentActor = null;
 let contacts = new Map();
 let positions = [];
 let departments = [];
@@ -33,8 +34,10 @@ let roles = [];
 let permissions = [];
 let roleAssignments = new Map();
 let rolePermissionIds = new Map();
+let roleHistory = [];
 let payrollCache = [];
 let attendanceCache = [];
+let employmentStatusHistory = [];
 let requests = [];
 let selectedEmployeeId = "";
 
@@ -80,11 +83,11 @@ function normalizedStatus(status) {
   return "active";
 }
 
-function statusBadge(status) {
+function statusBadge(status, label = "") {
   const normalized = normalizedStatus(status);
   const badge = document.createElement("span");
-  badge.className = `hr-status hr-status-${normalized === "active" ? "active" : normalized === "on_leave" ? "leave" : "resigned"}`;
-  badge.textContent = STATUS_LABELS[normalized];
+  badge.className = `hr-status hr-status-${normalized === "active" ? "active" : normalized === "on_leave" ? "leave" : normalized === "resigned" ? "resigned" : "unknown"}`;
+  badge.textContent = label || STATUS_LABELS[status] || STATUS_LABELS[normalized] || STATUS_LABELS.unknown;
   return badge;
 }
 
@@ -142,7 +145,7 @@ async function loadLookups() {
   const result = await callHr({ action: "boot" });
   if (!result.ok) throw new Error(result.error);
   const data = result.data;
-  currentEmployee = data.actor || null;
+  currentActor = data.actor || null;
   employees = (data.employees || []).map((employee) => ({
     ...employee,
     position_id: employee.position_id ?? employee.current_position_id,
@@ -166,13 +169,17 @@ async function loadLookups() {
     list.push(assignment.permission_id);
     rolePermissionIds.set(assignment.role_id, list);
   });
+  roleHistory = data.role_history || [];
   requests = data.leave_requests || [];
   payrollCache = data.payroll || [];
   attendanceCache = data.attendance || [];
+  employmentStatusHistory = data.employment_status_history || [];
 }
 
 function latestPayroll(employeeId) {
-  return payrollCache.find((record) => record.employee_id === employeeId);
+  return payrollCache.find((record) => record.employee_id === employeeId
+    && record.pay_year !== null && record.pay_year !== undefined
+    && record.pay_month !== null && record.pay_month !== undefined);
 }
 
 function fillSelect(select, options, valueKey, labelFor, selectedValue = "") {
@@ -254,7 +261,20 @@ function renderEmployees() {
 }
 
 function fillRoleSelect(select, selectedValue = "") {
-  fillSelect(select, roles, "role_id", (role) => role.role_name, selectedValue);
+  select.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Chọn vai trò";
+  select.append(placeholder);
+  roles.forEach((role) => {
+    const option = document.createElement("option");
+    option.value = role.role_id;
+    option.textContent = role.assignable === false ? `${role.role_name} · chỉ Admin gán` : role.role_name;
+    option.disabled = role.assignable === false && role.role_id !== selectedValue;
+    select.append(option);
+  });
+  const selectedRole = roles.find((role) => String(role.role_id) === String(selectedValue));
+  select.value = selectedRole ? selectedRole.role_id : "";
 }
 
 function showEmployeeForm(employee = null) {
@@ -663,6 +683,9 @@ function monthlyStatus(employee, range) {
   return { status: "active", note: "" };
 }
 
+let monthlyReportRows = [];
+let visibleMonthlyReportRows = [];
+
 function renderMonthlyReport() {
   const range = monthBounds(document.getElementById("staffReportMonth").value);
   const body = document.getElementById("monthlyStaffBody");
@@ -764,7 +787,60 @@ function renderStaffStats() {
     card.append(caption, strong);
     summary.append(card);
   });
+  const body = document.getElementById("staffStatsBody"); body.replaceChildren();
+  if (!visibleStaffStats.length) {
+    const row = document.createElement("tr"); addCell(row, employees.length ? "Không có nhân sự phù hợp với bộ lọc." : "Chưa có nhân sự trong phạm vi của bạn.").colSpan = 6; body.append(row);
+  }
+  visibleStaffStats.forEach(({ employee, salary, education }) => {
+    const row = document.createElement("tr");
+    const identity = document.createElement("td");
+    const name = document.createElement("strong"); name.textContent = employee.full_name;
+    const code = document.createElement("small"); code.textContent = employee.employee_code || employee.email || "";
+    identity.append(name, code); row.append(identity);
+    addCell(row, education);
+    addCell(row, salary === null ? "Chưa có lương" : money(salary));
+    const payroll = latestPayroll(employee.employee_id);
+    addCell(row, payroll?.pay_month && payroll?.pay_year ? `${String(payroll.pay_month).padStart(2, "0")}/${payroll.pay_year}` : "-" );
+    addCell(row, dateLabel(employee.hire_date));
+    addCell(row, tenureLabel(employee));
+    body.append(row);
+  });
 }
+
+document.getElementById("staffStatsSearch").addEventListener("input", renderStaffStats);
+document.getElementById("staffStatsEducationFilter").addEventListener("change", renderStaffStats);
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  const safeText = /^[\t\r ]*[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
+}
+
+function downloadCsv(filename, rows) {
+  const content = `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+  const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a"); link.href = url; link.download = filename; link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+document.getElementById("exportMonthlyReportBtn").addEventListener("click", () => {
+  const month = document.getElementById("staffReportMonth").value;
+  const range = monthBounds(month);
+  const rows = [["Khoảng báo cáo", range.start, range.asOf], [], ["Nhân sự", "Mã nhân viên", "Email", "Phòng ban hiện tại", "Chức vụ hiện tại", "Nhóm trạng thái trong tháng", "Ghi chú"]];
+  visibleMonthlyReportRows.forEach(({ employee, statuses, note }) => rows.push([
+    employee.full_name, employee.employee_code, employee.email, departmentName(employee), positionName(employee), statuses.map((status) => MONTHLY_STATUS_LABELS[status]).join("; "), note,
+  ]));
+  downloadCsv(`bao-cao-nhan-su-${month}.csv`, rows);
+});
+
+document.getElementById("exportStaffStatsBtn").addEventListener("click", () => {
+  const rows = [["Nhân sự", "Mã nhân viên", "Email", "Trình độ", "Lương cơ bản mới nhất (VND)", "Kỳ lương", "Ngày vào làm", "Thâm niên"]];
+  visibleStaffStats.forEach(({ employee, salary, education }) => {
+    const payroll = latestPayroll(employee.employee_id);
+    rows.push([employee.full_name, employee.employee_code, employee.email, education, salary ?? "", payroll?.pay_month && payroll?.pay_year ? `${String(payroll.pay_month).padStart(2, "0")}/${payroll.pay_year}` : "", employee.hire_date, tenureLabel(employee)]);
+  });
+  downloadCsv("thong-ke-ho-so-nhan-su.csv", rows);
+});
 
 function renderEmployeeSelects() {
   const previousPayroll =
@@ -803,6 +879,22 @@ function selectedPermissionEmployee() {
       employee.employee_id ===
       document.getElementById("permissionEmployee").value,
   );
+}
+
+function renderRoleHistory(employee) {
+  const body = document.getElementById("roleHistoryBody"); body.replaceChildren();
+  const entries = roleHistory.filter((assignment) => assignment.employee_id === employee?.employee_id);
+  if (!entries.length) {
+    const row = document.createElement("tr"); addCell(row, employee ? "Chưa có lịch sử phân công vai trò." : "Chọn nhân sự để xem lịch sử.").colSpan = 4; body.append(row); return;
+  }
+  entries.forEach((assignment) => {
+    const row = document.createElement("tr");
+    addCell(row, assignment.role_name);
+    addCell(row, dateLabel(assignment.valid_from));
+    addCell(row, assignment.valid_to ? dateLabel(assignment.valid_to) : assignment.valid_from > vietnamDateISO() ? "Chưa có hiệu lực" : "Đang áp dụng");
+    addCell(row, assignment.assigned_by_name || "-");
+    body.append(row);
+  });
 }
 
 function renderPermissions() {
@@ -1193,6 +1285,10 @@ async function initHrPortal() {
     if (error.message === "forbidden" || error.message === "unauthorized") {
       portal.clearSession("manager");
       window.location.replace("login.html");
+      return;
+    }
+    if (error.message === "migration_required") {
+      showError("Cần áp dụng migration HR và lịch sử trạng thái trong database/migrations trước khi dùng báo cáo.");
       return;
     }
     console.error(error);

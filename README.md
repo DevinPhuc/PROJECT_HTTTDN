@@ -12,6 +12,7 @@ Mở `manager/login.html` để truy cập cổng quản lý nhân sự.
 Mở `staff/staff-login.html` để truy cập cổng nhân viên. Tài khoản nằm trong bảng `employee_accounts` của cơ sở dữ liệu.
 Để xem giao diện nhân viên không cần đăng nhập, mở `staff/staff-dashboard.html?demo=1`. Chế độ này chỉ dùng dữ liệu giả trên trình duyệt; thay đổi không được lưu và không gọi API.
 Admin hiện có giao diện quản lý hồ sơ, duyệt đơn nghỉ, báo cáo, phân quyền, chấm công và lương.
+Manager có báo cáo nhân sự theo ngày chốt tháng, thống kê trình độ/lương/thâm niên, xem quyền kế thừa theo vai trò và lịch sử thay đổi vai trò. Xem [hướng dẫn Supabase](docs/supabase-setup.md) để áp dụng bảng lịch sử trạng thái phục vụ báo cáo.
 
 Kiến trúc xác thực: cả hai portal dùng token HS256 do edge function `admin-login` phát hành, kiểm tra qua header `x-admin-token`. Dữ liệu cập nhật hoàn toàn qua edge function riêng — `staff-portal` và `supabase/functions/hr-portal`; trình duyệt không gọi bảng trực tiếp. Plumbing dùng chung nằm ở `shared/js/portal-api.js` (phiên đăng nhập, `sbInvoke`, ánh xạ lỗi). Hàm DB `portal_login` xác định portal được phép theo vai trò.
 
