@@ -1,5 +1,6 @@
 // Manager portal data layer: all access goes through the hr-portal edge
 // function (see shared/js/portal-api.js); the browser never touches tables.
+//fix lỗi không merge được
 const portal = window.jewelsPortal;
 const callHr = (body) => portal.callPortal("manager", "hr-portal", body, { loginUrl: "login.html" });
 const STATUS_LABELS = { active: "Đang làm", on_leave: "Đang nghỉ phép", resigned: "Đã nghỉ việc", unknown: "Chưa có lịch sử" };
