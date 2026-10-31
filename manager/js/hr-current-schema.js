@@ -171,10 +171,11 @@ function renderEmployees() {
     addCell(row, departmentName(employee));
     addCell(row, employee.education || "-");
     const statusCell = document.createElement("td"); statusCell.append(statusBadge(employee.employment_status)); row.append(statusCell);
-    const actions = document.createElement("td"); actions.className = "hr-row-actions";
+    const actionsCell = document.createElement("td");
+    const actions = document.createElement("div"); actions.className = "hr-row-actions";
     const edit = document.createElement("button"); edit.type = "button"; edit.className = "mini-btn"; edit.dataset.employeeAction = "edit"; edit.dataset.employeeId = employee.employee_id; edit.textContent = "Sửa";
     const remove = document.createElement("button"); remove.type = "button"; remove.className = "mini-btn danger"; remove.dataset.employeeAction = "delete"; remove.dataset.employeeId = employee.employee_id; remove.textContent = "Xóa";
-    actions.append(edit, remove); row.append(actions); body.append(row);
+    actions.append(edit, remove); actionsCell.append(actions); row.append(actionsCell); body.append(row);
   });
 }
 
@@ -326,12 +327,13 @@ function renderRequests() {
     addCell(row, request.leave_type === "resignation" ? `Ngày dự kiến cuối: ${dateLabel(request.start_date)}` : `${dateLabel(request.start_date)} - ${dateLabel(request.end_date)}`);
     addCell(row, request.reason);
     addCell(row, LEAVE_STATUSES[request.status] || request.status);
-    const actions = document.createElement("td"); actions.className = "hr-row-actions";
+    const actionsCell = document.createElement("td");
+    const actions = document.createElement("div"); actions.className = "hr-row-actions";
     if (request.status === "pending") ["approved", "rejected"].forEach((status) => {
       const button = document.createElement("button"); button.type = "button"; button.className = status === "approved" ? "mini-btn" : "mini-btn danger";
       button.dataset.reviewStatus = status; button.dataset.requestId = request.leave_request_id; button.textContent = status === "approved" ? "Duyệt" : "Từ chối"; actions.append(button);
     });
-    row.append(actions); body.append(row);
+    actionsCell.append(actions); row.append(actionsCell); body.append(row);
   });
 }
 
