@@ -204,6 +204,18 @@ function showEmployeeForm(employee = null) {
   const roleSelect = document.getElementById("employeeRole");
   fillRoleSelect(roleSelect, roleAssignments.get(employee?.employee_id)?.[0] || "");
   roleSelect.disabled = Boolean(employee && !currentActor?.is_admin && employee.employee_id === currentActor?.employee_id);
+  const saveButton = document.getElementById("saveEmployeeBtn");
+  saveButton.innerHTML = "";
+  const saveIcon = document.createElement("img");
+  saveIcon.src = employee ? "../shared/images/save.png" : "../shared/images/user-add.png";
+  saveIcon.alt = "";
+  saveIcon.className = "button-icon";
+  saveButton.append(saveIcon, document.createTextNode(employee ? "Lưu thông tin" : "Thêm nhân sự"));
+  const departmentSelect = document.getElementById("employeeDepartment");
+  fillSelect(departmentSelect, departments, "department_id", (department) => department.department_name, employee ? employeePosition(employee)?.department_id || "" : "");
+  const dateOfBirthInput = form.elements.namedItem("dateOfBirth");
+  const passwordInput = form.elements.namedItem("password");
+  dateOfBirthInput.max = new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate()).toISOString().slice(0, 10);
   if (employee) {
     const contact = contacts.get(employee.employee_id);
     const values = {
@@ -211,26 +223,46 @@ function showEmployeeForm(employee = null) {
       email: employee.email,
       phone: contact?.phone_number || "",
       education: employee.education || "",
-      hireDate: employee.hire_date,
+      dateOfBirth: employee.date_of_birth ? String(employee.date_of_birth).slice(0, 10) : "",
+      hireDate: employee.hire_date ? String(employee.hire_date).slice(0, 10) : "",
       employmentStatus: STATUS_LABELS[normalizedStatus(employee.employment_status)]
     };
     Object.entries(values).forEach(([key, value]) => { if (form.elements.namedItem(key)) form.elements.namedItem(key).value = value; });
+    dateOfBirthInput.required = false;
+    passwordInput.required = false;
+    passwordInput.placeholder = "Bỏ trống nếu không đổi mật khẩu";
   } else {
     form.elements.namedItem("hireDate").value = new Date().toISOString().slice(0, 10);
+    dateOfBirthInput.required = true;
+    passwordInput.required = true;
+    passwordInput.placeholder = "Nhập mật khẩu đăng nhập";
   }
-  updateDepartmentForPosition();
-  document.getElementById("employeeFormPanel").hidden = false;
-  document.getElementById("employeeFormPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  document.getElementById("addEmployeeModal").classList.remove("hidden");
 }
 
-function updateDepartmentForPosition() {
-  const position = positions.find((item) => item.position_id === document.getElementById("employeePosition").value);
-  document.getElementById("employeeDepartment").value = departments.find((item) => item.department_id === position?.department_id)?.department_name || "";
-}
-
-document.getElementById("employeePosition").addEventListener("change", updateDepartmentForPosition);
 document.getElementById("addEmployeeBtn").addEventListener("click", () => showEmployeeForm());
-document.getElementById("cancelEmployeeBtn").addEventListener("click", () => { document.getElementById("employeeFormPanel").hidden = true; document.getElementById("employeeForm").reset(); });
+const closeEmployeeModal = () => {
+  document.getElementById("addEmployeeModal").classList.add("hidden");
+  document.getElementById("employeeForm").reset();
+};
+document.getElementById("cancelEmployeeBtn").addEventListener("click", closeEmployeeModal);
+document.getElementById("closeModalBtn").addEventListener("click", closeEmployeeModal);
+
+function generateEmployeePassword(dateOfBirth) {
+  if (!dateOfBirth) return "";
+  const [, month, day] = dateOfBirth.split("-");
+  const suffix = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+  return `${day}${month}${suffix}`;
+}
+
+document.getElementById("employeeForm").addEventListener("input", (event) => {
+  const form = event.currentTarget;
+  if (form.elements.namedItem("id").value) return;
+  const dateOfBirth = form.elements.namedItem("dateOfBirth").value;
+  const password = form.elements.namedItem("password");
+  if (dateOfBirth && !password.value) password.value = generateEmployeePassword(dateOfBirth);
+});
+
 document.getElementById("employeeSearch").addEventListener("input", renderEmployees);
 document.getElementById("employeesBody").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-employee-action]");
@@ -242,6 +274,7 @@ document.getElementById("employeesBody").addEventListener("click", async (event)
   const result = await callHr({ action: "employee_delete", id: employee.employee_id });
   if (!result.ok || (result.error && result.error === "forbidden")) { window.alert("Không thể xóa hồ sơ. Kiểm tra bản ghi liên quan và quyền của bạn."); return; }
   await loadLookups(); renderAll();
+  showToast("deleteToast");
 });
 
 document.getElementById("employeeForm").addEventListener("submit", async (event) => {
@@ -254,16 +287,28 @@ document.getElementById("employeeForm").addEventListener("submit", async (event)
     full_name: String(values.name).trim(),
     email: String(values.email).trim().toLowerCase(),
     position_id: values.positionId,
+    date_of_birth: values.dateOfBirth || null,
+    education: String(values.education || "").trim(),
     hire_date: values.hireDate,
     employment_status: STATUS_TO_DB[values.employmentStatus] || "active",
     phone_number: String(values.phone || "").trim(),
-    role_id: values.roleId || undefined
+    role_id: values.roleId || undefined,
+    password: String(values.password || "").trim()
   });
   if (!result.ok) { feedback("employeeFeedback", "Không lưu được hồ sơ nhân sự.", true); return; }
-  document.getElementById("employeeFormPanel").hidden = true;
+  const wasNewEmployee = !values.id;
+  closeEmployeeModal();
   feedback("employeeFeedback", "");
   await loadLookups(); renderAll();
+  if (wasNewEmployee) showToast("successToast");
 });
+
+function showToast(id) {
+  const toast = document.getElementById(id);
+  if (!toast) return;
+  toast.classList.add("show");
+  window.setTimeout(() => toast.classList.remove("show"), 5000);
+}
 
 function renderRequests() {
   const filter = document.getElementById("requestFilter").value;

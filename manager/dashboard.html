@@ -187,78 +187,125 @@
                   class="admin-primary-btn"
                   id="addEmployeeBtn"
                 >
+                  <img
+                    src="../shared/images/user-add.png"
+                    alt=""
+                    class="button-icon"
+                  />
                   Thêm nhân sự
                 </button>
               </div>
             </div>
-            <section
-              class="admin-panel hr-form-panel"
-              id="employeeFormPanel"
-              hidden
-            >
-              <form id="employeeForm" class="hr-form-grid">
-                <h3 id="employeeFormTitle">Thông tin nhân sự</h3>
-                <input type="hidden" name="id" />
-                <label
-                  >Họ và tên<input
-                    name="name"
-                    type="text"
-                    required
-                    maxlength="100"
-                /></label>
-                <label>Email<input name="email" type="email" required /></label>
-                <label>Số điện thoại<input name="phone" type="tel" /></label>
-                <label
-                  >Chức vụ<select
-                    name="positionId"
-                    id="employeePosition"
-                    required
-                  ></select
-                ></label>
-                <label
-                  >Phòng ban<input id="employeeDepartment" type="text" readonly
-                /></label>
-                <label
-                  >Trình độ<select name="education">
-                    <option value="">Chưa cập nhật</option>
-                    <option value="Trung học phổ thông">Trung học phổ thông</option>
-                    <option value="Trung cấp">Trung cấp</option>
-                    <option value="Cao đẳng">Cao đẳng</option>
-                    <option value="Đại học">Đại học</option>
-                    <option value="Sau đại học">Sau đại học</option>
-                  </select></label
-                >
-                <label
-                  >Ngày vào làm<input name="hireDate" type="date" required
-                /></label>
-                <label
-                  >Tình trạng<select name="employmentStatus">
-                    <option>Đang làm</option>
-                    <option>Đang nghỉ phép</option>
-                    <option>Đã nghỉ việc</option>
-                  </select></label
-                >
-                <label
-                  >Vai trò<select
-                    name="roleId"
-                    id="employeeRole"
-                    required
-                  ></select
-                ></label>
-                <div class="hr-form-actions">
-                  <button type="submit" class="admin-primary-btn">
-                    Lưu nhân sự</button
-                  ><button
-                    type="button"
-                    class="admin-secondary-btn"
-                    id="cancelEmployeeBtn"
-                  >
-                    Hủy
+            <div id="addEmployeeModal" class="modal-overlay hidden">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h2 id="employeeFormTitle">Thêm nhân sự mới</h2>
+                  <button type="button" id="closeModalBtn" class="close-btn">
+                    &times;
                   </button>
-                  <p id="employeeFeedback" role="status" aria-live="polite"></p>
                 </div>
-              </form>
-            </section>
+                <form id="employeeForm" class="modal-body">
+                  <p class="account-eyebrow">THÔNG TIN NHÂN VIÊN</p>
+                  <div class="form-grid-2">
+                    <input type="hidden" name="id" />
+                    <div class="form-group">
+                      <label>Họ và tên <span class="req">*</span></label>
+                      <input name="name" type="text" required maxlength="100" />
+                    </div>
+                    <div class="form-group">
+                      <label>Email <span class="req">*</span></label>
+                      <input name="email" type="email" required />
+                    </div>
+                    <div class="employee-contact-date-row">
+                      <div class="form-group">
+                        <label>Số điện thoại</label>
+                        <input name="phone" type="tel" />
+                      </div>
+                      <div class="form-group">
+                        <label>Ngày sinh <span class="req">*</span></label>
+                        <input name="dateOfBirth" type="date" required />
+                      </div>
+                      <div class="form-group">
+                        <label>Ngày vào làm <span class="req">*</span></label>
+                        <input name="hireDate" type="date" required />
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label>Trình độ</label>
+                      <select name="education">
+                        <option value="">Chưa cập nhật</option>
+                        <option>Trung học phổ thông</option>
+                        <option>Trung cấp</option>
+                        <option>Cao đẳng</option>
+                        <option>Đại học</option>
+                        <option>Sau đại học</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>Chức vụ <span class="req">*</span></label>
+                      <select
+                        name="positionId"
+                        id="employeePosition"
+                        required
+                      ></select>
+                    </div>
+                    <div class="form-group">
+                      <label>Phòng ban</label>
+                      <select
+                        name="departmentId"
+                        id="employeeDepartment"
+                        required
+                      ></select>
+                    </div>
+                    <div class="form-group">
+                      <label>Trạng thái</label>
+                      <select name="employmentStatus">
+                        <option>Đang làm</option>
+                        <option>Đang nghỉ phép</option>
+                        <option>Đã nghỉ việc</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>Vai trò hệ thống <span class="req">*</span></label>
+                      <select name="roleId" id="employeeRole" required></select>
+                    </div>
+                    <div class="form-group">
+                      <label
+                        >Mật khẩu đăng nhập <span class="req">*</span></label
+                      >
+                      <input
+                        name="password"
+                        id="employeePassword"
+                        type="text"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                    <button
+                      type="button"
+                      class="admin-secondary-btn"
+                      id="cancelEmployeeBtn"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      class="admin-primary-btn"
+                      id="saveEmployeeBtn"
+                    >
+                      <img
+                        src="../shared/images/user-add.png"
+                        alt=""
+                        class="button-icon"
+                      />
+                      Thêm nhân sự
+                    </button>
+                  </div>
+                  <p id="employeeFeedback" role="status" aria-live="polite"></p>
+                </form>
+              </div>
+            </div>
             <section class="admin-panel hr-table-panel">
               <div class="hr-table-wrap">
                 <table class="hr-table">
@@ -319,14 +366,31 @@
                 <label class="hr-period-control"
                   >Tháng báo cáo<input id="staffReportMonth" type="month"
                 /></label>
-                <button type="button" class="admin-secondary-btn" id="exportMonthlyReportBtn" title="Tải các dòng đang hiển thị theo bộ lọc hiện tại">Tải CSV</button>
+                <button
+                  type="button"
+                  class="admin-secondary-btn"
+                  id="exportMonthlyReportBtn"
+                  title="Tải các dòng đang hiển thị theo bộ lọc hiện tại"
+                >
+                  Tải CSV
+                </button>
               </div>
             </div>
             <div class="hr-summary-grid" id="monthlyStaffSummary"></div>
             <section class="admin-panel hr-table-panel">
               <div class="hr-report-table-tools">
-                <input id="monthlyStaffSearch" class="admin-search" type="search" placeholder="Tìm theo tên, phòng ban, chức vụ..." aria-label="Tìm nhân sự trong báo cáo tháng" />
-                <select id="monthlyStaffFilter" class="admin-search" aria-label="Lọc trạng thái báo cáo">
+                <input
+                  id="monthlyStaffSearch"
+                  class="admin-search"
+                  type="search"
+                  placeholder="Tìm theo tên, phòng ban, chức vụ..."
+                  aria-label="Tìm nhân sự trong báo cáo tháng"
+                />
+                <select
+                  id="monthlyStaffFilter"
+                  class="admin-search"
+                  aria-label="Lọc trạng thái báo cáo"
+                >
                   <option value="all">Tất cả trạng thái</option>
                   <option value="active">Có làm việc trong tháng</option>
                   <option value="on_leave">Có nghỉ phép trong tháng</option>
@@ -357,22 +421,47 @@
                 <p class="account-eyebrow">TỔNG QUAN HỒ SƠ</p>
                 <h2>Trình độ, lương & thâm niên</h2>
               </div>
-              <button type="button" class="admin-secondary-btn" id="exportStaffStatsBtn" title="Tải các dòng đang hiển thị theo bộ lọc hiện tại">Tải CSV</button>
+              <button
+                type="button"
+                class="admin-secondary-btn"
+                id="exportStaffStatsBtn"
+                title="Tải các dòng đang hiển thị theo bộ lọc hiện tại"
+              >
+                Tải CSV
+              </button>
             </div>
             <div class="hr-summary-grid" id="staffStatsSummary"></div>
             <div class="hr-distribution-grid">
               <section class="admin-panel hr-distribution-panel">
                 <h3>Phân bố trình độ</h3>
-                <div id="educationDistribution" class="hr-distribution" aria-live="polite"></div>
+                <div
+                  id="educationDistribution"
+                  class="hr-distribution"
+                  aria-live="polite"
+                ></div>
               </section>
               <section class="admin-panel hr-distribution-panel">
                 <h3>Phân bố thâm niên</h3>
-                <div id="tenureDistribution" class="hr-distribution" aria-live="polite"></div>
+                <div
+                  id="tenureDistribution"
+                  class="hr-distribution"
+                  aria-live="polite"
+                ></div>
               </section>
             </div>
             <div class="hr-report-table-tools">
-              <input id="staffStatsSearch" class="admin-search" type="search" placeholder="Tìm nhân sự..." aria-label="Tìm nhân sự trong thống kê hồ sơ" />
-              <select id="staffStatsEducationFilter" class="admin-search" aria-label="Lọc theo trình độ">
+              <input
+                id="staffStatsSearch"
+                class="admin-search"
+                type="search"
+                placeholder="Tìm nhân sự..."
+                aria-label="Tìm nhân sự trong thống kê hồ sơ"
+              />
+              <select
+                id="staffStatsEducationFilter"
+                class="admin-search"
+                aria-label="Lọc theo trình độ"
+              >
                 <option value="all">Tất cả trình độ</option>
               </select>
             </div>
@@ -404,12 +493,21 @@
             </div>
             <section class="admin-panel hr-permission-panel">
               <label>Nhân sự<select id="permissionEmployee"></select></label>
-              <label>Vai trò muốn gán<select id="permissionRole"></select></label>
+              <label
+                >Vai trò muốn gán<select id="permissionRole"></select
+              ></label>
               <p id="permissionCurrentRole" class="hr-permission-current"></p>
-              <p id="permissionChangeSummary" class="hr-permission-change" aria-live="polite"></p>
+              <p
+                id="permissionChangeSummary"
+                class="hr-permission-change"
+                aria-live="polite"
+              ></p>
               <fieldset class="hr-permission-list">
                 <legend>So sánh quyền hiện tại và sau khi đổi vai trò</legend>
-                <div class="hr-permission-columns" aria-hidden="true"><span>Quyền</span><span>Hiện tại</span><span>Sau khi đổi</span></div>
+                <div class="hr-permission-columns" aria-hidden="true">
+                  <span>Quyền</span><span>Hiện tại</span
+                  ><span>Sau khi đổi</span>
+                </div>
                 <div id="permissionOptions"></div>
               </fieldset>
               <div class="hr-form-actions">
@@ -447,7 +545,8 @@
             <p class="hr-demo-note">
               Nhân viên và trưởng nhóm nhận các quyền đã cấu hình cho vai trò.
               Chọn vai trò để xem quyền, sau đó gán cho nhân sự; thay đổi được
-              lưu vào lịch sử phân công. Quyền chung của từng vai trò do Admin cấu hình.
+              lưu vào lịch sử phân công. Quyền chung của từng vai trò do Admin
+              cấu hình.
             </p>
           </section>
 
@@ -1391,7 +1490,11 @@
       <div class="logout-modal-content">
         <h2 id="logoutModalTitle">Bạn có muốn đăng xuất không?</h2>
         <div class="logout-modal-actions">
-          <button type="button" class="admin-secondary-btn" id="cancelLogoutBtn">
+          <button
+            type="button"
+            class="admin-secondary-btn"
+            id="cancelLogoutBtn"
+          >
             Không
           </button>
           <button type="button" class="admin-logout-btn" id="confirmLogoutBtn">
@@ -1399,6 +1502,19 @@
           </button>
         </div>
       </div>
+    </div>
+    <div
+      id="successToast"
+      class="success-toast"
+      role="status"
+      aria-live="polite"
+    >
+      <img src="../shared/images/check.png" alt="" class="toast-icon" />
+      <span>Thêm nhân sự thành công!</span>
+    </div>
+    <div id="deleteToast" class="delete-toast" role="status" aria-live="polite">
+      <img src="../shared/images/x.png" alt="" class="toast-icon" />
+      <span>Đã xóa nhân viên thành công!</span>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
