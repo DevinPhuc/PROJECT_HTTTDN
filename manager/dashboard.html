@@ -187,200 +187,78 @@
                   class="admin-primary-btn"
                   id="addEmployeeBtn"
                 >
-                  <img
-                    src="../shared/images/user-add.png"
-                    alt="Check"
-                    style="
-                      width: 16px;
-                      height: 16px;
-                      margin-right: 8px;
-                      object-fit: contain;
-                    "
-                  />
                   Thêm nhân sự
                 </button>
               </div>
             </div>
-            <div id="addEmployeeModal" class="modal-overlay hidden">
-              <div class="modal-content" style="width: 750px">
-                <div class="modal-header">
-                  <h2
-                    id="employeeFormTitle"
-                    style="font-size: 18px; color: #333; font-weight: 700"
+            <section
+              class="admin-panel hr-form-panel"
+              id="employeeFormPanel"
+              hidden
+            >
+              <form id="employeeForm" class="hr-form-grid">
+                <h3 id="employeeFormTitle">Thông tin nhân sự</h3>
+                <input type="hidden" name="id" />
+                <label
+                  >Họ và tên<input
+                    name="name"
+                    type="text"
+                    required
+                    maxlength="100"
+                /></label>
+                <label>Email<input name="email" type="email" required /></label>
+                <label>Số điện thoại<input name="phone" type="tel" /></label>
+                <label
+                  >Chức vụ<select
+                    name="positionId"
+                    id="employeePosition"
+                    required
+                  ></select
+                ></label>
+                <label
+                  >Phòng ban<input id="employeeDepartment" type="text" readonly
+                /></label>
+                <label
+                  >Trình độ<select name="education">
+                    <option value="">Chưa cập nhật</option>
+                    <option value="Trung học phổ thông">Trung học phổ thông</option>
+                    <option value="Trung cấp">Trung cấp</option>
+                    <option value="Cao đẳng">Cao đẳng</option>
+                    <option value="Đại học">Đại học</option>
+                    <option value="Sau đại học">Sau đại học</option>
+                  </select></label
+                >
+                <label
+                  >Ngày vào làm<input name="hireDate" type="date" required
+                /></label>
+                <label
+                  >Tình trạng<select name="employmentStatus">
+                    <option>Đang làm</option>
+                    <option>Đang nghỉ phép</option>
+                    <option>Đã nghỉ việc</option>
+                  </select></label
+                >
+                <label
+                  >Vai trò<select
+                    name="roleId"
+                    id="employeeRole"
+                    required
+                  ></select
+                ></label>
+                <div class="hr-form-actions">
+                  <button type="submit" class="admin-primary-btn">
+                    Lưu nhân sự</button
+                  ><button
+                    type="button"
+                    class="admin-secondary-btn"
+                    id="cancelEmployeeBtn"
                   >
-                    Thêm nhân viên mới
-                  </h2>
-                  <button type="button" id="closeModalBtn" class="close-btn">
-                    &times;
+                    Hủy
                   </button>
+                  <p id="employeeFeedback" role="status" aria-live="polite"></p>
                 </div>
-
-                <form id="employeeForm" class="modal-body">
-                  <p
-                    class="account-eyebrow"
-                    style="color: #244336; margin-top: 5px; font-size: 13px"
-                  >
-                    THÔNG TIN NHÂN VIÊN
-                  </p>
-                  <div class="form-grid-2">
-                    <input type="hidden" name="id" />
-
-                    <div class="form-group">
-                      <label>Họ và tên <span class="req">*</span></label>
-                      <input type="text" name="name" required />
-                    </div>
-                    <div class="form-group">
-                      <label>Email <span class="req">*</span></label>
-                      <input
-                        type="email"
-                        name="email"
-                        required
-                        pattern=".*@gmail\.com$"
-                        title="Vui lòng nhập email có đuôi @gmail.com"
-                      />
-                    </div>
-                    <div class="employee-contact-date-row">
-                      <div class="form-group">
-                        <label>Số điện thoại</label>
-                        <input type="tel" name="phone" />
-                      </div>
-                      <div class="form-group">
-                        <label
-                          >Ngày tháng năm sinh <span class="req">*</span></label
-                        >
-                        <input type="date" name="dateOfBirth" required />
-                      </div>
-
-                      <div class="form-group">
-                        <label>Ngày vào làm <span class="req">*</span></label>
-                        <input type="date" name="hireDate" required />
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label>Trình độ</label>
-                      <select name="education">
-                        <option value="Trung học phổ thông">
-                          Trung học phổ thông
-                        </option>
-                        <option value="Trung cấp">Trung cấp</option>
-                        <option value="Cao đẳng">Cao đẳng</option>
-                        <option value="Đại học">Đại học</option>
-                        <option value="Sau đại học">Sau đại học</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Chức vụ</label>
-                      <select
-                        name="positionId"
-                        id="employeePosition"
-                        required
-                      ></select>
-                    </div>
-                    <div class="form-group">
-                      <label>Phòng ban</label>
-                      <select
-                        name="departmentId"
-                        id="employeeDepartment"
-                        required
-                      ></select>
-                    </div>
-                    <div class="form-group">
-                      <label>Trạng thái</label>
-                      <select name="employmentStatus">
-                        <option value="Đang làm">Đang làm</option>
-                        <option value="Đang nghỉ phép">Đang nghỉ phép</option>
-                        <option value="Đã nghỉ việc">Đã nghỉ việc</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Vai trò hệ thống <span class="req">*</span></label>
-                      <select name="roleId" id="employeeRole" required></select>
-                    </div>
-                    <div class="form-group">
-                      <label
-                        >Mật khẩu đăng nhập <span class="req">*</span></label
-                      >
-                      <input
-                        type="text"
-                        name="password"
-                        id="employeePassword"
-                        required
-                        placeholder="Tự động tạo hoặc nhập tay"
-                      />
-                    </div>
-                  </div>
-
-                  <div
-                    class="modal-footer"
-                    style="
-                      margin-top: 20px;
-                      display: flex;
-                      gap: 10px;
-                      justify-content: flex-end;
-                    "
-                  >
-                    <button
-                      type="button"
-                      id="cancelEmployeeBtn"
-                      style="
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        background: #f5320b;
-                        color: #fff;
-                        border: none;
-                        border-radius: 8px;
-                        padding: 8px 14px;
-                        font-weight: 600;
-                        font-size: 13px;
-                        cursor: pointer;
-                      "
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      type="submit"
-                      class="admin-primary-btn"
-                      style="
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        background: #0bf559;
-                        border: none;
-                        border-radius: 8px;
-                        padding: 10px 24px;
-                        color: #fff;
-                        font-weight: 600;
-                        font-size: 13px;
-                      "
-                    >
-                      <img
-                        src="../shared/images/user-add.png"
-                        alt="Check"
-                        style="
-                          width: 16px;
-                          height: 16px;
-                          margin-right: 8px;
-                          object-fit: contain;
-                        "
-                      />
-                      Thêm nhân sự
-                    </button>
-                  </div>
-                  <p
-                    id="employeeFeedback"
-                    role="status"
-                    aria-live="polite"
-                    style="
-                      margin-top: 10px;
-                      color: red;
-                      text-align: right;
-                      font-size: 20px;
-                    "
-                  ></p>
-                </form>
-              </div>
-            </div>
+              </form>
+            </section>
             <section class="admin-panel hr-table-panel">
               <div class="hr-table-wrap">
                 <table class="hr-table">
@@ -406,11 +284,7 @@
                 <p class="account-eyebrow">HỘP THƯ NHÂN SỰ</p>
                 <h2>Duyệt đơn nghỉ</h2>
               </div>
-              <select
-                id="requestFilter"
-                class="admin-search"
-                style="max-width: 150px"
-              >
+              <select id="requestFilter" class="admin-search">
                 <option value="all">Tất cả đơn</option>
                 <option value="pending">Chờ duyệt</option>
                 <option value="resolved">Đã xử lý</option>
@@ -1517,11 +1391,7 @@
       <div class="logout-modal-content">
         <h2 id="logoutModalTitle">Bạn có muốn đăng xuất không?</h2>
         <div class="logout-modal-actions">
-          <button
-            type="button"
-            class="admin-secondary-btn"
-            id="cancelLogoutBtn"
-          >
+          <button type="button" class="admin-secondary-btn" id="cancelLogoutBtn">
             Không
           </button>
           <button type="button" class="admin-logout-btn" id="confirmLogoutBtn">
@@ -1529,22 +1399,6 @@
           </button>
         </div>
       </div>
-    </div>
-    <div id="successToast" class="success-toast">
-      <img
-        src="../shared/images/check.png"
-        alt="Check"
-        style="width: 18px; height: 18px; object-fit: contain"
-      />
-      <span>Thêm nhân sự thành công!</span>
-    </div>
-    <div id="deleteToast" class="delete-toast">
-      <img
-        src="../shared/images/x.png"
-        alt="X"
-        style="width: 18px; height: 18px; object-fit: contain"
-      />
-      <span>Đã xóa nhân viên thành công!</span>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
