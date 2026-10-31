@@ -883,7 +883,7 @@ body:has(.admin-page) {
 .hr-table td {
   padding: 12px 14px;
   border-bottom: 1px solid var(--admin-line);
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .hr-table thead th {
@@ -912,7 +912,10 @@ body:has(.admin-page) {
 .hr-row-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
   gap: 6px;
+  min-width: 110px;
 }
 
 .hr-status {
