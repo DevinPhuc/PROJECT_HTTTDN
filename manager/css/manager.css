@@ -933,6 +933,20 @@ body:has(.admin-page) {
   color: #8b6927;
 }
 
+.hr-status-approved {
+  background: var(--admin-green-soft);
+  color: var(--admin-green-dark);
+}
+
+.hr-status-rejected {
+  background: var(--admin-red-soft);
+  color: var(--admin-red);
+}
+
+.hr-table tbody tr:hover td {
+  background: rgba(52, 91, 74, 0.04);
+}
+
 .hr-status-resigned {
   background: var(--admin-red-soft);
   color: var(--admin-red);
