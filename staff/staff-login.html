@@ -148,6 +148,47 @@
       box-shadow: 0 0 0 4px rgba(23, 107, 114, 0.08);
     }
 
+    .password-wrap {
+      position: relative;
+    }
+
+    .password-wrap input {
+      width: 100%;
+      padding-right: 52px;
+    }
+
+    /* Our custom button replaces the browser's built-in reveal eye (Edge/IE). */
+    .password-wrap input::-ms-reveal {
+      display: none;
+    }
+
+    .toggle-password {
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--admin-muted);
+      cursor: pointer;
+    }
+
+    .toggle-password:hover {
+      color: var(--admin-primary);
+      background: var(--admin-primary-soft);
+    }
+
+    .toggle-password svg {
+      width: 20px;
+      height: 20px;
+    }
+
     .login-meta {
       display: flex;
       align-items: center;
@@ -240,10 +281,19 @@
           <input name="email" type="email" placeholder="email@jewels.vn" required>
         </label>
 
-        <label class="field">
-          Mật khẩu
-          <input name="password" type="password" placeholder="Nhập mật khẩu" required>
-        </label>
+        <div class="field">
+          <label for="staffPassword">Mật khẩu</label>
+          <div class="password-wrap">
+            <input name="password" id="staffPassword" type="password" placeholder="Nhập mật khẩu" required>
+            <button class="toggle-password" id="togglePassword" type="button" aria-label="Hiện mật khẩu" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+                <line id="eyeSlash" x1="4" y1="4" x2="20" y2="20" style="display:none"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
 
         <div class="login-meta">
           <label class="remember"><input type="checkbox" name="remember"> Ghi nhớ</label>
@@ -263,6 +313,18 @@
     const loginForm = document.getElementById("staffLoginForm");
     const feedback = document.getElementById("staffLoginFeedback");
     const portal = window.jewelsPortal;
+    const passwordInput = document.getElementById("staffPassword");
+    const togglePasswordBtn = document.getElementById("togglePassword");
+    const eyeSlash = document.getElementById("eyeSlash");
+
+    togglePasswordBtn.addEventListener("click", () => {
+      const show = passwordInput.type === "password";
+      passwordInput.type = show ? "text" : "password";
+      togglePasswordBtn.setAttribute("aria-label", show ? "Ẩn mật khẩu" : "Hiện mật khẩu");
+      togglePasswordBtn.setAttribute("aria-pressed", String(show));
+      eyeSlash.style.display = show ? "" : "none";
+      passwordInput.focus();
+    });
 
     // A valid session goes straight in; the dashboard re-checks access on boot.
     if (portal.validSession("staff")) window.location.replace("staff-dashboard.html");

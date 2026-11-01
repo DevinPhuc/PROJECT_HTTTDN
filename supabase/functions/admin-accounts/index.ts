@@ -379,7 +379,7 @@ async function listRows() {
       order by ur.valid_from desc, ur.user_role_id desc
       limit 1
     ) active_role on true
-    order by e.full_name`;
+    order by (active_role.role_name = 'Admin') desc, e.full_name`;
 }
 
 async function listAction(): Promise<Response> {

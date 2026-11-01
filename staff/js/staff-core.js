@@ -7,11 +7,13 @@ const DEMO_MODE = new URLSearchParams(window.location.search).get("demo") === "1
 const VIEW_PERMISSION_ALIASES = {
   // codes must match public.permissions in the DB (dot-notation, e.g. employee.view)
   profile: ["employee.view", "employee.edit"],
+  attendance: ["attendance.self"],
   leave: ["leave.create", "leave.view"],
   "salary-month": ["payroll.view"],
   "salary-year": ["payroll.print", "payroll.view"]
 };
 const VIEW_MODULES = {};
+let currentView = null;
 let employee;
 let contact;
 let position;
@@ -37,6 +39,35 @@ const demoEmployee = {
 };
 const demoContact = { phone_number: "0900 000 000", address: "Địa chỉ mẫu, chỉ dùng để xem thử" };
 const demoPosition = { position_title: "Nhân viên kinh doanh", department_name: "Kinh doanh" };
+const demoPersonalInfo = {
+  national_id: "079123456789", id_type: "CCCD", nationality: "Vietnam",
+  marital_status: "Độc thân", is_disabled: false, protected_until: null
+};
+const demoQualifications = [{
+  qualification_level: "Đại học", major_field: "Quản trị kinh doanh",
+  institution_name: "ĐH Kinh tế TP.HCM", graduation_year: 2020
+}];
+const demoStatusHistory = [{ status: "Active", effective_date: demoEmployee.hire_date, reason: "Nhận việc" }];
+const demoPayrollInfo = { bank_name: "Vietcombank", bank_account_no: "0071000812345", tax_code: "8123456789", social_insurance_no: "0123456789", health_insurance_no: "HK4120001234" };
+// Sample payroll_details lines, employee side first, employer side separate.
+const demoPayrollDetails = (year, month) => year === demoYear && month === demoMonth ? [
+  { item_type: "Allowance", item_name: "Phụ cấp ăn trưa", amount: 730000, payer: "Employee" },
+  { item_type: "Insurance", item_name: "BHXH người lao động (8%)", amount: 960000, payer: "Employee" },
+  { item_type: "Insurance", item_name: "BHYT người lao động (1,5%)", amount: 180000, payer: "Employee" },
+  { item_type: "Insurance", item_name: "BHTN người lao động (1%)", amount: 120000, payer: "Employee" },
+  { item_type: "Tax", item_name: "Thuế TNCN (dưới mức chịu thuế)", amount: 0, payer: "Employee" },
+  { item_type: "Insurance", item_name: "BHXH người sử dụng lao động (17,5%)", amount: 2100000, payer: "Employer" },
+  { item_type: "Insurance", item_name: "BHYT người sử dụng lao động (3%)", amount: 360000, payer: "Employer" }
+] : [];
+let demoAttendanceRecords = [];
+function demoIsoToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+}
+function demoTimeNow() {
+  return new Date().toLocaleTimeString("en-GB", {
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh"
+  });
+}
 const demoPayrollRecords = Array.from({ length: demoMonth }, (_, index) => ({
   pay_month: index + 1,
   pay_year: demoYear,
@@ -78,9 +109,59 @@ async function callStaff(body) {
         phone_number: body.phone_number,
         address: body.address
       });
+      if (body.marital_status) demoPersonalInfo.marital_status = body.marital_status;
       return { ok: true, data: { employee: { ...demoEmployee }, contact: { ...demoContact } } };
     case "leave_list":
       return { ok: true, data: { requests: demoLeaveRequests.map((request) => ({ ...request })) } };
+    case "personal_info":
+      return {
+        ok: true,
+        data: {
+          personal_info: { ...demoPersonalInfo },
+          qualifications: demoQualifications.map((item) => ({ ...item })),
+          status_history: demoStatusHistory.map((item) => ({ ...item }))
+        }
+      };
+    case "leave_summary": {
+      // Same rules as the staff-portal edge function; annual quota mirrors the leave_types seed.
+      const today = demoIsoToday();
+      const year = Number(today.slice(0, 4));
+      const dayDiff = (from, to) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
+      const committed = demoLeaveRequests.reduce((sum, request) =>
+        request.leave_type === "annual" && ["pending", "approved"].includes(request.status) && Number(request.start_date.slice(0, 4)) === year
+          ? sum + dayDiff(request.start_date, request.end_date) + 1 : sum, 0);
+      const used = demoLeaveRequests.reduce((sum, request) => {
+        if (request.leave_type === "resignation" || request.status !== "approved" || request.start_date > today) return sum;
+        return sum + Math.max(Math.min(dayDiff(request.start_date, request.end_date) + 1, dayDiff(request.start_date, today) + 1), 0);
+      }, 0);
+      const pendingRequests = demoLeaveRequests.filter((request) => request.status === "pending");
+      const upcoming = demoLeaveRequests
+        .filter((request) => request.leave_type !== "resignation" && request.status === "approved" && request.end_date >= today)
+        .sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
+      return {
+        ok: true,
+        data: {
+          summary: {
+            today, year,
+            annual_granted: 12,
+            annual_committed: committed,
+            used_days: used,
+            pending_count: pendingRequests.length,
+            pending_days: pendingRequests.reduce((sum, request) => request.leave_type === "resignation" ? sum : sum + dayDiff(request.start_date, request.end_date) + 1, 0),
+            annual_pending_days: pendingRequests.reduce((sum, request) => request.leave_type === "annual" ? sum + dayDiff(request.start_date, request.end_date) + 1 : sum, 0),
+            upcoming: upcoming ? { ...upcoming, leave_request_id: null } : null
+          }
+        }
+      };
+    }
+    case "payroll_info":
+      return { ok: true, data: { info: { ...demoPayrollInfo } } };
+    case "payroll_info_save": {
+      ["bank_name", "bank_account_no", "tax_code", "social_insurance_no", "health_insurance_no"].forEach((key) => {
+        demoPayrollInfo[key] = body[key] || null;
+      });
+      return { ok: true, data: { info: { ...demoPayrollInfo } } };
+    }
     case "leave_create":
       demoLeaveRequests.unshift({
         leave_type: {
@@ -99,7 +180,8 @@ async function callStaff(body) {
       return {
         ok: true,
         data: {
-          payroll: demoPayrollRecords.find((record) => record.pay_year === body.year && record.pay_month === body.month) || null
+          payroll: demoPayrollRecords.find((record) => record.pay_year === body.year && record.pay_month === body.month) || null,
+          details: demoPayrollDetails(body.year, body.month)
         }
       };
     case "payroll_year":
@@ -107,6 +189,22 @@ async function callStaff(body) {
         ok: true,
         data: { payroll: demoPayrollRecords.filter((record) => record.pay_year === body.year) }
       };
+    case "attendance_list":
+      return { ok: true, data: { today: demoIsoToday(), records: demoAttendanceRecords.map((record) => ({ ...record })) } };
+    case "attendance_clock": {
+      // Mirrors the backend: many sessions per day, one row per session.
+      const today = demoIsoToday();
+      const open = demoAttendanceRecords.find((item) => item.work_date === today && item.check_in && !item.check_out);
+      const phase = body.phase || (open ? "out" : "in");
+      if (phase === "out") {
+        if (!open) return { ok: false, error: "not_clocked_in" };
+        open.check_out = demoTimeNow();
+      } else {
+        if (open) return { ok: false, error: "already_in" };
+        demoAttendanceRecords.unshift({ attendance_id: `demo-clock-${Date.now()}`, work_date: today, check_in: demoTimeNow(), check_out: null, status: "Present" });
+      }
+      return { ok: true, data: { today, records: demoAttendanceRecords.map((item) => ({ ...item })) } };
+    }
     default:
       return { ok: false, error: "unknown_action" };
   }
@@ -146,6 +244,9 @@ function setView(viewName) {
     showPageError("Tài khoản chưa được cấp quyền chức năng.");
     return;
   }
+  // Leaving a view clears its in-progress form (registered per view as `leave`).
+  if (currentView && currentView !== viewName) VIEW_MODULES[currentView]?.leave?.();
+  currentView = viewName;
   document.querySelectorAll("[data-staff-panel]").forEach((panel) => {
     const active = panel.dataset.staffPanel === viewName;
     panel.hidden = !active;
@@ -203,14 +304,50 @@ async function loadStaffPortal() {
   department = position ? { department_id: position.department_id, department_name: position.department_name } : null;
   permissionCodes = boot.data.permissionCodes || [];
   if ((boot.data.roleNames || []).some((name) => ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(String(name).toLowerCase()))) { window.location.replace("../manager/dashboard.html"); return; }
+  // Logout confirmation modal (same behavior as manager dashboard).
+  const logoutModal = document.getElementById("logoutModal");
+  const cancelLogoutBtn = document.getElementById("cancelLogoutBtn");
+  const setLogoutModalOpen = (open) => {
+    logoutModal.hidden = !open;
+  };
   document.getElementById("adminLogoutBtn").addEventListener("click", () => {
+    setProfileMenuOpen(false);
+    setLogoutModalOpen(true);
+    cancelLogoutBtn.focus();
+  });
+  cancelLogoutBtn.addEventListener("click", () => setLogoutModalOpen(false));
+  document.getElementById("confirmLogoutBtn").addEventListener("click", () => {
     if (!DEMO_MODE) portal.clearSession("staff");
     window.location.href = "staff-login.html";
   });
-  setView(window.location.hash.slice(1) || "profile");
+  logoutModal.addEventListener("click", (event) => {
+    if (event.target === logoutModal) setLogoutModalOpen(false);
+  });
+  // Sidebar profile card toggle (same behavior as manager dashboard).
+  const profileToggle = document.getElementById("staffProfileToggle");
+  const profileMenu = document.getElementById("staffProfileMenu");
+  const profileCard = profileToggle.closest(".admin-profile-card");
+  const setProfileMenuOpen = (open) => {
+    profileToggle.setAttribute("aria-expanded", String(open));
+    profileMenu.classList.toggle("show-menu", open);
+  };
+  profileToggle.addEventListener("click", () => {
+    setProfileMenuOpen(profileToggle.getAttribute("aria-expanded") !== "true");
+  });
+  document.addEventListener("click", (event) => {
+    if (!profileCard.contains(event.target)) setProfileMenuOpen(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setProfileMenuOpen(false);
+      setLogoutModalOpen(false);
+    }
+  });
+  setView(window.location.hash.slice(1) || "attendance");
+  document.body.classList.add("staff-ready");
   // The profile view always loads: it also fills the sidebar name/avatar.
   const tasks = VIEW_MODULES.profile?.load ? [VIEW_MODULES.profile.load()] : [];
-  ["leave", "salary-month", "salary-year"].forEach((view) => {
+  ["attendance", "leave", "salary-month", "salary-year"].forEach((view) => {
     if (allowedView(view) && VIEW_MODULES[view]?.load) tasks.push(VIEW_MODULES[view].load());
   });
   const results = await Promise.allSettled(tasks); if (results.some((result) => result.status === "rejected")) showPageError("Không tải được dữ liệu. Vui lòng thử lại sau.");

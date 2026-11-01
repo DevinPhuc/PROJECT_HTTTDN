@@ -326,9 +326,8 @@ function renderRequests() {
     addCell(row, LEAVE_TYPES[request.leave_type] || "Chưa phân loại");
     addCell(row, request.leave_type === "resignation" ? `Ngày dự kiến cuối: ${dateLabel(request.start_date)}` : `${dateLabel(request.start_date)} - ${dateLabel(request.end_date)}`);
     addCell(row, request.reason);
-    addCell(row, LEAVE_STATUSES[request.status] || request.status);
-    const actionsCell = document.createElement("td");
-    const actions = document.createElement("div"); actions.className = "hr-row-actions";
+    const statusCell = document.createElement("td"); const badge = document.createElement("span"); badge.className = `hr-status hr-status-${String(request.status || "pending").toLowerCase()}`; badge.textContent = LEAVE_STATUSES[request.status] || request.status; row.append(statusCell);
+    const actions = document.createElement("td"); actions.className = "hr-row-actions";
     if (request.status === "pending") ["approved", "rejected"].forEach((status) => {
       const button = document.createElement("button"); button.type = "button"; button.className = status === "approved" ? "mini-btn" : "mini-btn danger";
       button.dataset.reviewStatus = status; button.dataset.requestId = request.leave_request_id; button.textContent = status === "approved" ? "Duyệt" : "Từ chối"; actions.append(button);
@@ -781,7 +780,10 @@ async function loadAttendanceAndPayroll() {
   document.getElementById("payrollForm").elements.namedItem("baseSalary").value = payroll?.base_salary ?? 0;
   document.getElementById("payrollForm").elements.namedItem("allowance").value = payroll?.allowance ?? payroll?.bonus ?? 0;
   document.getElementById("payrollForm").elements.namedItem("tax").value = payroll?.personal_income_tax ?? 0;
-  document.getElementById("payrollForm").elements.namedItem("insuranceRate").value = payroll?.insurance_rate ?? 10.5;
+  // payroll has no insurance_rate column: derive the applied rate from the stored amount.
+  document.getElementById("payrollForm").elements.namedItem("insuranceRate").value = payroll && Number(payroll.base_salary) > 0 && payroll.insurance_amount != null
+    ? Math.round(Number(payroll.insurance_amount) / Number(payroll.base_salary) * 1000) / 10
+    : 10.5;
   const tbody = document.getElementById("attendanceBody"); tbody.replaceChildren();
   records.forEach((record) => { const row = document.createElement("tr"); addCell(row, dateLabel(record.work_date)); addCell(row, capitalized(record.status) || record.status); addCell(row, `${record.overtime_hours || 0} giờ`); addCell(row, record.notes || "-"); tbody.append(row); });
   renderPayrollPreview();
