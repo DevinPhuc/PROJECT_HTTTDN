@@ -3,7 +3,10 @@
 // Body:   { action, ... }
 //   boot:           employee + contact + position/department + roles + permissions in one call
 //   update_profile: own full_name, date_of_birth, phone_number, address, marital_status
-//   personal_info:  own identity record, qualifications and status history (read only)
+//   personal_info:  own identity record, qualifications and status history
+//   personal_info_save: own identity fields (national_id, id_type, nationality)
+//   qualifications_save: replace own qualification rows
+//   status_history_save: replace own status history rows
 //   leave_list:     own leave requests with labels
 //   leave_create:   submit a leave request (label → leave_types; num_days computed)
 //   leave_summary:  KPI summary for the leave panel (quota, used, pending, upcoming)
@@ -150,9 +153,10 @@ async function bootAction(actor: Actor): Promise<Response> {
 }
 
 async function updateProfileAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
-  const fullName = str(body.full_name);
-  const phoneNumber = str(body.phone_number);
-  const address = str(body.address);
+  // Slices match the column limits so an oversized payload fails cleanly, not 500.
+  const fullName = str(body.full_name).slice(0, 150);
+  const phoneNumber = str(body.phone_number).slice(0, 20);
+  const address = str(body.address).slice(0, 180);
   const dob = str(body.date_of_birth);
 
   if (!fullName || !isRealDate(dob)) return json({ ok: false, error: "invalid_profile" }, 400);
@@ -492,9 +496,10 @@ async function payrollInfoSaveAction(actor: Actor, body: Record<string, unknown>
   const values = {
     bank_name: text(body.bank_name, 100),
     bank_account_no: text(body.bank_account_no, 30),
-    tax_code: text(body.tax_code, 30),
-    social_insurance_no: text(body.social_insurance_no, 30),
-    health_insurance_no: text(body.health_insurance_no, 30)
+    // tax/social/health numbers are varchar(20) in the DB.
+    tax_code: text(body.tax_code, 20),
+    social_insurance_no: text(body.social_insurance_no, 20),
+    health_insurance_no: text(body.health_insurance_no, 20)
   };
   if (Object.values(values).every((v) => v === null)) {
     // Every field cleared -> no record to keep.
@@ -518,6 +523,152 @@ async function payrollInfoSaveAction(actor: Actor, body: Record<string, unknown>
           health_insurance_no = excluded.health_insurance_no
     returning bank_name, bank_account_no, tax_code, social_insurance_no, health_insurance_no`;
   return json({ ok: true, info: row });
+}
+
+// Identity fields the employee may self-edit (national_id / id_type /
+// nationality). is_disabled and protected_until stay HR-owned and are never
+// touched here. national_id is NOT NULL: without an existing row a save
+// needs all three fields, otherwise it is skipped (nothing to create).
+async function personalInfoSaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+  const idType = str(body.id_type);
+  const nationalId = str(body.national_id);
+  const nationality = str(body.nationality);
+
+  const result = await sql!.begin(async (tx) => {
+    const [existing] = await tx`
+      select id_type, national_id, nationality
+      from public.employee_personal_info
+      where employee_id = ${actor.employee_id}::uuid
+      limit 1`;
+
+    const finalType = (idType || String(existing?.id_type ?? "")).trim();
+    const finalNationalId = (nationalId || String(existing?.national_id ?? "")).trim();
+    // nationality is NOT NULL with default 'Vietnam': invent nothing smarter.
+    const finalNationality = (nationality || String(existing?.nationality ?? "") || "Vietnam").trim();
+
+    if (!existing) {
+      if (!nationalId && !idType && !nationality) {
+        // Nothing entered and no row: the save is a no-op.
+        return { created: false, updated: false };
+      }
+      if (!nationalId || !idType) {
+        // Started filling identity data but left a required field blank.
+        return null;
+      }
+    }
+    if (!["CCCD", "CMND", "Passport"].includes(finalType) || !finalNationalId) {
+      return null;
+    }
+
+    if (existing) {
+      await tx`
+        update public.employee_personal_info
+        set id_type = ${finalType}, national_id = ${finalNationalId}, nationality = ${finalNationality}
+        where employee_id = ${actor.employee_id}::uuid`;
+    } else {
+      await tx`
+        insert into public.employee_personal_info
+          (employee_id, id_type, national_id, nationality)
+        values
+          (${actor.employee_id}::uuid, ${finalType}, ${finalNationalId}, ${finalNationality})`;
+    }
+    return { created: !existing, updated: Boolean(existing) };
+  });
+
+  if (result === null) return json({ ok: false, error: "invalid_identity" }, 400);
+  if (!result.updated && !result.created) return json({ ok: true, personal_info: null });
+
+  const [row] = await sql!`
+    select id_type, national_id, nationality, marital_status,
+           is_disabled, to_char(protected_until, 'YYYY-MM-DD') as protected_until
+    from public.employee_personal_info
+    where employee_id = ${actor.employee_id}::uuid
+    limit 1`;
+  return json({ ok: true, personal_info: row ?? null });
+}
+
+// Qualifications and status history are full-replacement saves: delete the
+// own rows, then insert what the form holds — own rows only, scoped to the
+// session employee.
+async function qualificationsSaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+  const rows = Array.isArray(body.rows) ? body.rows : null;
+  if (!rows) return json({ ok: false, error: "bad_request" }, 400);
+
+  const mapped = rows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    const year = row.graduation_year == null || row.graduation_year === "" ? null : Number(row.graduation_year);
+    return {
+      qualification_level: str(row.qualification_level).slice(0, 50),
+      major_field: str(row.major_field).slice(0, 150),
+      institution_name: str(row.institution_name).slice(0, 150),
+      graduation_year: year != null && Number.isInteger(year) ? year : null,
+    };
+  });
+  if (mapped.some(
+    (row) =>
+      (!row.qualification_level && (row.major_field || row.institution_name || row.graduation_year != null)) ||
+      (row.graduation_year != null && (row.graduation_year < 1950 || row.graduation_year > 2100)),
+  )) return json({ ok: false, error: "invalid_qualification" }, 400);
+  const kept = mapped.filter((row) => row.qualification_level);
+
+  await sql!.begin(async (tx) => {
+    await tx`delete from public.employee_qualifications where employee_id = ${actor.employee_id}::uuid`;
+    for (const row of kept) {
+      await tx`
+        insert into public.employee_qualifications
+          (employee_id, qualification_level, major_field, institution_name, graduation_year)
+        values
+          (${actor.employee_id}::uuid, ${row.qualification_level}, ${row.major_field},
+           ${row.institution_name}, ${row.graduation_year})`;
+    }
+  });
+
+  const saved = await sql!`
+    select qualification_level, major_field, institution_name, graduation_year
+    from public.employee_qualifications
+    where employee_id = ${actor.employee_id}::uuid
+    order by graduation_year desc nulls last`;
+  return json({ ok: true, rows: saved });
+}
+
+async function statusHistorySaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+  const rows = Array.isArray(body.rows) ? body.rows : null;
+  if (!rows) return json({ ok: false, error: "bad_request" }, 400);
+
+  // Status values must satisfy the DB check constraint.
+  const allowedStatus = ["Active", "OnLeave", "Resigned"];
+  const mapped = rows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    return {
+      status: str(row.status),
+      effective_date: str(row.effective_date),
+      reason: str(row.reason),
+    };
+  });
+  if (mapped.some(
+    (row) => (Boolean(row.reason) && (!row.status || !isRealDate(row.effective_date))) ||
+      (row.status && (!allowedStatus.includes(row.status) || !isRealDate(row.effective_date))),
+  )) return json({ ok: false, error: "invalid_history" }, 400);
+  const kept = mapped.filter((row) => row.status && isRealDate(row.effective_date));
+
+  await sql!.begin(async (tx) => {
+    await tx`delete from public.employee_status_history where employee_id = ${actor.employee_id}::uuid`;
+    for (const row of kept) {
+      await tx`
+        insert into public.employee_status_history
+          (employee_id, status, effective_date, reason, recorded_by)
+        values
+          (${actor.employee_id}::uuid, ${row.status}, ${row.effective_date}::date,
+           ${row.reason}, ${actor.employee_id}::uuid)`;
+    }
+  });
+
+  const saved = await sql!`
+    select status, to_char(effective_date, 'YYYY-MM-DD') as effective_date, reason
+    from public.employee_status_history
+    where employee_id = ${actor.employee_id}::uuid
+    order by effective_date desc`;
+  return json({ ok: true, rows: saved });
 }
 
 async function payrollYearAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
@@ -576,6 +727,9 @@ Deno.serve(async (req) => {
       case "attendance_clock": return await attendanceClockAction(actor);
       case "payroll_info": return await payrollInfoAction(actor);
       case "payroll_info_save": return await payrollInfoSaveAction(actor, body);
+      case "personal_info_save": return await personalInfoSaveAction(actor, body);
+      case "qualifications_save": return await qualificationsSaveAction(actor, body);
+      case "status_history_save": return await statusHistorySaveAction(actor, body);
       default: return json({ ok: false, error: "unknown_action" }, 400);
     }
   } catch (err) {

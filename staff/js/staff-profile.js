@@ -1,11 +1,13 @@
-// Thông tin cá nhân: fill and save the employee's own profile.
+// Thông tin cá nhân: one collapsible form; the employee edits their own
+// profile, identity fields, tax/bank data, qualifications and status history.
 let profileLoaded = false;
 let payrollInfoLoaded = false;
+let personalInfoLoaded = false;
 
 function updateProfileSubmitButton() {
   const submitBtn = document.querySelector("#profileForm button[type='submit']");
   if (submitBtn) {
-    submitBtn.disabled = !(profileLoaded && payrollInfoLoaded);
+    submitBtn.disabled = !(profileLoaded && payrollInfoLoaded && personalInfoLoaded);
   }
 }
 
@@ -23,37 +25,28 @@ function populateProfile() {
   });
   document.getElementById("staffSidebarName").textContent = employee.full_name;
   document.getElementById("staffAvatar").textContent = initials(employee.full_name);
-  const jobValues = [position?.position_title || "-", department?.department_name || "-", dateLabel(employee.hire_date), "Toàn thời gian"];
-  document.querySelectorAll(".staff-job-card dd").forEach((node, index) => { node.textContent = jobValues[index] || "-"; });
+  // Thông tin công việc is read-only reference data owned by HR.
+  const jobFields = {
+    jobPosition: position?.position_title || "-",
+    jobDepartment: department?.department_name || "-",
+    jobHireDate: dateLabel(employee.hire_date)
+  };
+  Object.entries(jobFields).forEach(([id, value]) => {
+    document.getElementById(id).textContent = value;
+  });
   document.querySelector(".staff-employee-code strong").textContent = employee.employee_code || "-";
 
   profileLoaded = true;
   updateProfileSubmitButton();
 }
 
-// Bank account shows only its last 4 digits: read-only reference info on a
-// screen anyone glancing at can read.
-// function maskAccount(value) {
-//   const digits = String(value).replace(/\s+/g, "");
-//   return digits.length > 4 ? `•••• ${digits.slice(-4)}` : (digits || "—");
-// }
-
 let payrollInfo = {};
 
 function renderPayrollInfo() {
-  const cardFields = [
-    ["bankBankName", payrollInfo.bank_name],
-    ["bankSocialNo", payrollInfo.social_insurance_no],
-    ["bankHealthNo", payrollInfo.health_insurance_no]
-  ];
-  cardFields.forEach(([id, value]) => { document.getElementById(id).textContent = value || "—"; });
-  const hasAny = Boolean(payrollInfo.bank_account_no) || cardFields.some(([, value]) => Boolean(value));
-  document.getElementById("bankInfoRows").hidden = !hasAny;
-  document.getElementById("bankInfoNote").hidden = hasAny;
-  const formFields = [["bank_name", "bank_name"], ["social_insurance_no", "social_insurance_no"], ["health_insurance_no", "health_insurance_no"]];
-  formFields.forEach(([name, key]) => {
+  const formFields = ["tax_code", "social_insurance_no", "health_insurance_no", "bank_name", "bank_account_no"];
+  formFields.forEach((name) => {
     const input = document.querySelector(`#profileForm [name="${name}"]`);
-    if (input && document.activeElement !== input) input.value = payrollInfo[key] || "";
+    if (input && document.activeElement !== input) input.value = payrollInfo[name] || "";
   });
 }
 
@@ -67,58 +60,11 @@ async function loadPayrollInfo() {
   updateProfileSubmitButton();
 }
 
-async function saveProfile(event) {
-  event.preventDefault();
-  if (!profileLoaded || !payrollInfoLoaded) return;
-
-  const formData = new FormData(event.currentTarget);
-  const result = await callStaff({
-    action: "update_profile",
-    full_name: String(formData.get("name") || "").trim(),
-    phone_number: String(formData.get("phone") || "").trim(),
-    address: String(formData.get("address") || "").trim(),
-    date_of_birth: formData.get("birthDate") || null,
-    // Disabled controls are excluded from FormData, so employees without an
-    // HR-seeded identity row send "" and the backend skips the update.
-    marital_status: String(formData.get("marital_status") || "").trim()
-  });
-  const feedback = document.getElementById("profileFeedback");
-  feedback.textContent = result.ok ? "Đã lưu thông tin cá nhân." : (result.error === "invalid_profile" ? "Vui lòng nhập đầy đủ họ tên và ngày sinh." : "Không thể lưu hồ sơ. Vui lòng thử lại.");
-  
-  clearTimeout(saveProfile._timer);
-  if (result.ok) saveProfile._timer = setTimeout(() => { feedback.textContent = ""; }, 5000);
-  
-  if (result.ok) {
-    employee = result.data.employee;
-    contact = result.data.contact;
-    populateProfile();
-    
-    if (!payrollInfoLoaded) return;
-
-    const bankSave = await callStaff({
-      action: "payroll_info_save",
-      bank_name: String(formData.get("bank_name") || "").trim(),
-      social_insurance_no: String(formData.get("social_insurance_no") || "").trim(),
-      health_insurance_no: String(formData.get("health_insurance_no") || "").trim()
-    });
-    if (!bankSave.ok) {
-      feedback.textContent = "Đã lưu hồ sơ nhưng không thể lưu thông tin ngân hàng.";
-      return;
-    }
-    payrollInfo = bankSave.data.info || {};
-    renderPayrollInfo();
-  }
-}
-
-document.getElementById("profileForm").addEventListener("submit", (event) => saveProfile(event).catch(() => { document.getElementById("profileFeedback").textContent = "Không thể lưu hồ sơ."; }));
-
-// Identity record, qualifications and status history: HR-owned data shown
-// read-only; marital_status is the one field the form may update.
+// Identity record: id_type/national_id/nationality are now self-editable;
+// marital_status is filled from the identity row and disabled without one.
 const STATUS_LABELS = {
   Active: "Đang làm việc",
-  Probation: "Thử việc",
   OnLeave: "Nghỉ phép",
-  Inactive: "Nghỉ việc",
   Resigned: "Nghỉ việc"
 };
 // Existing rows store marital_status in English; the form uses Vietnamese.
@@ -133,34 +79,136 @@ function maritalLabel(value) {
 }
 let personalInfo = null;
 
-function maskId(value) {
-  const digits = String(value).trim();
-  return digits.length > 4 ? `•••• ${digits.slice(-4)}` : (digits || "—");
-}
-
 function renderPersonalInfo() {
   const info = personalInfo || {};
-  document.getElementById("idType").textContent = info.id_type || "—";
-  document.getElementById("idNumber").textContent = info.national_id ? maskId(info.national_id) : "—";
-  document.getElementById("idNationality").textContent = info.nationality || "—";
-  document.getElementById("idMarital").textContent = info.marital_status ? maritalLabel(info.marital_status) : "—";
-  document.getElementById("idProtectedRow").hidden = !info.is_disabled;
-  document.getElementById("idProtectedUntil").textContent = dateLabel(info.protected_until);
-  const hasInfo = Boolean(personalInfo);
-  document.getElementById("idInfoRows").hidden = !hasInfo;
-  document.getElementById("idInfoNote").hidden = hasInfo;
+  const setField = (name, value) => {
+    const input = document.querySelector(`#profileForm [name="${name}"]`);
+    if (input && document.activeElement !== input) input.value = value ?? "";
+  };
+  setField("id_type", info.id_type || "");
+  setField("national_id", info.national_id || "");
+  setField("nationality", personalInfo ? (info.nationality || "Vietnam") : "");
+  document.getElementById("protectedRow").hidden = !info.is_disabled;
+  const protectedInput = document.querySelector("#profileForm [name='protected_until']");
+  if (protectedInput) protectedInput.value = info.is_disabled ? dateLabel(info.protected_until) : "";
   const maritalSelect = document.querySelector("#profileForm [name='marital_status']");
   if (maritalSelect) {
-    maritalSelect.disabled = !hasInfo;
+    maritalSelect.disabled = !personalInfo;
     if (document.activeElement !== maritalSelect) maritalSelect.value = maritalLabel(info.marital_status);
   }
 }
 
-function fillRows(tbodyId, noteId, rows, build) {
-  const body = document.getElementById(tbodyId);
-  body.replaceChildren();
-  rows.forEach((row) => { const tr = document.createElement("tr"); build(tr, row); body.append(tr); });
-  document.getElementById(noteId).hidden = rows.length > 0;
+// Editable qualification and status rows: each tbody row is a form row.
+function cellInput(cls, type, maxlength, value, extra = {}) {
+  const td = document.createElement("td");
+  const input = document.createElement("input");
+  input.className = cls;
+  input.type = type;
+  if (maxlength) input.maxLength = maxlength;
+  input.value = value ?? "";
+  Object.assign(input, extra);
+  td.append(input);
+  return td;
+}
+
+function cellSelect(cls, value) {
+  const td = document.createElement("td");
+  const select = document.createElement("select");
+  select.className = cls;
+  [["", "—"], ["Active", STATUS_LABELS.Active], ["OnLeave", STATUS_LABELS.OnLeave], ["Resigned", STATUS_LABELS.Resigned]]
+    .forEach(([val, label]) => {
+      const option = document.createElement("option");
+      option.value = val;
+      option.textContent = label;
+      select.append(option);
+    });
+  select.value = value || "";
+  td.append(select);
+  return td;
+}
+
+function deleteCell() {
+  const td = document.createElement("td");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "admin-secondary-btn staff-row-delete";
+  button.textContent = "Xoá";
+  td.append(button);
+  return td;
+}
+
+function qualificationRow(q = {}) {
+  const tr = document.createElement("tr");
+  tr.append(
+    cellInput("q-level", "text", 50, q.qualification_level),
+    cellInput("q-major", "text", 150, q.major_field),
+    cellInput("q-inst", "text", 150, q.institution_name),
+    cellInput("q-year", "number", 4, q.graduation_year ?? "", { min: 1950, max: 2100 }),
+    deleteCell()
+  );
+  return tr;
+}
+
+function statusRow(row = {}) {
+  const tr = document.createElement("tr");
+  const reasonTd = document.createElement("td");
+  const reasonInput = document.createElement("input");
+  reasonInput.className = "s-reason";
+  reasonInput.type = "text";
+  reasonInput.value = row.reason ?? "";
+  reasonTd.append(reasonInput);
+  tr.append(
+    cellInput("s-date", "date", null, row.effective_date),
+    cellSelect("s-status", STATUS_LABELS[row.status] ? row.status : ""),
+    reasonTd,
+    deleteCell()
+  );
+  return tr;
+}
+
+// Collectors return null when a started row is incomplete: the save stops
+// before anything is sent, with feedback naming the failing table.
+function collectQualRows() {
+  const rows = [...document.querySelectorAll("#qualificationRows tr")].map((tr) => ({
+    qualification_level: tr.querySelector(".q-level").value.trim(),
+    major_field: tr.querySelector(".q-major").value.trim(),
+    institution_name: tr.querySelector(".q-inst").value.trim(),
+    graduation_year: tr.querySelector(".q-year").value
+  })).filter((row) => row.qualification_level || row.major_field || row.institution_name || row.graduation_year);
+  if (rows.some((row) => !row.qualification_level)) return null;
+  return rows;
+}
+
+function collectStatusRows() {
+  const rows = [...document.querySelectorAll("#statusRows tr")].map((tr) => ({
+    effective_date: tr.querySelector(".s-date").value,
+    status: tr.querySelector(".s-status").value,
+    reason: tr.querySelector(".s-reason").value.trim()
+  })).filter((row) => row.status || row.effective_date);
+  if (rows.some((row) => Boolean(row.status) !== Boolean(row.effective_date))) return null;
+  return rows;
+}
+
+function addRowHandlers() {
+  document.querySelectorAll("[data-row-add]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const tbody = document.getElementById(button.dataset.rowAdd);
+      tbody.append(tbody.id === "statusRows" ? statusRow() : qualificationRow());
+    });
+  });
+  // Row deletion: delegated so rows added later keep the button working.
+  document.getElementById("profileForm").addEventListener("click", (event) => {
+    const button = event.target.closest(".staff-row-delete");
+    if (button) button.closest("tr").remove();
+  });
+}
+
+function renderRowTable(tbodyId, rows, build) {
+  const tbody = document.getElementById(tbodyId);
+  tbody.replaceChildren();
+  rows.forEach((row) => tbody.append(build(row)));
+  // One empty row keeps the editable table usable when there is no data yet.
+  if (!rows.length) tbody.append(build({}));
 }
 
 async function loadPersonalInfo() {
@@ -168,18 +216,109 @@ async function loadPersonalInfo() {
   if (!result.ok) throw new Error(result.error);
   personalInfo = result.data.personal_info || null;
   renderPersonalInfo();
-  fillRows("qualificationRows", "qualificationNote", result.data.qualifications || [], (tr, q) => {
-    addCell(tr, q.qualification_level || "-");
-    addCell(tr, q.major_field || "-");
-    addCell(tr, q.institution_name || "-");
-    addCell(tr, q.graduation_year || "-");
-  });
-  fillRows("statusRows", "statusNote", result.data.status_history || [], (tr, row) => {
-    addCell(tr, dateLabel(row.effective_date));
-    addCell(tr, STATUS_LABELS[row.status] || row.status || "-");
-    addCell(tr, row.reason || "-");
-  });
+  renderRowTable("qualificationRows", result.data.qualifications || [], qualificationRow);
+  renderRowTable("statusRows", result.data.status_history || [], statusRow);
+  addRowHandlers();
+
+  personalInfoLoaded = true;
+  updateProfileSubmitButton();
 }
+
+// One save button pushes every section in a fixed order. Each step reports
+// its own failure message so the employee knows which part landed.
+function showProfileFeedback(message, persist) {
+  const feedback = document.getElementById("profileFeedback");
+  feedback.textContent = message;
+  clearTimeout(saveProfile._timer);
+  if (message && !persist) saveProfile._timer = setTimeout(() => { feedback.textContent = ""; }, 8000);
+}
+
+async function saveProfile(event) {
+  event.preventDefault();
+  if (!(profileLoaded && payrollInfoLoaded && personalInfoLoaded)) return;
+  const formData = new FormData(event.currentTarget);
+
+  // Row validation first: any partial row stops the save before data moves.
+  const qualRows = collectQualRows();
+  if (qualRows === null) { showProfileFeedback("Mỗi dòng bằng cấp đã nhập cần có tên bằng cấp.", true); return; }
+  const historyRows = collectStatusRows();
+  if (historyRows === null) { showProfileFeedback("Mỗi dòng lịch sử cần có cả ngày hiệu lực và trạng thái.", true); return; }
+
+  const submitBtn = document.querySelector("#profileForm button[type='submit']");
+  submitBtn.disabled = true;
+  try {
+    const result = await callStaff({
+      action: "update_profile",
+      full_name: String(formData.get("name") || "").trim(),
+      phone_number: String(formData.get("phone") || "").trim(),
+      address: String(formData.get("address") || "").trim(),
+      date_of_birth: formData.get("birthDate") || null,
+      // Disabled controls are excluded from FormData, so employees without an
+      // HR-seeded identity row send "" and the backend skips the update.
+      marital_status: String(formData.get("marital_status") || "").trim()
+    });
+    if (!result.ok) {
+      showProfileFeedback(result.error === "invalid_profile" ? "Vui lòng nhập đầy đủ họ tên và ngày sinh." : "Không thể lưu hồ sơ. Vui lòng thử lại.", true);
+      return;
+    }
+    employee = result.data.employee;
+    contact = result.data.contact;
+
+    const bankSave = await callStaff({
+      action: "payroll_info_save",
+      bank_name: String(formData.get("bank_name") || "").trim(),
+      bank_account_no: String(formData.get("bank_account_no") || "").trim(),
+      tax_code: String(formData.get("tax_code") || "").trim(),
+      social_insurance_no: String(formData.get("social_insurance_no") || "").trim(),
+      health_insurance_no: String(formData.get("health_insurance_no") || "").trim()
+    });
+    if (!bankSave.ok) { showProfileFeedback("Đã lưu hồ sơ nhưng không thể lưu thông tin thuế & ngân hàng.", true); return; }
+    payrollInfo = bankSave.data.info || {};
+
+    const idSave = await callStaff({
+      action: "personal_info_save",
+      id_type: String(formData.get("id_type") || "").trim(),
+      national_id: String(formData.get("national_id") || "").trim(),
+      nationality: String(formData.get("nationality") || "").trim()
+    });
+    if (!idSave.ok) {
+      showProfileFeedback(
+        idSave.error === "duplicate" ? "Đã lưu hồ sơ nhưng số giấy tờ đã được dùng bởi nhân viên khác."
+          : idSave.error === "invalid_identity" ? "Đã điền giấy tờ nhưng còn thiếu loại hoặc số giấy tờ."
+          : "Đã lưu hồ sơ nhưng không thể lưu thông tin giấy tờ.",
+        true);
+      return;
+    }
+    if (idSave.data.personal_info) personalInfo = idSave.data.personal_info;
+
+    const qualSave = await callStaff({ action: "qualifications_save", rows: qualRows });
+    if (!qualSave.ok) { showProfileFeedback("Đã lưu hồ sơ nhưng không thể lưu bằng cấp & trình độ.", true); return; }
+
+    const histSave = await callStaff({ action: "status_history_save", rows: historyRows });
+    if (!histSave.ok) { showProfileFeedback("Đã lưu hồ sơ nhưng không thể lưu lịch sử trạng thái.", true); return; }
+
+    // Rebuild both tables from the saved replies so normalized values (e.g. a
+    // blanked graduation year) show what is actually stored.
+    renderRowTable("qualificationRows", qualSave.data.rows || [], qualificationRow);
+    renderRowTable("statusRows", histSave.data.rows || [], statusRow);
+    populateProfile();
+    renderPayrollInfo();
+    renderPersonalInfo();
+    showProfileFeedback("Đã lưu hồ sơ.", true);
+    saveProfile._timer = setTimeout(() => { document.getElementById("profileFeedback").textContent = ""; }, 5000);
+  } finally {
+    updateProfileSubmitButton();
+  }
+}
+
+document.getElementById("profileForm").addEventListener("submit", (event) => saveProfile(event).catch(() => { showProfileFeedback("Không thể lưu hồ sơ.", true); }));
+
+// A required/invalid control inside a collapsed section is invisible: expand
+// the section owning it before the browser's bubble is shown to the user.
+document.getElementById("profileForm").addEventListener("invalid", (event) => {
+  const section = event.target.closest(".accordion-collapse");
+  if (section && window.bootstrap?.Collapse) window.bootstrap.Collapse.getOrCreateInstance(section).show();
+}, true);
 
 async function loadProfile() {
   populateProfile();

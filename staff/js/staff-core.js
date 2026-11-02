@@ -122,6 +122,21 @@ async function callStaff(body) {
           status_history: demoStatusHistory.map((item) => ({ ...item }))
         }
       };
+    case "personal_info_save":
+      ["national_id", "id_type", "nationality"].forEach((key) => {
+        if (body[key]) demoPersonalInfo[key] = body[key];
+      });
+      return { ok: true, data: { personal_info: { ...demoPersonalInfo } } };
+    case "qualifications_save": {
+      demoQualifications.length = 0;
+      (body.rows || []).forEach((row) => demoQualifications.push({ ...row }));
+      return { ok: true, data: { rows: demoQualifications.map((item) => ({ ...item })) } };
+    }
+    case "status_history_save": {
+      demoStatusHistory.length = 0;
+      (body.rows || []).forEach((row) => demoStatusHistory.push({ ...row }));
+      return { ok: true, data: { rows: demoStatusHistory.map((item) => ({ ...item })) } };
+    }
     case "leave_summary": {
       // Same rules as the staff-portal edge function; annual quota mirrors the leave_types seed.
       const today = demoIsoToday();

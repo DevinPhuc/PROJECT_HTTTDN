@@ -64,9 +64,10 @@ body.staff-ready .staff-loading {
   color: var(--admin-green-dark);
 }
 
+/* Profile and leave views: single-column form layout. */
 .staff-profile-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(250px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 18px;
 }
@@ -521,7 +522,8 @@ button.staff-kpi-action:focus-visible {
   }
 
   .staff-form,
-  .staff-formula {
+  .staff-formula,
+  .staff-section-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -919,8 +921,85 @@ button.staff-kpi-action:focus-visible {
   }
 }
 
-/* Thông tin cá nhân right column: job card and bank-info card stacked. */
-.staff-side-stack {
+/* Thông tin cá nhân: one collapsible form (Bootstrap accordion). */
+.staff-form .accordion {
+  grid-column: 1 / -1;
+}
+
+.staff-form .accordion-item {
+  border-color: var(--admin-line);
+  background: transparent;
+}
+
+.staff-form .accordion-header {
+  font-size: 13px;
+}
+
+.staff-form .accordion-button {
+  font: 600 13px/1.4 var(--body-font, sans-serif);
+  color: var(--admin-ink);
+  background: transparent;
+  border-top: 0;
+  box-shadow: none;
+  padding: 14px 6px;
+}
+
+.staff-form .accordion-button:hover {
+  color: var(--admin-green-dark);
+}
+
+.staff-form .accordion-button:not(.collapsed) {
+  color: var(--admin-green-dark);
+  background: transparent;
+}
+
+.staff-form .accordion-button:focus {
+  box-shadow: 0 0 0 2px rgb(23 107 114 / 12%);
+}
+
+.staff-form .accordion-body {
+  padding: 8px 6px 16px;
+}
+
+.staff-section-fields {
   display: grid;
-  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.staff-section-fields .staff-field-wide {
+  grid-column: 1 / -1;
+}
+
+.staff-row-add {
+  margin-top: 12px;
+}
+
+.staff-form .staff-table tbody td {
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.staff-form .staff-table input,
+.staff-form .staff-table select {
+  width: 100%;
+  min-width: 90px;
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid var(--admin-line);
+  border-radius: 2px;
+  outline: none;
+  background: #fff;
+  color: var(--admin-ink);
+  font: 400 13px/1.4 var(--body-font, sans-serif);
+}
+
+.staff-form .staff-table input:focus,
+.staff-form .staff-table select:focus {
+  border-color: var(--admin-green);
+}
+
+.staff-row-delete {
+  min-height: 32px;
+  padding: 4px 10px;
 }
