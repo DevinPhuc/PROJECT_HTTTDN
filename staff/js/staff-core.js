@@ -164,7 +164,7 @@ async function callStaff(body) {
             pending_count: pendingRequests.length,
             pending_days: pendingRequests.reduce((sum, request) => request.leave_type === "resignation" ? sum : sum + dayDiff(request.start_date, request.end_date) + 1, 0),
             annual_pending_days: pendingRequests.reduce((sum, request) => request.leave_type === "annual" ? sum + dayDiff(request.start_date, request.end_date) + 1 : sum, 0),
-            upcoming: upcoming ? { ...upcoming, leave_request_id: null } : null
+            upcoming: upcoming ? { ...upcoming, leave_request_id: null, num_days: dayDiff(upcoming.start_date, upcoming.end_date) + 1 } : null
           }
         }
       };
@@ -240,6 +240,8 @@ function monthLabel(year, month) {
 }
 
 function showPageError(message) {
+  // Hide the boot overlay so the error title is actually visible.
+  document.getElementById("staffLoading").hidden = true;
   document.getElementById("staffPageTitle").textContent = message;
 }
 
@@ -358,7 +360,7 @@ async function loadStaffPortal() {
       setLogoutModalOpen(false);
     }
   });
-  setView(window.location.hash.slice(1) || "attendance");
+  setView("attendance"); // boot always lands on the default menu; hash deep-links unused
   document.body.classList.add("staff-ready");
   // The profile view always loads: it also fills the sidebar name/avatar.
   const tasks = VIEW_MODULES.profile?.load ? [VIEW_MODULES.profile.load()] : [];
