@@ -1,783 +1,1739 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Không gian làm việc dành cho nhân viên Jewels.">
-  <title>Staff Dashboard - Jewels</title>
-  <link rel="stylesheet" href="../shared/css/vendor/bootstrap.min.css">
-  <link rel="stylesheet" href="../shared/css/style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/staff-base.css">
-  <link rel="stylesheet" href="css/staff-legacy.css">
-  <link rel="stylesheet" href="css/staff-portal.css">
-</head>
-<body>
-  <svg xmlns="http://www.w3.org/2000/svg" class="d-none" aria-hidden="true">
-    <symbol id="admin-user" viewBox="0 0 16 16"><path d="M3 14s-1 0-1-1 1-4 6-4 6 1 6 4-1 1-1 1H3Zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" /></symbol>
-    <symbol id="admin-cart" viewBox="0 0 16 16"><path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" /></symbol>
-    <symbol id="admin-menu" viewBox="0 0 16 16"><path d="M1 3h14v1H1zm0 4.5h14v1H1zM1 12h14v1H1z" /></symbol>
-    <symbol id="admin-arrow" viewBox="0 0 16 16"><path d="M8 1v11.2l4.3-4.2L13.5 9 8 14.5 2.5 9l1.2-1.1L7 12.2V1h1Z"/></symbol>
-    <symbol id="admin-chart" viewBox="0 0 16 16"><path d="M.5 14.5h15v1H.5zm1-2.2V7.5h2v4.8zm4 0V4.5h2v7.8zm4 0V2.5h2v9.8zm4 0V8.5h2v3.8z"/></symbol>
-    <symbol id="staff-login" viewBox="0 0 16 16"><path d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/><path d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/></symbol>
-    <symbol id="staff-logout" viewBox="0 0 16 16"><path d="M10 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 10.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 18.5 2h-8A1.5 1.5 0 0 0 9 3.5v2a.5.5 0 0 0 1 0v-2z"/><path d="M4.146 8.354a.5.5 0 0 0 0 .708l3 3a.5.5 0 0 0 .708-.708L5.707 9.5H14.5a.5.5 0 0 0 0-1H5.707l2.147-2.146a.5.5 0 1 0-.708-.708l-3 3z"/></symbol>
-    <symbol id="staff-kpi-calendar" viewBox="0 0 16 16"><rect x="1.7" y="2.7" width="12.6" height="11.6" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M1.7 6.1h12.6M5.2 1v3.2M10.8 1v3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
-    <symbol id="staff-kpi-check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.1 8.3l2 2 3.8-4.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="staff-kpi-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.4V8l2.5 1.7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="staff-kpi-suitcase" viewBox="0 0 16 16"><rect x="1.7" y="4.8" width="12.6" height="9" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.9 4.8V3.3c0-.72.58-1.3 1.3-1.3h1.6c.72 0 1.3.58 1.3 1.3v1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
-  </svg>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Không gian làm việc dành cho nhân viên Jewels."
+    />
+    <title>Staff Dashboard - Jewels</title>
+    <link rel="stylesheet" href="../shared/css/vendor/bootstrap.min.css" />
+    <link rel="stylesheet" href="../shared/css/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/staff-base.css" />
+    <link rel="stylesheet" href="css/staff-legacy.css" />
+    <link rel="stylesheet" href="css/staff-portal.css" />
+  </head>
+  <body>
+    <svg xmlns="http://www.w3.org/2000/svg" class="d-none" aria-hidden="true">
+      <symbol id="admin-user" viewBox="0 0 16 16">
+        <path
+          d="M3 14s-1 0-1-1 1-4 6-4 6 1 6 4-1 1-1 1H3Zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
+        />
+      </symbol>
+      <symbol id="admin-cart" viewBox="0 0 16 16">
+        <path
+          d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+        />
+      </symbol>
+      <symbol id="admin-menu" viewBox="0 0 16 16">
+        <path d="M1 3h14v1H1zm0 4.5h14v1H1zM1 12h14v1H1z" />
+      </symbol>
+      <symbol id="admin-arrow" viewBox="0 0 16 16">
+        <path d="M8 1v11.2l4.3-4.2L13.5 9 8 14.5 2.5 9l1.2-1.1L7 12.2V1h1Z" />
+      </symbol>
+      <symbol id="admin-chart" viewBox="0 0 16 16">
+        <path
+          d="M.5 14.5h15v1H.5zm1-2.2V7.5h2v4.8zm4 0V4.5h2v7.8zm4 0V2.5h2v9.8zm4 0V8.5h2v3.8z"
+        />
+      </symbol>
+      <symbol id="staff-login" viewBox="0 0 16 16">
+        <path
+          d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"
+        />
+        <path
+          d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"
+        />
+      </symbol>
+      <symbol id="staff-logout" viewBox="0 0 16 16">
+        <path
+          d="M10 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 10.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 18.5 2h-8A1.5 1.5 0 0 0 9 3.5v2a.5.5 0 0 0 1 0v-2z"
+        />
+        <path
+          d="M4.146 8.354a.5.5 0 0 0 0 .708l3 3a.5.5 0 0 0 .708-.708L5.707 9.5H14.5a.5.5 0 0 0 0-1H5.707l2.147-2.146a.5.5 0 1 0-.708-.708l-3 3z"
+        />
+      </symbol>
+      <symbol id="staff-kpi-calendar" viewBox="0 0 16 16">
+        <rect
+          x="1.7"
+          y="2.7"
+          width="12.6"
+          height="11.6"
+          rx="2"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+        />
+        <path
+          d="M1.7 6.1h12.6M5.2 1v3.2M10.8 1v3.2"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+        />
+      </symbol>
+      <symbol id="staff-kpi-check" viewBox="0 0 16 16">
+        <circle
+          cx="8"
+          cy="8"
+          r="6.3"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+        />
+        <path
+          d="M5.1 8.3l2 2 3.8-4.4"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </symbol>
+      <symbol id="staff-kpi-clock" viewBox="0 0 16 16">
+        <circle
+          cx="8"
+          cy="8"
+          r="6.3"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+        />
+        <path
+          d="M8 4.4V8l2.5 1.7"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </symbol>
+      <symbol id="staff-kpi-suitcase" viewBox="0 0 16 16">
+        <rect
+          x="1.7"
+          y="4.8"
+          width="12.6"
+          height="9"
+          rx="1.8"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+        />
+        <path
+          d="M5.9 4.8V3.3c0-.72.58-1.3 1.3-1.3h1.6c.72 0 1.3.58 1.3 1.3v1.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+        />
+      </symbol>
+    </svg>
 
-  <main class="admin-page">
-    <aside class="admin-sidebar">
-      <div class="admin-brand-block">
-        <div class="admin-brand-mark">J</div>
-        <div>
-          <span class="admin-brand-label">Jewels</span>
-          <strong>Staff Portal</strong>
+    <main class="admin-page">
+      <aside class="admin-sidebar">
+        <div class="admin-brand-block">
+          <div class="admin-brand-mark">J</div>
+          <div>
+            <span class="admin-brand-label">Jewels</span>
+            <strong>Staff Portal</strong>
+          </div>
         </div>
-      </div>
 
-      <div class="admin-profile-card">
-        <div class="admin-avatar" id="staffAvatar">HL</div>
-        <div class="admin-profile-content">
-          <button
-            type="button"
-            class="admin-profile-toggle"
-            id="staffProfileToggle"
-            aria-expanded="false"
-            aria-controls="staffProfileMenu"
-          >
-            <span>
-              <strong>Nhân viên</strong>
-              <span id="staffSidebarName"></span>
-            </span>
-            <span class="admin-profile-chevron" aria-hidden="true"></span>
-          </button>
-          <div class="admin-profile-menu" id="staffProfileMenu">
-            <button type="button" class="admin-logout-btn" id="adminLogoutBtn">
-              <img
-                src="../shared/images/log-out.png"
-                alt=""
-                class="nav-png-icon"
-              />
-              Đăng xuất
+        <div class="admin-profile-card">
+          <div class="admin-avatar" id="staffAvatar">HL</div>
+          <div class="admin-profile-content">
+            <button
+              type="button"
+              class="admin-profile-toggle"
+              id="staffProfileToggle"
+              aria-expanded="false"
+              aria-controls="staffProfileMenu"
+            >
+              <span>
+                <strong>Nhân viên</strong>
+                <span id="staffSidebarName"></span>
+              </span>
+              <span class="admin-profile-chevron" aria-hidden="true"></span>
             </button>
+            <div class="admin-profile-menu" id="staffProfileMenu">
+              <button
+                type="button"
+                class="admin-logout-btn"
+                id="adminLogoutBtn"
+              >
+                <img
+                  src="../shared/images/log-out.png"
+                  alt=""
+                  class="nav-png-icon"
+                />
+                Đăng xuất
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <nav class="admin-nav" aria-label="Chức năng nhân viên">
-        <a class="admin-nav-item" href="#attendance" data-staff-view="attendance">Chấm công</a>
-        <a class="admin-nav-item" href="#profile" data-staff-view="profile">Thông tin cá nhân</a>
-        <a class="admin-nav-item" href="#leave" data-staff-view="leave">Đơn nghỉ phép</a>
-        <a class="admin-nav-item" href="#salary-month" data-staff-view="salary-month"> Bảng lương tháng</a>
-        <a class="admin-nav-item" href="#salary-year" data-staff-view="salary-year">Bảng lương năm</a>
-      </nav>
+        <nav class="admin-nav" aria-label="Chức năng nhân viên">
+          <a
+            class="admin-nav-item"
+            href="#attendance"
+            data-staff-view="attendance"
+          >
+            <img
+              src="../shared/images/timekeeping.png"
+              alt=""
+              class="nav-png-icon"
+            />
+            Chấm công</a
+          >
+          <a class="admin-nav-item" href="#profile" data-staff-view="profile">
+            <img
+              src="../shared/images/personal.png"
+              alt=""
+              class="nav-png-icon"
+            />Thông tin cá nhân</a
+          >
+          <a class="admin-nav-item" href="#leave" data-staff-view="leave">
+            <img
+              src="../shared/images/file-text.png"
+              alt=""
+              class="nav-png-icon"
+            />
+            Đơn nghỉ phép</a
+          >
+          <a
+            class="admin-nav-item"
+            href="#salary-month"
+            data-staff-view="salary-month"
+          >
+            <img
+              src="../shared/images/calendar-month.png"
+              alt=""
+              class="nav-png-icon"
+            />
+            Bảng lương tháng</a
+          >
+          <a
+            class="admin-nav-item"
+            href="#salary-year"
+            data-staff-view="salary-year"
+          >
+            <img
+              src="../shared/images/calendar-year.png"
+              alt=""
+              class="nav-png-icon"
+            />Bảng lương năm</a
+          >
+        </nav>
 
-      <div class="admin-system-status">
-        <span>Trạng thái hệ thống</span>
-        <strong>Hoạt động bình thường</strong>
-      </div>
-    </aside>
-
-    <section class="admin-main">
-      <p id="staffDemoNotice" class="staff-demo-notice" role="status" hidden>
-        CHẾ ĐỘ XEM THỬ — Dữ liệu trên trang này là dữ liệu giả, mọi thay đổi chỉ tồn tại trong phiên hiện tại và không kết nối cơ sở dữ liệu.
-      </p>
-      <header class="admin-topbar" id="staffHeader">
-        <div>
-          <p class="account-eyebrow">KHÔNG GIAN NHÂN VIÊN</p>
-          <h1 id="staffPageTitle">Thông tin cá nhân</h1>
+        <div class="admin-system-status">
+          <span>Trạng thái hệ thống</span>
+          <strong>Hoạt động bình thường</strong>
         </div>
-        <div class="admin-topbar-actions">
-          <!-- <button type="button" class="admin-secondary-btn" data-staff-view="salary-year">Bảng lương năm</button> -->
-        </div>
-      </header>
-      
-      <div id="staffLoading" class="staff-loading">Đang tải cổng nhân viên...</div>
+      </aside>
 
-      <div class="staff-portal">
-        <section class="staff-view active" data-staff-panel="profile" hidden>
-          <div class="staff-section-heading">
-            <div><p class="account-eyebrow">HỒ SƠ CỦA TÔI</p><h2>Thông tin cá nhân</h2></div>
-            <span class="staff-employee-code">Mã nhân viên <strong></strong></span>
+      <section class="admin-main">
+        <p id="staffDemoNotice" class="staff-demo-notice" role="status" hidden>
+          CHẾ ĐỘ XEM THỬ — Dữ liệu trên trang này là dữ liệu giả, mọi thay đổi
+          chỉ tồn tại trong phiên hiện tại và không kết nối cơ sở dữ liệu.
+        </p>
+        <header class="admin-topbar" id="staffHeader">
+          <div>
+            <p class="account-eyebrow">KHÔNG GIAN NHÂN VIÊN</p>
+            <h1 id="staffPageTitle">Thông tin cá nhân</h1>
           </div>
-          <form class="staff-panel staff-form" id="profileForm">
-            <div class="accordion" id="profileAccordion">
-              <div class="accordion-item">
-                <h3 class="accordion-header">
-                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionPersonal" aria-expanded="true" aria-controls="sectionPersonal">Thông tin cá nhân</button>
-                </h3>
-                <div id="sectionPersonal" class="accordion-collapse collapse show" data-bs-parent="#profileAccordion">
-                  <div class="accordion-body">
-                    <div class="staff-section-fields">
-                      <label>Họ và tên<input name="name" type="text" required maxlength="100"></label>
-                      <label>Email công việc<input name="email" type="email" readonly></label>
-                      <label>Ngày sinh<input name="birthDate" type="date"></label>
-                      <label>Số điện thoại<input name="phone" type="tel" required maxlength="20"></label>
-                      <label class="staff-field-wide">Địa chỉ<input name="address" type="text" maxlength="180"></label>
-                      <label>Tình trạng hôn nhân<select name="marital_status"><option value="">—</option><option>Độc thân</option><option>Đã kết hôn</option><option>Ly hôn</option><option>Goá</option></select></label>
-                    </div>
-                  </div>
-                </div>
+          <div class="admin-topbar-actions">
+            <!-- <button type="button" class="admin-secondary-btn" data-staff-view="salary-year">Bảng lương năm</button> -->
+          </div>
+        </header>
+
+        <div id="staffLoading" class="staff-loading">
+          Đang tải cổng nhân viên...
+        </div>
+
+        <div class="staff-portal">
+          <section class="staff-view active" data-staff-panel="profile" hidden>
+            <div class="staff-section-heading">
+              <div>
+                <p class="account-eyebrow">HỒ SƠ CỦA TÔI</p>
+                <h2>Thông tin cá nhân</h2>
               </div>
-              <div class="accordion-item">
-                <h3 class="accordion-header">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionJob" aria-expanded="false" aria-controls="sectionJob">Thông tin công việc</button>
-                </h3>
-                <div id="sectionJob" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
-                  <div class="accordion-body">
-                    <div class="staff-job-card"><dl>
-                      <div><dt>Chức vụ</dt><dd id="jobPosition">—</dd></div>
-                      <div><dt>Phòng ban</dt><dd id="jobDepartment">—</dd></div>
-                      <div><dt>Ngày vào làm</dt><dd id="jobHireDate">—</dd></div>
-                    </dl></div>
-                  </div>
-                </div>
-              </div>
-              <div class="accordion-item">
-                <h3 class="accordion-header">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionIdentity" aria-expanded="false" aria-controls="sectionIdentity">Thông tin giấy tờ</button>
-                </h3>
-                <div id="sectionIdentity" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
-                  <div class="accordion-body">
-                    <div class="staff-section-fields">
-                      <label>Loại giấy tờ<select name="id_type">
-                        <option value="">—</option>
-                        <option value="CCCD">CCCD</option>
-                        <option value="CMND">CMND</option>
-                        <option value="Passport">Passport</option>
-                      </select></label>
-                      <label>Số giấy tờ<input name="national_id" type="text" maxlength="20"></label>
-                      <label>Quốc tịch<input name="nationality" type="text" maxlength="50"></label>
-                      <div class="staff-field-wide" id="protectedRow" hidden>
-                        <label>Bảo hộ đến<input name="protected_until" type="text" readonly></label>
+              <span class="staff-employee-code"
+                >Mã nhân viên <strong></strong
+              ></span>
+            </div>
+            <form class="staff-panel staff-form" id="profileForm">
+              <div class="accordion" id="profileAccordion">
+                <div class="accordion-item">
+                  <h3 class="accordion-header">
+                    <button
+                      class="accordion-button"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#sectionPersonal"
+                      aria-expanded="true"
+                      aria-controls="sectionPersonal"
+                    >
+                      Thông tin cá nhân
+                    </button>
+                  </h3>
+                  <div
+                    id="sectionPersonal"
+                    class="accordion-collapse collapse show"
+                    data-bs-parent="#profileAccordion"
+                  >
+                    <div class="accordion-body">
+                      <div class="staff-section-fields">
+                        <label
+                          >Họ và tên<input
+                            name="name"
+                            type="text"
+                            required
+                            maxlength="100"
+                        /></label>
+                        <label
+                          >Email công việc<input
+                            name="email"
+                            type="email"
+                            readonly
+                        /></label>
+                        <label
+                          >Ngày sinh<input name="birthDate" type="date"
+                        /></label>
+                        <label
+                          >Số điện thoại<input
+                            name="phone"
+                            type="tel"
+                            required
+                            maxlength="20"
+                        /></label>
+                        <label class="staff-field-wide"
+                          >Địa chỉ<input
+                            name="address"
+                            type="text"
+                            maxlength="180"
+                        /></label>
+                        <label
+                          >Tình trạng hôn nhân<select name="marital_status">
+                            <option value="">—</option>
+                            <option>Độc thân</option>
+                            <option>Đã kết hôn</option>
+                            <option>Ly hôn</option>
+                            <option>Goá</option>
+                          </select></label
+                        >
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div class="accordion-item">
-                <h3 class="accordion-header">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionTax" aria-expanded="false" aria-controls="sectionTax">Thông tin thuế &amp; BHXH</button>
-                </h3>
-                <div id="sectionTax" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
-                  <div class="accordion-body">
-                    <div class="staff-section-fields">
-                      <label>Mã số thuế<input name="tax_code" type="text" maxlength="20"></label>
-                      <label>Số BHXH<input name="social_insurance_no" type="text" maxlength="20"></label>
-                      <label>Số BHYT<input name="health_insurance_no" type="text" maxlength="20"></label>
+                <div class="accordion-item">
+                  <h3 class="accordion-header">
+                    <button
+                      class="accordion-button collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#sectionJob"
+                      aria-expanded="false"
+                      aria-controls="sectionJob"
+                    >
+                      Thông tin công việc
+                    </button>
+                  </h3>
+                  <div
+                    id="sectionJob"
+                    class="accordion-collapse collapse"
+                    data-bs-parent="#profileAccordion"
+                  >
+                    <div class="accordion-body">
+                      <div class="staff-job-card">
+                        <dl>
+                          <div>
+                            <dt>Chức vụ</dt>
+                            <dd id="jobPosition">—</dd>
+                          </div>
+                          <div>
+                            <dt>Phòng ban</dt>
+                            <dd id="jobDepartment">—</dd>
+                          </div>
+                          <div>
+                            <dt>Ngày vào làm</dt>
+                            <dd id="jobHireDate">—</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="accordion-item">
+                  <h3 class="accordion-header">
+                    <button
+                      class="accordion-button collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#sectionIdentity"
+                      aria-expanded="false"
+                      aria-controls="sectionIdentity"
+                    >
+                      Thông tin giấy tờ
+                    </button>
+                  </h3>
+                  <div
+                    id="sectionIdentity"
+                    class="accordion-collapse collapse"
+                    data-bs-parent="#profileAccordion"
+                  >
+                    <div class="accordion-body">
+                      <div class="staff-section-fields">
+                        <label
+                          >Loại giấy tờ<select name="id_type">
+                            <option value="">—</option>
+                            <option value="CCCD">CCCD</option>
+                            <option value="CMND">CMND</option>
+                            <option value="Passport">Passport</option>
+                          </select></label
+                        >
+                        <label
+                          >Số giấy tờ<input
+                            name="national_id"
+                            type="text"
+                            maxlength="20"
+                        /></label>
+                        <label
+                          >Quốc tịch<input
+                            name="nationality"
+                            type="text"
+                            maxlength="50"
+                        /></label>
+                        <div class="staff-field-wide" id="protectedRow" hidden>
+                          <label
+                            >Bảo hộ đến<input
+                              name="protected_until"
+                              type="text"
+                              readonly
+                          /></label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="accordion-item">
+                  <h3 class="accordion-header">
+                    <button
+                      class="accordion-button collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#sectionTax"
+                      aria-expanded="false"
+                      aria-controls="sectionTax"
+                    >
+                      Thông tin thuế &amp; BHXH
+                    </button>
+                  </h3>
+                  <div
+                    id="sectionTax"
+                    class="accordion-collapse collapse"
+                    data-bs-parent="#profileAccordion"
+                  >
+                    <div class="accordion-body">
+                      <div class="staff-section-fields">
+                        <label
+                          >Mã số thuế<input
+                            name="tax_code"
+                            type="text"
+                            maxlength="20"
+                        /></label>
+                        <label
+                          >Số BHXH<input
+                            name="social_insurance_no"
+                            type="text"
+                            maxlength="20"
+                        /></label>
+                        <label
+                          >Số BHYT<input
+                            name="health_insurance_no"
+                            type="text"
+                            maxlength="20"
+                        /></label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="accordion-item">
+                  <h3 class="accordion-header">
+                    <button
+                      class="accordion-button collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#sectionBank"
+                      aria-expanded="false"
+                      aria-controls="sectionBank"
+                    >
+                      Ngân hàng
+                    </button>
+                  </h3>
+                  <div
+                    id="sectionBank"
+                    class="accordion-collapse collapse"
+                    data-bs-parent="#profileAccordion"
+                  >
+                    <div class="accordion-body">
+                      <div class="staff-section-fields">
+                        <label
+                          >Ngân hàng<input
+                            name="bank_name"
+                            type="text"
+                            maxlength="100"
+                        /></label>
+                        <label
+                          >Số tài khoản<input
+                            name="bank_account_no"
+                            type="text"
+                            maxlength="30"
+                        /></label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="accordion-item">
+                  <h3 class="accordion-header">
+                    <button
+                      class="accordion-button collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#sectionQualification"
+                      aria-expanded="false"
+                      aria-controls="sectionQualification"
+                    >
+                      Bằng cấp &amp; trình độ
+                    </button>
+                  </h3>
+                  <div
+                    id="sectionQualification"
+                    class="accordion-collapse collapse"
+                    data-bs-parent="#profileAccordion"
+                  >
+                    <div class="accordion-body">
+                      <div class="staff-table-wrap">
+                        <table class="staff-table">
+                          <thead>
+                            <tr>
+                              <th>Bằng cấp</th>
+                              <th>Chuyên ngành</th>
+                              <th>Cơ sở đào tạo</th>
+                              <th>Năm tốt nghiệp</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody id="qualificationRows"></tbody>
+                        </table>
+                      </div>
+                      <button
+                        type="button"
+                        class="admin-secondary-btn staff-row-add"
+                        data-row-add="qualificationRows"
+                      >
+                        Thêm bằng cấp
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="accordion-item">
+                  <h3 class="accordion-header">
+                    <button
+                      class="accordion-button collapsed"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#sectionHistory"
+                      aria-expanded="false"
+                      aria-controls="sectionHistory"
+                    >
+                      Lịch sử trạng thái
+                    </button>
+                  </h3>
+                  <div
+                    id="sectionHistory"
+                    class="accordion-collapse collapse"
+                    data-bs-parent="#profileAccordion"
+                  >
+                    <div class="accordion-body">
+                      <div class="staff-table-wrap">
+                        <table class="staff-table">
+                          <thead>
+                            <tr>
+                              <th>Ngày hiệu lực</th>
+                              <th>Trạng thái</th>
+                              <th>Lý do</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody id="statusRows"></tbody>
+                        </table>
+                      </div>
+                      <button
+                        type="button"
+                        class="admin-secondary-btn staff-row-add"
+                        data-row-add="statusRows"
+                      >
+                        Thêm dòng
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="accordion-item">
-                <h3 class="accordion-header">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionBank" aria-expanded="false" aria-controls="sectionBank">Ngân hàng</button>
-                </h3>
-                <div id="sectionBank" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
-                  <div class="accordion-body">
-                    <div class="staff-section-fields">
-                      <label>Ngân hàng<input name="bank_name" type="text" maxlength="100"></label>
-                      <label>Số tài khoản<input name="bank_account_no" type="text" maxlength="30"></label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="accordion-item">
-                <h3 class="accordion-header">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionQualification" aria-expanded="false" aria-controls="sectionQualification">Bằng cấp &amp; trình độ</button>
-                </h3>
-                <div id="sectionQualification" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
-                  <div class="accordion-body">
-                    <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Bằng cấp</th><th>Chuyên ngành</th><th>Cơ sở đào tạo</th><th>Năm tốt nghiệp</th><th></th></tr></thead><tbody id="qualificationRows"></tbody></table></div>
-                    <button type="button" class="admin-secondary-btn staff-row-add" data-row-add="qualificationRows">Thêm bằng cấp</button>
-                  </div>
-                </div>
-              </div>
-              <div class="accordion-item">
-                <h3 class="accordion-header">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sectionHistory" aria-expanded="false" aria-controls="sectionHistory">Lịch sử trạng thái</button>
-                </h3>
-                <div id="sectionHistory" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
-                  <div class="accordion-body">
-                    <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Ngày hiệu lực</th><th>Trạng thái</th><th>Lý do</th><th></th></tr></thead><tbody id="statusRows"></tbody></table></div>
-                    <button type="button" class="admin-secondary-btn staff-row-add" data-row-add="statusRows">Thêm dòng</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="staff-form-actions"><button type="submit" class="admin-primary-btn">Lưu thay đổi</button><p id="profileFeedback" role="status" aria-live="polite"></p></div>
-          </form>
-        </section>
-
-        <section class="staff-view" data-staff-panel="attendance" hidden>
-          <div class="staff-section-heading">
-            <div><p class="account-eyebrow">GIỜ LÀM VIỆC</p><h2>Chấm công</h2></div>
-            <span class="staff-employee-code" id="attendanceSummary">Chưa chấm công hôm nay</span>
-          </div>
-          <section class="staff-panel staff-clock-card">
-            <div class="staff-clock-face">
-              <p class="staff-clock-date" id="clockDate"></p>
-            </div>
-            <div class="staff-clock-columns">
-              <div class="staff-clock-col">
-                <p class="staff-clock-col-label">Giờ vào</p>
-                <p class="staff-clock-time" id="attendanceCheckIn">--:--</p>
-                <button type="button" class="staff-clock-btn" id="attendanceCheckInBtn">
-                  <svg class="staff-btn-icon" aria-hidden="true"><use href="#staff-login"></use></svg>
-                  <span class="staff-clock-btn-label">Vào làm</span>
+              <div class="staff-form-actions">
+                <button type="submit" class="admin-primary-btn">
+                  <img
+                    src="../shared/images/save.png"
+                    alt=""
+                    class="button-icon"
+                  />
+                  Lưu thay đổi
                 </button>
+                <p id="profileFeedback" role="status" aria-live="polite"></p>
               </div>
-              <div class="staff-clock-col">
-                <p class="staff-clock-col-label">Giờ ra</p>
-                <p class="staff-clock-time" id="attendanceCheckOut">--:--</p>
-                <button type="button" class="staff-clock-btn" id="attendanceCheckOutBtn">
-                  <svg class="staff-btn-icon" aria-hidden="true"><use href="#staff-logout"></use></svg>
-                  <span class="staff-clock-btn-label">Ra về</span>
-                </button>
-              </div>
-            </div>
-            <p id="attendanceFeedback" class="staff-clock-feedback" role="status" aria-live="polite"></p>
-          </section>
-          <section class="staff-panel staff-history-panel">
-            <div class="staff-section-heading"><div><p class="account-eyebrow">LỊCH SỬ</p><h3>Điểm danh gần đây</h3></div></div>
-            <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Ngày</th><th>Giờ vào</th><th>Giờ ra</th><th>Trạng thái</th></tr></thead><tbody id="attendanceRows"></tbody></table></div>
-          </section>
-        </section>
-
-        <section class="staff-view" data-staff-panel="leave" hidden>
-          <div class="staff-section-heading"><div><p class="account-eyebrow">NGHỈ PHÉP & NGHỈ VIỆC</p><h2>Nộp đơn</h2></div></div>
-          <div class="staff-leave-kpis" aria-label="Tổng quan nghỉ phép">
-            <article class="staff-kpi-card" data-kpi="balance">
-              <span class="staff-kpi-label"><svg class="staff-kpi-icon" aria-hidden="true"><use href="#staff-kpi-calendar"></use></svg><span>Phép năm còn lại</span></span>
-              <strong class="staff-kpi-value" id="kpiAnnualBalance">–</strong>
-              <small class="staff-kpi-detail" id="kpiAnnualBalanceDetail">Đang tải dữ liệu…</small>
-            </article>
-            <button type="button" class="staff-kpi-card staff-kpi-action" data-kpi="used" id="kpiUsedBtn">
-              <span class="staff-kpi-label"><svg class="staff-kpi-icon" aria-hidden="true"><use href="#staff-kpi-check"></use></svg><span>Đã nghỉ trong năm</span></span>
-              <strong class="staff-kpi-value" id="kpiUsed">–</strong>
-              <small class="staff-kpi-detail" id="kpiUsedDetail">Đang tải dữ liệu…</small>
-            </button>
-            <button type="button" class="staff-kpi-card staff-kpi-action" data-kpi="pending" id="kpiPendingBtn">
-              <span class="staff-kpi-label"><svg class="staff-kpi-icon" aria-hidden="true"><use href="#staff-kpi-clock"></use></svg><span>Đơn chờ phê duyệt</span></span>
-              <strong class="staff-kpi-value" id="kpiPending">–</strong>
-              <small class="staff-kpi-detail" id="kpiPendingDetail">Đang tải dữ liệu…</small>
-            </button>
-            <button type="button" class="staff-kpi-card staff-kpi-action" data-kpi="upcoming" id="kpiUpcomingBtn">
-              <span class="staff-kpi-label"><svg class="staff-kpi-icon" aria-hidden="true"><use href="#staff-kpi-suitcase"></use></svg><span>Kỳ nghỉ sắp tới</span></span>
-              <strong class="staff-kpi-value" id="kpiUpcoming">–</strong>
-              <small class="staff-kpi-detail" id="kpiUpcomingDetail">Đang tải dữ liệu…</small>
-            </button>
-          </div>
-          <div class="staff-profile-layout">
-            <form class="staff-panel staff-form" id="leaveForm">
-              <h3>Thông tin đơn</h3>
-              <label>Loại đơn<select name="type" id="leaveType" required><option value="Nghỉ phép">Nghỉ phép</option><option value="Nghỉ ốm đau">Nghỉ ốm đau</option><option value="Nghỉ thai sản">Nghỉ thai sản</option><option value="Xin nghỉ việc">Xin nghỉ việc</option></select></label>
-              <label>Ngày bắt đầu<input name="startDate" id="leaveStart" type="date" required></label>
-              <label id="leaveEndField">Ngày kết thúc<input name="endDate" id="leaveEnd" type="date" required></label>
-              <label class="staff-field-wide">Lý do<textarea name="reason" rows="4" maxlength="500" required placeholder="Nhập lý do gửi quản lý..."></textarea></label>
-              <div class="staff-form-actions"><button type="submit" class="admin-primary-btn">Gửi đơn</button><p id="leaveFeedback" role="status" aria-live="polite"></p></div>
             </form>
-            <aside class="staff-panel staff-leave-note"><h3>Trạng thái xét duyệt</h3><p>Đơn đã gửi sẽ được lưu trong hồ sơ của bạn với trạng thái chờ duyệt.</p><p>Đơn nghỉ việc cần ghi ngày dự kiến làm việc cuối cùng ở phần ngày bắt đầu.</p></aside>
-          </div>
-          <section class="staff-panel staff-history-panel"><div class="staff-section-heading"><div><p class="account-eyebrow">LỊCH SỬ</p><h2>Đơn đã gửi</h2></div></div><div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Loại đơn</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th></tr></thead><tbody id="leaveRows"></tbody></table></div></section>
-        </section>
-
-        <section class="staff-view" data-staff-panel="salary-month" hidden>
-          <div class="staff-section-heading"><div><p class="account-eyebrow">THU NHẬP CÁ NHÂN</p><h2>Bảng lương tháng</h2></div><div class="staff-period-control"><label for="salaryMonth">Chọn tháng</label><input id="salaryMonth" type="month"></div><button type="button" class="admin-primary-btn" id="printMonthlyBtn" disabled>In bảng lương tháng</button></div>
-          <div id="monthlySalaryContent"></div>
-          <section class="staff-panel staff-rules-panel"><p class="account-eyebrow">CÁCH TÍNH LƯƠNG</p><h3>Công thức áp dụng</h3><div class="staff-formula"><p><strong>Lương theo ngày công</strong><span>Lương cơ bản × ngày công thực tế / ngày công chuẩn</span></p><p><strong>Lương tăng ca</strong><span>Lương cơ bản / (ngày công chuẩn × 8 giờ) × 150% × số giờ tăng ca</span></p><p><strong>Tổng thu nhập</strong><span>Lương theo ngày công + thưởng/phụ cấp + lương tăng ca</span></p><p><strong>Tổng khấu trừ</strong><span>Bảo hiểm theo tỷ lệ ghi nhận + thuế TNCN do quản lý ghi nhận</span></p><p><strong>Thực nhận</strong><span>Tổng thu nhập − tổng khấu trừ</span></p></div><p class="staff-muted">Bảng lương tháng hiển thị dữ liệu đã lưu cho hồ sơ của bạn. Ngày công chuẩn, tỷ lệ bảo hiểm, phụ cấp và thuế được ghi nhận theo từng kỳ lương.</p></section>
-        </section>
-
-        <section class="staff-view" data-staff-panel="salary-year" hidden>
-          <div class="staff-section-heading"><div><p class="account-eyebrow">TỔNG HỢP THU NHẬP</p><h2>Bảng lương năm <span id="salaryYearTitle"></span></h2></div><button type="button" class="admin-primary-btn" id="printAnnualBtn">In bảng lương năm</button></div>
-          <section class="staff-panel staff-year-summary" id="annualSummary"></section>
-          <section class="staff-panel staff-history-panel"><div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Tháng</th><th>Ngày công</th><th>Thu nhập</th><th>Khấu trừ</th><th>Thực nhận</th></tr></thead><tbody id="annualRows"></tbody><tfoot id="annualTotals"></tfoot></table></div></section>
-        </section>
-      </div>
-
-      <section class="staff-print-sheet" id="monthlyPrintSheet" hidden aria-label="Bảng lương tháng để in"></section>
-      <section class="staff-print-sheet" id="annualPrintSheet" hidden aria-label="Bảng lương năm để in"></section>
-
-      <div class="staff-legacy-content" hidden>
-      <div class="admin-kpis">
-        <article class="admin-kpi">
-          <span>Doanh thu</span>
-          <strong>₫ 184,2M</strong>
-          <small>+18.4% so với tháng trước</small>
-        </article>
-        <article class="admin-kpi">
-          <span>Đơn hàng</span>
-          <strong>1,284</strong>
-          <small>+9.6% trong tuần này</small>
-        </article>
-        <article class="admin-kpi">
-          <span>Khách hàng</span>
-          <strong>8,640</strong>
-          <small>+142 khách mới</small>
-        </article>
-        <article class="admin-kpi">
-          <span>Hàng tồn kho</span>
-          <strong>96.7%</strong>
-          <small>54 sản phẩm cần bổ sung</small>
-        </article>
-      </div>
-
-      <div class="admin-module active" data-module="overview">
-        <div class="admin-content-grid">
-          <section class="admin-panel admin-panel-wide">
-            <div class="panel-heading">
-              <div>
-                <p class="account-eyebrow">TỔNG QUAN</p>
-                <h2>Quản lý tài khoản</h2>
-              </div>
-              <span class="panel-note">12 tài khoản</span>
-            </div>
-            <div class="admin-list" id="overviewAccounts"></div>
           </section>
 
-          <section class="admin-panel">
-            <div class="panel-heading">
+          <section class="staff-view" data-staff-panel="attendance" hidden>
+            <div class="staff-section-heading">
               <div>
-                <p class="account-eyebrow">NHÂN SỰ</p>
-                <h2>Nhân viên</h2>
+                <p class="account-eyebrow">GIỜ LÀM VIỆC</p>
+                <h2>Chấm công</h2>
               </div>
-              <span class="panel-note">24 người</span>
+              <span class="staff-employee-code" id="attendanceSummary"
+                >Chưa chấm công hôm nay</span
+              >
             </div>
-            <div class="mini-table" id="overviewStaff"></div>
-          </section>
-
-          <section class="admin-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="account-eyebrow">KHÁCH HÀNG</p>
-                <h2>Khách hàng</h2>
+            <section class="staff-panel staff-clock-card">
+              <div class="staff-clock-face">
+                <p class="staff-clock-date" id="clockDate"></p>
               </div>
-              <span class="panel-note">2,140</span>
-            </div>
-            <div class="admin-list compact-list" id="overviewCustomers"></div>
-          </section>
-
-          <section class="admin-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="account-eyebrow">SẢN PHẨM</p>
-                <h2>Sản phẩm</h2>
-              </div>
-              <span class="panel-note">386 mặt hàng</span>
-            </div>
-            <div class="product-grid" id="overviewProducts"></div>
-          </section>
-
-          <section class="admin-panel" id="stockOverviewPanel">
-            <div class="panel-heading">
-              <div>
-                <p class="account-eyebrow">KHO HÀNG</p>
-                <h2>Nhập hàng</h2>
-              </div>
-              <span class="panel-note">5 lô mới</span>
-            </div>
-            <div class="admin-list compact-list" id="overviewStock"></div>
-          </section>
-
-          <section class="admin-panel" id="invoiceOverviewPanel">
-            <div class="panel-heading">
-              <div>
-                <p class="account-eyebrow">HÓA ĐƠN</p>
-                <h2>Hóa đơn</h2>
-              </div>
-              <span class="panel-note">28 hóa đơn</span>
-            </div>
-            <div class="mini-table" id="overviewInvoices"></div>
-          </section>
-
-          <section class="admin-panel" id="promotionOverviewPanel">
-            <div class="panel-heading">
-              <div>
-                <p class="account-eyebrow">KHUYẾN MÃI</p>
-                <h2>Khuyến mãi</h2>
-              </div>
-              <span class="panel-note">7 khuyến mãi</span>
-            </div>
-            <div class="promo-stack" id="overviewPromotions"></div>
-          </section>
-
-          <section class="admin-panel admin-panel-wide" id="ordersOverviewPanel">
-            <div class="panel-heading">
-              <div>
-                <p class="account-eyebrow">ĐƠN HÀNG</p>
-                <h2>Đơn đặt hàng</h2>
-              </div>
-              <span class="panel-note">128 đơn hôm nay</span>
-            </div>
-            <div class="admin-list" id="overviewOrders"></div>
-          </section>
-
-          <section class="admin-panel admin-panel-wide" id="analyticsOverviewPanel">
-            <div class="panel-heading">
-              <div>
-                <p class="account-eyebrow">THỐNG KÊ</p>
-                <h2>Doanh thu</h2>
-              </div>
-              <span class="panel-note">Hôm nay</span>
-            </div>
-            <div class="analytics-grid">
-              <div class="chart-card">
-                <h3>Doanh thu theo tuần</h3>
-                <div class="bars" aria-label="Doanh thu theo tuần">
-                  <span style="height: 36%"></span>
-                  <span style="height: 52%"></span>
-                  <span style="height: 44%"></span>
-                  <span style="height: 60%"></span>
-                  <span style="height: 74%"></span>
-                  <span style="height: 82%"></span>
-                  <span style="height: 94%"></span>
+              <div class="staff-clock-columns">
+                <div class="staff-clock-col">
+                  <p class="staff-clock-col-label">Giờ vào</p>
+                  <p class="staff-clock-time" id="attendanceCheckIn">--:--</p>
+                  <button
+                    type="button"
+                    class="staff-clock-btn"
+                    id="attendanceCheckInBtn"
+                  >
+                    <svg class="staff-btn-icon" aria-hidden="true">
+                      <use href="#staff-login"></use>
+                    </svg>
+                    <span class="staff-clock-btn-label">Vào làm</span>
+                  </button>
+                </div>
+                <div class="staff-clock-col">
+                  <p class="staff-clock-col-label">Giờ ra</p>
+                  <p class="staff-clock-time" id="attendanceCheckOut">--:--</p>
+                  <button
+                    type="button"
+                    class="staff-clock-btn"
+                    id="attendanceCheckOutBtn"
+                  >
+                    <svg class="staff-btn-icon" aria-hidden="true">
+                      <use href="#staff-logout"></use>
+                    </svg>
+                    <span class="staff-clock-btn-label">Ra về</span>
+                  </button>
                 </div>
               </div>
-              <div class="chart-card">
-                <h3>Phân bố nguồn khách</h3>
-                <div class="ring-list">
-                  <div class="ring-item"><span class="dot dot-gold"></span> Tiktok 44%</div>
-                  <div class="ring-item"><span class="dot dot-rose"></span> Website 31%</div>
-                  <div class="ring-item"><span class="dot dot-dark"></span> Khác 25%</div>
+              <p
+                id="attendanceFeedback"
+                class="staff-clock-feedback"
+                role="status"
+                aria-live="polite"
+              ></p>
+            </section>
+            <section class="staff-panel staff-history-panel">
+              <div class="staff-section-heading">
+                <div>
+                  <p class="account-eyebrow">LỊCH SỬ</p>
+                  <h3>Điểm danh gần đây</h3>
                 </div>
               </div>
+              <div class="staff-table-wrap">
+                <table class="staff-table">
+                  <thead>
+                    <tr>
+                      <th>Ngày</th>
+                      <th>Giờ vào</th>
+                      <th>Giờ ra</th>
+                      <th>Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody id="attendanceRows"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section class="staff-view" data-staff-panel="leave" hidden>
+            <div class="staff-section-heading">
+              <div>
+                <p class="account-eyebrow">NGHỈ PHÉP & NGHỈ VIỆC</p>
+                <h2>Nộp đơn</h2>
+              </div>
             </div>
+            <div class="staff-leave-kpis" aria-label="Tổng quan nghỉ phép">
+              <article class="staff-kpi-card" data-kpi="balance">
+                <span class="staff-kpi-label"
+                  ><svg class="staff-kpi-icon" aria-hidden="true">
+                    <use href="#staff-kpi-calendar"></use></svg
+                  ><span>Phép năm còn lại</span></span
+                >
+                <strong class="staff-kpi-value" id="kpiAnnualBalance">–</strong>
+                <small class="staff-kpi-detail" id="kpiAnnualBalanceDetail"
+                  >Đang tải dữ liệu…</small
+                >
+              </article>
+              <button
+                type="button"
+                class="staff-kpi-card staff-kpi-action"
+                data-kpi="used"
+                id="kpiUsedBtn"
+              >
+                <span class="staff-kpi-label"
+                  ><svg class="staff-kpi-icon" aria-hidden="true">
+                    <use href="#staff-kpi-check"></use></svg
+                  ><span>Đã nghỉ trong năm</span></span
+                >
+                <strong class="staff-kpi-value" id="kpiUsed">–</strong>
+                <small class="staff-kpi-detail" id="kpiUsedDetail"
+                  >Đang tải dữ liệu…</small
+                >
+              </button>
+              <button
+                type="button"
+                class="staff-kpi-card staff-kpi-action"
+                data-kpi="pending"
+                id="kpiPendingBtn"
+              >
+                <span class="staff-kpi-label"
+                  ><svg class="staff-kpi-icon" aria-hidden="true">
+                    <use href="#staff-kpi-clock"></use></svg
+                  ><span>Đơn chờ phê duyệt</span></span
+                >
+                <strong class="staff-kpi-value" id="kpiPending">–</strong>
+                <small class="staff-kpi-detail" id="kpiPendingDetail"
+                  >Đang tải dữ liệu…</small
+                >
+              </button>
+              <button
+                type="button"
+                class="staff-kpi-card staff-kpi-action"
+                data-kpi="upcoming"
+                id="kpiUpcomingBtn"
+              >
+                <span class="staff-kpi-label"
+                  ><svg class="staff-kpi-icon" aria-hidden="true">
+                    <use href="#staff-kpi-suitcase"></use></svg
+                  ><span>Kỳ nghỉ sắp tới</span></span
+                >
+                <strong class="staff-kpi-value" id="kpiUpcoming">–</strong>
+                <small class="staff-kpi-detail" id="kpiUpcomingDetail"
+                  >Đang tải dữ liệu…</small
+                >
+              </button>
+            </div>
+            <div class="staff-profile-layout">
+              <form class="staff-panel staff-form" id="leaveForm">
+                <h3>Thông tin đơn</h3>
+                <label
+                  >Loại đơn<select name="type" id="leaveType" required>
+                    <option value="Nghỉ phép">Nghỉ phép</option>
+                    <option value="Nghỉ ốm đau">Nghỉ ốm đau</option>
+                    <option value="Nghỉ thai sản">Nghỉ thai sản</option>
+                    <option value="Xin nghỉ việc">Xin nghỉ việc</option>
+                  </select></label
+                >
+                <label
+                  >Ngày bắt đầu<input
+                    name="startDate"
+                    id="leaveStart"
+                    type="date"
+                    required
+                /></label>
+                <label id="leaveEndField"
+                  >Ngày kết thúc<input
+                    name="endDate"
+                    id="leaveEnd"
+                    type="date"
+                    required
+                /></label>
+                <label class="staff-field-wide"
+                  >Lý do<textarea
+                    name="reason"
+                    rows="4"
+                    maxlength="500"
+                    required
+                    placeholder="Nhập lý do gửi quản lý..."
+                  ></textarea>
+                </label>
+                <div class="staff-form-actions">
+                  <button type="submit" class="admin-primary-btn">
+                    <img
+                      src="../shared/images/send.png"
+                      alt=""
+                      class="button-icon"
+                    />
+                    Gửi đơn
+                  </button>
+                  <p id="leaveFeedback" role="status" aria-live="polite"></p>
+                </div>
+              </form>
+              <aside class="staff-panel staff-leave-note">
+                <h3>Trạng thái xét duyệt</h3>
+                <p>
+                  Đơn đã gửi sẽ được lưu trong hồ sơ của bạn với trạng thái chờ
+                  duyệt.
+                </p>
+                <p>
+                  Đơn nghỉ việc cần ghi ngày dự kiến làm việc cuối cùng ở phần
+                  ngày bắt đầu.
+                </p>
+              </aside>
+            </div>
+            <section class="staff-panel staff-history-panel">
+              <div class="staff-section-heading">
+                <div>
+                  <p class="account-eyebrow">LỊCH SỬ</p>
+                  <h2>Đơn đã gửi</h2>
+                </div>
+              </div>
+              <div class="staff-table-wrap">
+                <table class="staff-table">
+                  <thead>
+                    <tr>
+                      <th>Loại đơn</th>
+                      <th>Thời gian</th>
+                      <th>Lý do</th>
+                      <th>Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody id="leaveRows"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section class="staff-view" data-staff-panel="salary-month" hidden>
+            <div class="staff-section-heading">
+              <div>
+                <p class="account-eyebrow">THU NHẬP CÁ NHÂN</p>
+                <h2>Bảng lương tháng</h2>
+              </div>
+              <div class="staff-period-control">
+                <label for="salaryMonth">Chọn tháng</label
+                ><input id="salaryMonth" type="month" />
+              </div>
+              <button
+                type="button"
+                class="admin-primary-btn"
+                id="printMonthlyBtn"
+                disabled
+              >
+                <img
+                  src="../shared/images/print.png"
+                  alt=""
+                  class="button-icon"
+                />
+                In bảng lương tháng
+              </button>
+            </div>
+            <div id="monthlySalaryContent"></div>
+            <section class="staff-panel staff-rules-panel">
+              <p class="account-eyebrow">CÁCH TÍNH LƯƠNG</p>
+              <h3>Công thức áp dụng</h3>
+              <div class="staff-formula">
+                <p>
+                  <strong>Lương theo ngày công</strong
+                  ><span
+                    >Lương cơ bản × ngày công thực tế / ngày công chuẩn</span
+                  >
+                </p>
+                <p>
+                  <strong>Lương tăng ca</strong
+                  ><span
+                    >Lương cơ bản / (ngày công chuẩn × 8 giờ) × 150% × số giờ
+                    tăng ca</span
+                  >
+                </p>
+                <p>
+                  <strong>Tổng thu nhập</strong
+                  ><span
+                    >Lương theo ngày công + thưởng/phụ cấp + lương tăng ca</span
+                  >
+                </p>
+                <p>
+                  <strong>Tổng khấu trừ</strong
+                  ><span
+                    >Bảo hiểm theo tỷ lệ ghi nhận + thuế TNCN do quản lý ghi
+                    nhận</span
+                  >
+                </p>
+                <p>
+                  <strong>Thực nhận</strong
+                  ><span>Tổng thu nhập − tổng khấu trừ</span>
+                </p>
+              </div>
+              <p class="staff-muted">
+                Bảng lương tháng hiển thị dữ liệu đã lưu cho hồ sơ của bạn. Ngày
+                công chuẩn, tỷ lệ bảo hiểm, phụ cấp và thuế được ghi nhận theo
+                từng kỳ lương.
+              </p>
+            </section>
+          </section>
+
+          <section class="staff-view" data-staff-panel="salary-year" hidden>
+            <div class="staff-section-heading">
+              <div>
+                <p class="account-eyebrow">TỔNG HỢP THU NHẬP</p>
+                <h2>Bảng lương năm <span id="salaryYearTitle"></span></h2>
+              </div>
+              <button
+                type="button"
+                class="admin-primary-btn"
+                id="printAnnualBtn"
+              >
+                <img
+                  src="../shared/images/print.png"
+                  alt=""
+                  class="button-icon"
+                />
+                In bảng lương năm
+              </button>
+            </div>
+            <section
+              class="staff-panel staff-year-summary"
+              id="annualSummary"
+            ></section>
+            <section class="staff-panel staff-history-panel">
+              <div class="staff-table-wrap">
+                <table class="staff-table">
+                  <thead>
+                    <tr>
+                      <th>Tháng</th>
+                      <th>Ngày công</th>
+                      <th>Thu nhập</th>
+                      <th>Khấu trừ</th>
+                      <th>Thực nhận</th>
+                    </tr>
+                  </thead>
+                  <tbody id="annualRows"></tbody>
+                  <tfoot id="annualTotals"></tfoot>
+                </table>
+              </div>
+            </section>
           </section>
         </div>
-      </div>
 
-      <div class="admin-module" data-module="accounts" hidden>
-        <section class="admin-panel admin-panel-wide">
-          <div class="panel-heading">
-            <div>
-              <p class="account-eyebrow">HỆ THỐNG</p>
-              <h2>Quản lý tài khoản</h2>
-            </div>
-            <div class="admin-module-actions">
-              <input id="accountSearch" class="admin-search" type="search" placeholder="Tìm kiếm tài khoản...">
-              <button type="button" class="admin-primary-btn" data-add="accounts">Thêm mới</button>
-            </div>
-          </div>
-          <div class="admin-management-layout">
-            <div class="admin-table-wrap">
-              <div class="admin-list" id="accountsTable"></div>
-            </div>
-            <form id="accountForm" class="admin-form">
-              <h3>Thông tin tài khoản</h3>
-              <input type="hidden" name="id">
-              <label>Họ và tên<input name="name" type="text" required></label>
-              <label>Email<input name="email" type="email" required></label>
-              <label>Vai trò<select name="role"><option>Quản lý</option><option>Support</option><option>Khách hàng</option><option>Nhân viên kho</option></select></label>
-              <label>Trạng thái<select name="status"><option value="Hoạt động">Hoạt động</option><option value="Khóa">Khóa</option><option value="Chờ duyệt">Chờ duyệt</option></select></label>
-              <div class="admin-form-actions">
-                <button type="submit" class="admin-primary-btn">Lưu</button>
-                <button type="button" class="admin-secondary-btn" data-reset="accounts">Hủy</button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </div>
+        <section
+          class="staff-print-sheet"
+          id="monthlyPrintSheet"
+          hidden
+          aria-label="Bảng lương tháng để in"
+        ></section>
+        <section
+          class="staff-print-sheet"
+          id="annualPrintSheet"
+          hidden
+          aria-label="Bảng lương năm để in"
+        ></section>
 
-      <div class="admin-module" data-module="staff" hidden>
-        <section class="admin-panel admin-panel-wide">
-          <div class="panel-heading">
-            <div>
-              <p class="account-eyebrow">NHÂN SỰ</p>
-              <h2>Quản lý nhân viên</h2>
-            </div>
-            <div class="admin-module-actions">
-              <input id="staffSearch" class="admin-search" type="search" placeholder="Tìm kiếm nhân viên...">
-              <button type="button" class="admin-primary-btn" data-add="staff">Thêm mới</button>
-            </div>
+        <div class="staff-legacy-content" hidden>
+          <div class="admin-kpis">
+            <article class="admin-kpi">
+              <span>Doanh thu</span>
+              <strong>₫ 184,2M</strong>
+              <small>+18.4% so với tháng trước</small>
+            </article>
+            <article class="admin-kpi">
+              <span>Đơn hàng</span>
+              <strong>1,284</strong>
+              <small>+9.6% trong tuần này</small>
+            </article>
+            <article class="admin-kpi">
+              <span>Khách hàng</span>
+              <strong>8,640</strong>
+              <small>+142 khách mới</small>
+            </article>
+            <article class="admin-kpi">
+              <span>Hàng tồn kho</span>
+              <strong>96.7%</strong>
+              <small>54 sản phẩm cần bổ sung</small>
+            </article>
           </div>
-          <div class="admin-management-layout">
-            <div class="admin-table-wrap">
-              <div class="admin-list" id="staffTable"></div>
-            </div>
-            <form id="staffForm" class="admin-form">
-              <h3>Thông tin nhân viên</h3>
-              <input type="hidden" name="id">
-              <label>Họ và tên<input name="name" type="text" required></label>
-              <label>Email<input name="email" type="email" required></label>
-              <label>Chức vụ<input name="position" type="text" required></label>
-              <label>Trạng thái<select name="status"><option value="Làm việc">Làm việc</option><option value="Nghỉ phép">Nghỉ phép</option><option value="Nghỉ việc">Nghỉ việc</option></select></label>
-              <div class="admin-form-actions">
-                <button type="submit" class="admin-primary-btn">Lưu</button>
-                <button type="button" class="admin-secondary-btn" data-reset="staff">Hủy</button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </div>
 
-      <div class="admin-module" data-module="customers" hidden>
-        <section class="admin-panel admin-panel-wide">
-          <div class="panel-heading">
-            <div>
-              <p class="account-eyebrow">KHÁCH HÀNG</p>
-              <h2>Quản lý khách hàng</h2>
-            </div>
-            <div class="admin-module-actions">
-              <input id="customerSearch" class="admin-search" type="search" placeholder="Tìm khách hàng..."><button type="button" class="admin-primary-btn" data-add="customers">Thêm mới</button>
-            </div>
-          </div>
-          <div class="admin-management-layout">
-            <div class="admin-table-wrap">
-              <div class="admin-list" id="customersTable"></div>
-            </div>
-            <form id="customerForm" class="admin-form">
-              <h3>Thông tin khách hàng</h3>
-              <input type="hidden" name="id">
-              <label>Họ và tên<input name="name" type="text" required></label>
-              <label>Số điện thoại<input name="phone" type="tel" required></label>
-              <label>Nhóm VIP<select name="segment"><option value="Gold">Gold</option><option value="Pearl">Pearl</option><option value="Silver">Silver</option><option value="Standard">Standard</option></select></label>
-              <label>Trạng thái<select name="status"><option value="Hoạt động">Hoạt động</option><option value="Khóa">Khóa</option><option value="Mới">Mới</option></select></label>
-              <div class="admin-form-actions">
-                <button type="submit" class="admin-primary-btn">Lưu</button>
-                <button type="button" class="admin-secondary-btn" data-reset="customers">Hủy</button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </div>
+          <div class="admin-module active" data-module="overview">
+            <div class="admin-content-grid">
+              <section class="admin-panel admin-panel-wide">
+                <div class="panel-heading">
+                  <div>
+                    <p class="account-eyebrow">TỔNG QUAN</p>
+                    <h2>Quản lý tài khoản</h2>
+                  </div>
+                  <span class="panel-note">12 tài khoản</span>
+                </div>
+                <div class="admin-list" id="overviewAccounts"></div>
+              </section>
 
-      <div class="admin-module" data-module="products" hidden>
-        <section class="admin-panel admin-panel-wide">
-          <div class="panel-heading">
-            <div>
-              <p class="account-eyebrow">SẢN PHẨM</p>
-              <h2>Quản lý sản phẩm</h2>
-            </div>
-            <div class="admin-module-actions">
-              <input id="productSearch" class="admin-search" type="search" placeholder="Tìm sản phẩm...">
-              <button type="button" class="admin-primary-btn" data-add="products">Thêm mới</button>
-            </div>
-          </div>
-          <div class="admin-management-layout">
-            <div class="admin-table-wrap">
-              <div class="admin-list" id="productsTable"></div>
-            </div>
-            <form id="productForm" class="admin-form">
-              <h3>Thông tin sản phẩm</h3>
-              <input type="hidden" name="id">
-              <label>Tên sản phẩm<input name="name" type="text" required></label>
-              <label>Danh mục<input name="category" type="text" required></label>
-              <label>Giá niêm yết<input name="price" type="number" min="0" required></label>
-              <label>Số lượng<input name="stock" type="number" min="0" required></label>
-              <label>Trạng thái<select name="status"><option value="Đang mở bán">Đang mở bán</option><option value="Hết hàng tạm thời">Hết hàng tạm thời</option><option value="Tạm ngừng kinh doanh">Tạm ngừng kinh doanh</option></select></label>
-              <div class="admin-form-actions">
-                <button type="submit" class="admin-primary-btn">Lưu</button>
-                <button type="button" class="admin-secondary-btn" data-reset="products">Hủy</button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </div>
+              <section class="admin-panel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="account-eyebrow">NHÂN SỰ</p>
+                    <h2>Nhân viên</h2>
+                  </div>
+                  <span class="panel-note">24 người</span>
+                </div>
+                <div class="mini-table" id="overviewStaff"></div>
+              </section>
 
-      <div class="admin-module" data-module="stock" hidden>
-        <section class="admin-panel admin-panel-wide">
-          <div class="panel-heading">
-            <div>
-              <p class="account-eyebrow">KHO HÀNG</p>
-              <h2>Quản lý nhập hàng</h2>
-            </div>
-            <div class="admin-module-actions">
-              <input id="stockSearch" class="admin-search" type="search" placeholder="Tìm phiếu nhập...">
-              <button type="button" class="admin-primary-btn" data-add="stock">Tạo phiếu</button>
-            </div>
-          </div>
-          <div class="admin-management-layout">
-            <div class="admin-table-wrap">
-              <div class="admin-list" id="stockTable"></div>
-            </div>
-            <form id="stockForm" class="admin-form">
-              <h3>Phiếu nhập hàng</h3>
-              <input type="hidden" name="id">
-              <label>Mã phiếu<input name="code" type="text" required></label>
-              <label>Nhà cung cấp<input name="supplier" type="text" required></label>
-              <label>Số lượng<input name="quantity" type="number" min="1" required></label>
-              <label>Ngày nhập<input name="date" type="date" required></label>
-              <div class="admin-form-actions">
-                <button type="submit" class="admin-primary-btn">Lưu</button>
-                <button type="button" class="admin-secondary-btn" data-reset="stock">Hủy</button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </div>
+              <section class="admin-panel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="account-eyebrow">KHÁCH HÀNG</p>
+                    <h2>Khách hàng</h2>
+                  </div>
+                  <span class="panel-note">2,140</span>
+                </div>
+                <div
+                  class="admin-list compact-list"
+                  id="overviewCustomers"
+                ></div>
+              </section>
 
-      <div class="admin-module" data-module="invoices" hidden>
-        <section class="admin-panel admin-panel-wide">
-          <div class="panel-heading">
-            <div>
-              <p class="account-eyebrow">GIAO DỊCH</p>
-              <h2>Quản lý hóa đơn</h2>
-            </div>
-            <div class="admin-module-actions">
-              <input id="invoiceSearch" class="admin-search" type="search" placeholder="Tìm hóa đơn..."><button type="button" class="admin-primary-btn" data-add="invoices">In hóa đơn</button>
-            </div>
-          </div>
-          <div class="admin-management-layout">
-            <div class="admin-table-wrap">
-              <div class="admin-list" id="invoicesTable"></div>
-            </div>
-            <form id="invoiceForm" class="admin-form">
-              <h3>Thông tin hóa đơn</h3>
-              <input type="hidden" name="id">
-              <label>Mã hóa đơn<input name="code" type="text" required></label>
-              <label>Khách hàng<input name="customer" type="text" required></label>
-              <label>Tổng tiền<input name="amount" type="number" min="0" required></label>
-              <label>Trạng thái<select name="status"><option value="Đã thanh toán">Đã thanh toán</option><option value="Đang vận chuyển">Đang vận chuyển</option><option value="Chờ xác nhận">Chờ xác nhận</option><option value="Đã hủy">Đã hủy</option></select></label>
-              <div class="admin-form-actions">
-                <button type="submit" class="admin-primary-btn">Lưu</button>
-                <button type="button" class="admin-secondary-btn" data-reset="invoices">Hủy</button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </div>
+              <section class="admin-panel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="account-eyebrow">SẢN PHẨM</p>
+                    <h2>Sản phẩm</h2>
+                  </div>
+                  <span class="panel-note">386 mặt hàng</span>
+                </div>
+                <div class="product-grid" id="overviewProducts"></div>
+              </section>
 
-      <div class="admin-module" data-module="promotions" hidden>
-        <section class="admin-panel admin-panel-wide">
-          <div class="panel-heading">
-            <div>
-              <p class="account-eyebrow">KHUYẾN MÃI</p>
-              <h2>Quản lý khuyến mãi</h2>
-            </div>
-            <div class="admin-module-actions">
-              <input id="promotionSearch" class="admin-search" type="search" placeholder="Tìm chương trình..."><button type="button" class="admin-primary-btn" data-add="promotions">Thêm mới</button>
-            </div>
-          </div>
-          <div class="admin-management-layout">
-            <div class="admin-table-wrap">
-              <div class="admin-list" id="promotionsTable"></div>
-            </div>
-            <form id="promotionForm" class="admin-form">
-              <h3>Chương trình khuyến mãi</h3>
-              <input type="hidden" name="id">
-              <label>Tên chương trình<input name="name" type="text" required></label>
-              <label>Mã code<input name="code" type="text" required></label>
-              <label>Mức giảm (%)<input name="discount" type="number" min="0" max="100" required></label>
-              <label>Trạng thái<select name="status"><option value="Hoạt động">Hoạt động</option><option value="Hết hạn">Hết hạn</option><option value="Đã hủy">Đã hủy</option></select></label>
-              <div class="admin-form-actions">
-                <button type="submit" class="admin-primary-btn">Lưu</button>
-                <button type="button" class="admin-secondary-btn" data-reset="promotions">Hủy</button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </div>
+              <section class="admin-panel" id="stockOverviewPanel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="account-eyebrow">KHO HÀNG</p>
+                    <h2>Nhập hàng</h2>
+                  </div>
+                  <span class="panel-note">5 lô mới</span>
+                </div>
+                <div class="admin-list compact-list" id="overviewStock"></div>
+              </section>
 
-      <div class="admin-module" data-module="orders" hidden>
-        <section class="admin-panel admin-panel-wide">
-          <div class="panel-heading">
-            <div>
-              <p class="account-eyebrow">ĐƠN HÀNG</p>
-              <h2>Quản lý đơn đặt hàng</h2>
-            </div>
-            <div class="admin-module-actions">
-              <input id="orderSearch" class="admin-search" type="search" placeholder="Tìm đơn hàng..."><button type="button" class="admin-primary-btn" data-add="orders">Xác nhận mới</button>
-            </div>
-          </div>
-          <div class="admin-management-layout">
-            <div class="admin-table-wrap">
-              <div class="admin-list" id="ordersTable"></div>
-            </div>
-            <form id="orderForm" class="admin-form">
-              <h3>Chi tiết đơn hàng</h3>
-              <input type="hidden" name="id">
-              <label>Mã đơn<input name="code" type="text" required></label>
-              <label>Khách hàng<input name="customer" type="text" required></label>
-              <label>Tổng tiền<input name="total" type="number" min="0" required></label>
-              <label>Trạng thái<select name="status"><option value="Đã xác nhận">Đã xác nhận</option><option value="Đang xử lý">Đang xử lý</option><option value="Đang giao">Đang giao</option><option value="Đã hủy">Đã hủy</option></select></label>
-              <div class="admin-form-actions">
-                <button type="submit" class="admin-primary-btn">Lưu</button>
-                <button type="button" class="admin-secondary-btn" data-reset="orders">Hủy</button>
-              </div>
-            </form>
-          </div>
-        </section>
-      </div>
+              <section class="admin-panel" id="invoiceOverviewPanel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="account-eyebrow">HÓA ĐƠN</p>
+                    <h2>Hóa đơn</h2>
+                  </div>
+                  <span class="panel-note">28 hóa đơn</span>
+                </div>
+                <div class="mini-table" id="overviewInvoices"></div>
+              </section>
 
-      <div class="admin-module" data-module="analytics" hidden>
-        <section class="admin-panel admin-panel-wide">
-          <div class="panel-heading">
-            <div>
-              <p class="account-eyebrow">THỐNG KÊ</p>
-              <h2>Thống kê doanh thu</h2>
-            </div>
-            <div class="admin-module-actions">
-              <select id="analyticsRange" class="admin-search">
-                <option value="day">Theo ngày</option>
-                <option value="month" selected>Theo tháng</option>
-                <option value="year">Theo năm</option>
-              </select>
-              <button type="button" class="admin-primary-btn">In báo cáo</button>
-            </div>
-          </div>
-          <div class="analytics-grid">
-            <div class="chart-card">
-              <h3>Biểu đồ doanh thu</h3>
-              <div class="bars" aria-label="Biểu đồ doanh thu">
-                <span style="height: 28%"></span><span style="height: 38%"></span><span style="height: 50%"></span><span style="height: 58%"></span><span style="height: 72%"></span><span style="height: 88%"></span><span style="height: 96%"></span>
-              </div>
-            </div>
-            <div class="chart-card">
-              <h3>Phân tích ưu tiên</h3>
-              <div class="ring-list">
-                <div class="ring-item"><span class="dot dot-gold"></span> Doanh số bán chạy: 42%</div>
-                <div class="ring-item"><span class="dot dot-rose"></span> Chi phí vận chuyển: 26%</div>
-                <div class="ring-item"><span class="dot dot-dark"></span> Khuyến mãi: 32%</div>
-              </div>
-            </div>
-          </div>
-          <div class="admin-stat-grid">
-            <div class="stat-box"><span>Doanh thu tháng</span><strong>₫ 184.2M</strong></div>
-            <div class="stat-box"><span>Đơn hoàn thành</span><strong>1,284</strong></div>
-            <div class="stat-box"><span>Đơn hủy</span><strong>48</strong></div>
-            <div class="stat-box"><span>Lợi nhuận</span><strong>₫ 71.4M</strong></div>
-          </div>
-        </section>
-      </div>
-      </div>
-    </section>
-  </main>
+              <section class="admin-panel" id="promotionOverviewPanel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="account-eyebrow">KHUYẾN MÃI</p>
+                    <h2>Khuyến mãi</h2>
+                  </div>
+                  <span class="panel-note">7 khuyến mãi</span>
+                </div>
+                <div class="promo-stack" id="overviewPromotions"></div>
+              </section>
 
-  <div
-    class="logout-modal"
-    id="logoutModal"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="logoutModalTitle"
-    hidden
-  >
-    <div class="logout-modal-content">
-      <h2 id="logoutModalTitle">Bạn có muốn đăng xuất không?</h2>
-      <div class="logout-modal-actions">
-        <button type="button" class="admin-secondary-btn" id="cancelLogoutBtn">
-          Không
-        </button>
-        <button type="button" class="admin-logout-btn" id="confirmLogoutBtn">
-          Có
-        </button>
+              <section
+                class="admin-panel admin-panel-wide"
+                id="ordersOverviewPanel"
+              >
+                <div class="panel-heading">
+                  <div>
+                    <p class="account-eyebrow">ĐƠN HÀNG</p>
+                    <h2>Đơn đặt hàng</h2>
+                  </div>
+                  <span class="panel-note">128 đơn hôm nay</span>
+                </div>
+                <div class="admin-list" id="overviewOrders"></div>
+              </section>
+
+              <section
+                class="admin-panel admin-panel-wide"
+                id="analyticsOverviewPanel"
+              >
+                <div class="panel-heading">
+                  <div>
+                    <p class="account-eyebrow">THỐNG KÊ</p>
+                    <h2>Doanh thu</h2>
+                  </div>
+                  <span class="panel-note">Hôm nay</span>
+                </div>
+                <div class="analytics-grid">
+                  <div class="chart-card">
+                    <h3>Doanh thu theo tuần</h3>
+                    <div class="bars" aria-label="Doanh thu theo tuần">
+                      <span style="height: 36%"></span>
+                      <span style="height: 52%"></span>
+                      <span style="height: 44%"></span>
+                      <span style="height: 60%"></span>
+                      <span style="height: 74%"></span>
+                      <span style="height: 82%"></span>
+                      <span style="height: 94%"></span>
+                    </div>
+                  </div>
+                  <div class="chart-card">
+                    <h3>Phân bố nguồn khách</h3>
+                    <div class="ring-list">
+                      <div class="ring-item">
+                        <span class="dot dot-gold"></span> Tiktok 44%
+                      </div>
+                      <div class="ring-item">
+                        <span class="dot dot-rose"></span> Website 31%
+                      </div>
+                      <div class="ring-item">
+                        <span class="dot dot-dark"></span> Khác 25%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div class="admin-module" data-module="accounts" hidden>
+            <section class="admin-panel admin-panel-wide">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">HỆ THỐNG</p>
+                  <h2>Quản lý tài khoản</h2>
+                </div>
+                <div class="admin-module-actions">
+                  <input
+                    id="accountSearch"
+                    class="admin-search"
+                    type="search"
+                    placeholder="Tìm kiếm tài khoản..."
+                  />
+                  <button
+                    type="button"
+                    class="admin-primary-btn"
+                    data-add="accounts"
+                  >
+                    Thêm mới
+                  </button>
+                </div>
+              </div>
+              <div class="admin-management-layout">
+                <div class="admin-table-wrap">
+                  <div class="admin-list" id="accountsTable"></div>
+                </div>
+                <form id="accountForm" class="admin-form">
+                  <h3>Thông tin tài khoản</h3>
+                  <input type="hidden" name="id" />
+                  <label
+                    >Họ và tên<input name="name" type="text" required
+                  /></label>
+                  <label
+                    >Email<input name="email" type="email" required
+                  /></label>
+                  <label
+                    >Vai trò<select name="role">
+                      <option>Quản lý</option>
+                      <option>Support</option>
+                      <option>Khách hàng</option>
+                      <option>Nhân viên kho</option>
+                    </select></label
+                  >
+                  <label
+                    >Trạng thái<select name="status">
+                      <option value="Hoạt động">Hoạt động</option>
+                      <option value="Khóa">Khóa</option>
+                      <option value="Chờ duyệt">Chờ duyệt</option>
+                    </select></label
+                  >
+                  <div class="admin-form-actions">
+                    <button type="submit" class="admin-primary-btn">Lưu</button>
+                    <button
+                      type="button"
+                      class="admin-secondary-btn"
+                      data-reset="accounts"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
+
+          <div class="admin-module" data-module="staff" hidden>
+            <section class="admin-panel admin-panel-wide">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">NHÂN SỰ</p>
+                  <h2>Quản lý nhân viên</h2>
+                </div>
+                <div class="admin-module-actions">
+                  <input
+                    id="staffSearch"
+                    class="admin-search"
+                    type="search"
+                    placeholder="Tìm kiếm nhân viên..."
+                  />
+                  <button
+                    type="button"
+                    class="admin-primary-btn"
+                    data-add="staff"
+                  >
+                    Thêm mới
+                  </button>
+                </div>
+              </div>
+              <div class="admin-management-layout">
+                <div class="admin-table-wrap">
+                  <div class="admin-list" id="staffTable"></div>
+                </div>
+                <form id="staffForm" class="admin-form">
+                  <h3>Thông tin nhân viên</h3>
+                  <input type="hidden" name="id" />
+                  <label
+                    >Họ và tên<input name="name" type="text" required
+                  /></label>
+                  <label
+                    >Email<input name="email" type="email" required
+                  /></label>
+                  <label
+                    >Chức vụ<input name="position" type="text" required
+                  /></label>
+                  <label
+                    >Trạng thái<select name="status">
+                      <option value="Làm việc">Làm việc</option>
+                      <option value="Nghỉ phép">Nghỉ phép</option>
+                      <option value="Nghỉ việc">Nghỉ việc</option>
+                    </select></label
+                  >
+                  <div class="admin-form-actions">
+                    <button type="submit" class="admin-primary-btn">Lưu</button>
+                    <button
+                      type="button"
+                      class="admin-secondary-btn"
+                      data-reset="staff"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
+
+          <div class="admin-module" data-module="customers" hidden>
+            <section class="admin-panel admin-panel-wide">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">KHÁCH HÀNG</p>
+                  <h2>Quản lý khách hàng</h2>
+                </div>
+                <div class="admin-module-actions">
+                  <input
+                    id="customerSearch"
+                    class="admin-search"
+                    type="search"
+                    placeholder="Tìm khách hàng..."
+                  /><button
+                    type="button"
+                    class="admin-primary-btn"
+                    data-add="customers"
+                  >
+                    Thêm mới
+                  </button>
+                </div>
+              </div>
+              <div class="admin-management-layout">
+                <div class="admin-table-wrap">
+                  <div class="admin-list" id="customersTable"></div>
+                </div>
+                <form id="customerForm" class="admin-form">
+                  <h3>Thông tin khách hàng</h3>
+                  <input type="hidden" name="id" />
+                  <label
+                    >Họ và tên<input name="name" type="text" required
+                  /></label>
+                  <label
+                    >Số điện thoại<input name="phone" type="tel" required
+                  /></label>
+                  <label
+                    >Nhóm VIP<select name="segment">
+                      <option value="Gold">Gold</option>
+                      <option value="Pearl">Pearl</option>
+                      <option value="Silver">Silver</option>
+                      <option value="Standard">Standard</option>
+                    </select></label
+                  >
+                  <label
+                    >Trạng thái<select name="status">
+                      <option value="Hoạt động">Hoạt động</option>
+                      <option value="Khóa">Khóa</option>
+                      <option value="Mới">Mới</option>
+                    </select></label
+                  >
+                  <div class="admin-form-actions">
+                    <button type="submit" class="admin-primary-btn">Lưu</button>
+                    <button
+                      type="button"
+                      class="admin-secondary-btn"
+                      data-reset="customers"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
+
+          <div class="admin-module" data-module="products" hidden>
+            <section class="admin-panel admin-panel-wide">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">SẢN PHẨM</p>
+                  <h2>Quản lý sản phẩm</h2>
+                </div>
+                <div class="admin-module-actions">
+                  <input
+                    id="productSearch"
+                    class="admin-search"
+                    type="search"
+                    placeholder="Tìm sản phẩm..."
+                  />
+                  <button
+                    type="button"
+                    class="admin-primary-btn"
+                    data-add="products"
+                  >
+                    Thêm mới
+                  </button>
+                </div>
+              </div>
+              <div class="admin-management-layout">
+                <div class="admin-table-wrap">
+                  <div class="admin-list" id="productsTable"></div>
+                </div>
+                <form id="productForm" class="admin-form">
+                  <h3>Thông tin sản phẩm</h3>
+                  <input type="hidden" name="id" />
+                  <label
+                    >Tên sản phẩm<input name="name" type="text" required
+                  /></label>
+                  <label
+                    >Danh mục<input name="category" type="text" required
+                  /></label>
+                  <label
+                    >Giá niêm yết<input
+                      name="price"
+                      type="number"
+                      min="0"
+                      required
+                  /></label>
+                  <label
+                    >Số lượng<input name="stock" type="number" min="0" required
+                  /></label>
+                  <label
+                    >Trạng thái<select name="status">
+                      <option value="Đang mở bán">Đang mở bán</option>
+                      <option value="Hết hàng tạm thời">
+                        Hết hàng tạm thời
+                      </option>
+                      <option value="Tạm ngừng kinh doanh">
+                        Tạm ngừng kinh doanh
+                      </option>
+                    </select></label
+                  >
+                  <div class="admin-form-actions">
+                    <button type="submit" class="admin-primary-btn">Lưu</button>
+                    <button
+                      type="button"
+                      class="admin-secondary-btn"
+                      data-reset="products"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
+
+          <div class="admin-module" data-module="stock" hidden>
+            <section class="admin-panel admin-panel-wide">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">KHO HÀNG</p>
+                  <h2>Quản lý nhập hàng</h2>
+                </div>
+                <div class="admin-module-actions">
+                  <input
+                    id="stockSearch"
+                    class="admin-search"
+                    type="search"
+                    placeholder="Tìm phiếu nhập..."
+                  />
+                  <button
+                    type="button"
+                    class="admin-primary-btn"
+                    data-add="stock"
+                  >
+                    Tạo phiếu
+                  </button>
+                </div>
+              </div>
+              <div class="admin-management-layout">
+                <div class="admin-table-wrap">
+                  <div class="admin-list" id="stockTable"></div>
+                </div>
+                <form id="stockForm" class="admin-form">
+                  <h3>Phiếu nhập hàng</h3>
+                  <input type="hidden" name="id" />
+                  <label
+                    >Mã phiếu<input name="code" type="text" required
+                  /></label>
+                  <label
+                    >Nhà cung cấp<input name="supplier" type="text" required
+                  /></label>
+                  <label
+                    >Số lượng<input
+                      name="quantity"
+                      type="number"
+                      min="1"
+                      required
+                  /></label>
+                  <label
+                    >Ngày nhập<input name="date" type="date" required
+                  /></label>
+                  <div class="admin-form-actions">
+                    <button type="submit" class="admin-primary-btn">Lưu</button>
+                    <button
+                      type="button"
+                      class="admin-secondary-btn"
+                      data-reset="stock"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
+
+          <div class="admin-module" data-module="invoices" hidden>
+            <section class="admin-panel admin-panel-wide">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">GIAO DỊCH</p>
+                  <h2>Quản lý hóa đơn</h2>
+                </div>
+                <div class="admin-module-actions">
+                  <input
+                    id="invoiceSearch"
+                    class="admin-search"
+                    type="search"
+                    placeholder="Tìm hóa đơn..."
+                  /><button
+                    type="button"
+                    class="admin-primary-btn"
+                    data-add="invoices"
+                  >
+                    In hóa đơn
+                  </button>
+                </div>
+              </div>
+              <div class="admin-management-layout">
+                <div class="admin-table-wrap">
+                  <div class="admin-list" id="invoicesTable"></div>
+                </div>
+                <form id="invoiceForm" class="admin-form">
+                  <h3>Thông tin hóa đơn</h3>
+                  <input type="hidden" name="id" />
+                  <label
+                    >Mã hóa đơn<input name="code" type="text" required
+                  /></label>
+                  <label
+                    >Khách hàng<input name="customer" type="text" required
+                  /></label>
+                  <label
+                    >Tổng tiền<input
+                      name="amount"
+                      type="number"
+                      min="0"
+                      required
+                  /></label>
+                  <label
+                    >Trạng thái<select name="status">
+                      <option value="Đã thanh toán">Đã thanh toán</option>
+                      <option value="Đang vận chuyển">Đang vận chuyển</option>
+                      <option value="Chờ xác nhận">Chờ xác nhận</option>
+                      <option value="Đã hủy">Đã hủy</option>
+                    </select></label
+                  >
+                  <div class="admin-form-actions">
+                    <button type="submit" class="admin-primary-btn">Lưu</button>
+                    <button
+                      type="button"
+                      class="admin-secondary-btn"
+                      data-reset="invoices"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
+
+          <div class="admin-module" data-module="promotions" hidden>
+            <section class="admin-panel admin-panel-wide">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">KHUYẾN MÃI</p>
+                  <h2>Quản lý khuyến mãi</h2>
+                </div>
+                <div class="admin-module-actions">
+                  <input
+                    id="promotionSearch"
+                    class="admin-search"
+                    type="search"
+                    placeholder="Tìm chương trình..."
+                  /><button
+                    type="button"
+                    class="admin-primary-btn"
+                    data-add="promotions"
+                  >
+                    Thêm mới
+                  </button>
+                </div>
+              </div>
+              <div class="admin-management-layout">
+                <div class="admin-table-wrap">
+                  <div class="admin-list" id="promotionsTable"></div>
+                </div>
+                <form id="promotionForm" class="admin-form">
+                  <h3>Chương trình khuyến mãi</h3>
+                  <input type="hidden" name="id" />
+                  <label
+                    >Tên chương trình<input name="name" type="text" required
+                  /></label>
+                  <label
+                    >Mã code<input name="code" type="text" required
+                  /></label>
+                  <label
+                    >Mức giảm (%)<input
+                      name="discount"
+                      type="number"
+                      min="0"
+                      max="100"
+                      required
+                  /></label>
+                  <label
+                    >Trạng thái<select name="status">
+                      <option value="Hoạt động">Hoạt động</option>
+                      <option value="Hết hạn">Hết hạn</option>
+                      <option value="Đã hủy">Đã hủy</option>
+                    </select></label
+                  >
+                  <div class="admin-form-actions">
+                    <button type="submit" class="admin-primary-btn">Lưu</button>
+                    <button
+                      type="button"
+                      class="admin-secondary-btn"
+                      data-reset="promotions"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
+
+          <div class="admin-module" data-module="orders" hidden>
+            <section class="admin-panel admin-panel-wide">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">ĐƠN HÀNG</p>
+                  <h2>Quản lý đơn đặt hàng</h2>
+                </div>
+                <div class="admin-module-actions">
+                  <input
+                    id="orderSearch"
+                    class="admin-search"
+                    type="search"
+                    placeholder="Tìm đơn hàng..."
+                  /><button
+                    type="button"
+                    class="admin-primary-btn"
+                    data-add="orders"
+                  >
+                    Xác nhận mới
+                  </button>
+                </div>
+              </div>
+              <div class="admin-management-layout">
+                <div class="admin-table-wrap">
+                  <div class="admin-list" id="ordersTable"></div>
+                </div>
+                <form id="orderForm" class="admin-form">
+                  <h3>Chi tiết đơn hàng</h3>
+                  <input type="hidden" name="id" />
+                  <label
+                    >Mã đơn<input name="code" type="text" required
+                  /></label>
+                  <label
+                    >Khách hàng<input name="customer" type="text" required
+                  /></label>
+                  <label
+                    >Tổng tiền<input
+                      name="total"
+                      type="number"
+                      min="0"
+                      required
+                  /></label>
+                  <label
+                    >Trạng thái<select name="status">
+                      <option value="Đã xác nhận">Đã xác nhận</option>
+                      <option value="Đang xử lý">Đang xử lý</option>
+                      <option value="Đang giao">Đang giao</option>
+                      <option value="Đã hủy">Đã hủy</option>
+                    </select></label
+                  >
+                  <div class="admin-form-actions">
+                    <button type="submit" class="admin-primary-btn">Lưu</button>
+                    <button
+                      type="button"
+                      class="admin-secondary-btn"
+                      data-reset="orders"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </div>
+
+          <div class="admin-module" data-module="analytics" hidden>
+            <section class="admin-panel admin-panel-wide">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">THỐNG KÊ</p>
+                  <h2>Thống kê doanh thu</h2>
+                </div>
+                <div class="admin-module-actions">
+                  <select id="analyticsRange" class="admin-search">
+                    <option value="day">Theo ngày</option>
+                    <option value="month" selected>Theo tháng</option>
+                    <option value="year">Theo năm</option>
+                  </select>
+                  <button type="button" class="admin-primary-btn">
+                    In báo cáo
+                  </button>
+                </div>
+              </div>
+              <div class="analytics-grid">
+                <div class="chart-card">
+                  <h3>Biểu đồ doanh thu</h3>
+                  <div class="bars" aria-label="Biểu đồ doanh thu">
+                    <span style="height: 28%"></span
+                    ><span style="height: 38%"></span
+                    ><span style="height: 50%"></span
+                    ><span style="height: 58%"></span
+                    ><span style="height: 72%"></span
+                    ><span style="height: 88%"></span
+                    ><span style="height: 96%"></span>
+                  </div>
+                </div>
+                <div class="chart-card">
+                  <h3>Phân tích ưu tiên</h3>
+                  <div class="ring-list">
+                    <div class="ring-item">
+                      <span class="dot dot-gold"></span> Doanh số bán chạy: 42%
+                    </div>
+                    <div class="ring-item">
+                      <span class="dot dot-rose"></span> Chi phí vận chuyển: 26%
+                    </div>
+                    <div class="ring-item">
+                      <span class="dot dot-dark"></span> Khuyến mãi: 32%
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="admin-stat-grid">
+                <div class="stat-box">
+                  <span>Doanh thu tháng</span><strong>₫ 184.2M</strong>
+                </div>
+                <div class="stat-box">
+                  <span>Đơn hoàn thành</span><strong>1,284</strong>
+                </div>
+                <div class="stat-box">
+                  <span>Đơn hủy</span><strong>48</strong>
+                </div>
+                <div class="stat-box">
+                  <span>Lợi nhuận</span><strong>₫ 71.4M</strong>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div
+      class="logout-modal"
+      id="logoutModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="logoutModalTitle"
+      hidden
+    >
+      <div class="logout-modal-content">
+        <h2 id="logoutModalTitle">Bạn có muốn đăng xuất không?</h2>
+        <div class="logout-modal-actions">
+          <button
+            type="button"
+            class="admin-secondary-btn"
+            id="cancelLogoutBtn"
+          >
+            Không
+          </button>
+          <button type="button" class="admin-logout-btn" id="confirmLogoutBtn">
+            Có
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../shared/js/supabase-client.js"></script>
-  <script src="../shared/js/portal-api.js"></script>
-  <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
-  <script src="js/staff-core.js"></script>
-  <script src="js/staff-profile.js"></script>
-  <script src="js/staff-leave.js"></script>
-  <script src="js/staff-attendance.js"></script>
-  <script src="js/staff-salary-month.js"></script>
-  <script src="js/staff-salary-year.js"></script>
-  <script>loadStaffPortal().catch(() => showPageError("Không thể kết nối máy chủ."));</script>
-</body>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../shared/js/supabase-client.js"></script>
+    <script src="../shared/js/portal-api.js"></script>
+    <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
+    <script src="js/staff-core.js"></script>
+    <script src="js/staff-profile.js"></script>
+    <script src="js/staff-leave.js"></script>
+    <script src="js/staff-attendance.js"></script>
+    <script src="js/staff-salary-month.js"></script>
+    <script src="js/staff-salary-year.js"></script>
+    <script>
+      loadStaffPortal().catch(() =>
+        showPageError("Không thể kết nối máy chủ."),
+      );
+    </script>
+  </body>
 </html>

@@ -198,7 +198,10 @@ body:has(.admin-page) {
   color: #c6cec9;
   font-size: 13px;
   text-decoration: none;
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
 }
 
 .admin-nav-item:hover,
@@ -299,7 +302,10 @@ body:has(.admin-page) {
   cursor: pointer;
   font: 600 12px/1.2 var(--body-font, sans-serif);
   text-decoration: none;
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
 }
 
 .admin-primary-btn {
@@ -379,4 +385,11 @@ body:has(.admin-page) {
 
 .logout-modal-actions button {
   min-width: 90px;
+}
+.button-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
