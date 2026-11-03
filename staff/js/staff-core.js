@@ -367,3 +367,18 @@ async function loadStaffPortal() {
   });
   const results = await Promise.allSettled(tasks); if (results.some((result) => result.status === "rejected")) showPageError("Không tải được dữ liệu. Vui lòng thử lại sau.");
 }
+
+// Toast feedback (section 9): same bottom-right pattern as the manager
+// dashboard. One shared timer so a new toast replaces a pending hide.
+let staffToastTimer = null;
+function showStaffToast(kind, message) {
+  const toast = document.getElementById(kind === "error" ? "staffErrorToast" : "staffSuccessToast");
+  if (!toast) return;
+  toast.querySelector("span").textContent = message;
+  clearTimeout(staffToastTimer);
+  document.querySelectorAll(".staff-toast").forEach((el) => {
+    if (el !== toast) el.classList.remove("show");
+  });
+  toast.classList.add("show");
+  staffToastTimer = setTimeout(() => toast.classList.remove("show"), 5000);
+}

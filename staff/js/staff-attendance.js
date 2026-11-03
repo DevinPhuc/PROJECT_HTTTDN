@@ -22,6 +22,78 @@ const NOT_CHECKED = "--:--";
 let attendanceState = { today: "", records: [] };
 let attendanceClockTimer = 0;
 let attendanceFeedbackTimer = 0;
+// History table (section 6): client-side filter + pagination, 10 rows per page.
+// Month = yyyy-mm picker; week = 1..4 (7-day blocks of the chosen month).
+const ATT_PAGE_SIZE = 10;
+const attendanceView = { filter: "all", page: 1, month: null, week: null };
+
+// Month/week options come from the system clock, built once per page load.
+(function initAttendancePickerOptions() {
+  const year = new Date().getFullYear();
+  const monthSel = document.getElementById("attendanceMonth");
+  for (let m = 1; m <= 12; m++) {
+    const option = document.createElement("option");
+    option.value = `${year}-${String(m).padStart(2, "0")}`;
+    option.textContent = `Tháng ${m}`;
+    monthSel.append(option);
+  }
+  const weekSel = document.getElementById("attendanceWeek");
+  for (let w = 1; w <= 4; w++) {
+    const option = document.createElement("option");
+    option.value = String(w);
+    option.textContent = `Tuần ${w}`;
+    weekSel.append(option);
+  }
+})();
+
+function updateAttendancePickerControls() {
+  document.getElementById("attendanceMonth").hidden =
+    !["week", "month"].includes(attendanceView.filter);
+  document.getElementById("attendanceWeek").hidden = attendanceView.filter !== "week";
+  if (!document.getElementById("attendanceMonth").hidden) {
+    document.getElementById("attendanceMonth").value = attendanceView.month;
+  }
+  if (!document.getElementById("attendanceWeek").hidden) {
+    document.getElementById("attendanceWeek").value = String(attendanceView.week);
+  }
+}
+
+// yyyy-mm-dd → local Date (no toISOString UTC shift).
+function isoDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function parseIsoDate(value) {
+  const [y, m, d] = String(value).slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// Only data from the current system year and earlier is shown.
+function attendanceFiltered() {
+  const year = String(attendanceState.today || isoDate(new Date())).slice(0, 4);
+  const records = attendanceState.records.filter((r) => r.work_date.slice(0, 4) <= year);
+  const today = parseIsoDate(attendanceState.today);
+  if (attendanceView.filter === "day") return records.filter((r) => r.work_date === attendanceState.today);
+  if (attendanceView.filter === "month") {
+    const month = attendanceView.month;
+    return records.filter((r) => r.work_date.slice(0, 7) === month);
+  }
+  if (attendanceView.filter === "week") {
+    // Week w of the chosen month = days (1+7(w-1)) … min(7w, last day);
+    // week 4 absorbs the month's tail so days 29–31 are never unreachable.
+    const week = Number(attendanceView.week) || 1;
+    const startDay = 1 + (week - 1) * 7;
+    const monthDate = parseIsoDate(`${attendanceView.month}-01`);
+    const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+    const endDay = week === 4 ? lastDay : Math.min(7 * week, lastDay);
+    return records.filter((r) => {
+      if (r.work_date.slice(0, 7) !== attendanceView.month) return false;
+      const day = Number(r.work_date.slice(8, 10));
+      return day >= startDay && day <= endDay;
+    });
+  }
+  return records;
+}
 
 function setAttendanceFeedback(message) {
   const feedback = document.getElementById("attendanceFeedback");
@@ -86,13 +158,27 @@ async function renderAttendancePanel(preloaded) {
   const result = preloaded || await callStaff({ action: "attendance_list" });
   if (!result.ok) throw new Error(result.error);
   attendanceState = { today: result.data.today, records: result.data.records || [] };
+  // Defaults so the pickers are usable the first time week/month is chosen.
+  attendanceView.month ||= attendanceState.today.slice(0, 7);
+  attendanceView.week ||= Math.min(4, Math.ceil(parseIsoDate(attendanceState.today).getDate() / 7));
+  renderAttendanceSlice();
+  refreshAttendanceUI();
+  return result;
+}
 
+// Render the current filter + page of the history table, plus the pager.
+function renderAttendanceSlice() {
+  updateAttendancePickerControls();
   const rows = document.getElementById("attendanceRows"); rows.replaceChildren();
-  if (!attendanceState.records.length) {
+  const filtered = attendanceFiltered();
+  if (!filtered.length) {
     const row = document.createElement("tr"); const cell = document.createElement("td");
     cell.colSpan = 4; cell.className = "staff-empty-cell"; cell.textContent = "Chưa có dữ liệu chấm công."; row.append(cell); rows.append(row);
   }
-  attendanceState.records.forEach((record) => {
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ATT_PAGE_SIZE));
+  attendanceView.page = Math.min(attendanceView.page, totalPages);
+  const pageStart = (attendanceView.page - 1) * ATT_PAGE_SIZE;
+  filtered.slice(pageStart, pageStart + ATT_PAGE_SIZE).forEach((record) => {
     const row = document.createElement("tr");
     [dateLabel(record.work_date), record.check_in ? timeShort(record.check_in) : "—", record.check_out ? timeShort(record.check_out) : "—"].forEach((value) => {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
@@ -100,9 +186,48 @@ async function renderAttendancePanel(preloaded) {
     const statusCell = document.createElement("td"); statusCell.append(attendanceStatusBadge(record.status)); row.append(statusCell);
     rows.append(row);
   });
-  refreshAttendanceUI();
-  return result;
+  renderAttendancePager(totalPages);
 }
+
+function renderAttendancePager(totalPages) {
+  const pager = document.getElementById("attendancePager");
+  pager.replaceChildren();
+  if (totalPages <= 1) { pager.hidden = true; return; }
+  const mkBtn = (label, target, disabled) => {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "admin-secondary-btn"; btn.textContent = label;
+    if (disabled) btn.disabled = true;
+    btn.addEventListener("click", () => {
+      attendanceView.page = target;
+      renderAttendanceSlice();
+    });
+    return btn;
+  };
+  pager.append(mkBtn("‹ Trước", attendanceView.page - 1, attendanceView.page <= 1));
+  const label = document.createElement("span");
+  label.textContent = `Trang ${attendanceView.page}/${totalPages}`;
+  pager.append(label);
+  pager.append(mkBtn("Sau ›", attendanceView.page + 1, attendanceView.page >= totalPages));
+  pager.hidden = false;
+}
+
+document.getElementById("attendanceFilter").addEventListener("change", (event) => {
+  attendanceView.filter = event.target.value;
+  attendanceView.page = 1;
+  renderAttendanceSlice();
+});
+
+document.getElementById("attendanceMonth").addEventListener("change", (event) => {
+  attendanceView.month = event.target.value;
+  attendanceView.page = 1;
+  renderAttendanceSlice();
+});
+
+document.getElementById("attendanceWeek").addEventListener("change", (event) => {
+  attendanceView.week = Number(event.target.value);
+  attendanceView.page = 1;
+  renderAttendanceSlice();
+});
 
 // Chặn bấm sai thứ tự trước khi gọi server. Trả về thông báo, hoặc "" nếu hợp lệ.
 function attendanceGuard(clicked) {

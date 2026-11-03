@@ -937,24 +937,39 @@ button.staff-kpi-action:focus-visible {
 
 .staff-form .accordion-button {
   font: 600 13px/1.4 var(--body-font, sans-serif);
-  color: var(--admin-ink);
-  background: transparent;
+  color: var(--admin-green-dark);
+  background: var(--admin-green-soft);
   border-top: 0;
   box-shadow: none;
-  padding: 14px 6px;
+  padding: 14px 10px;
 }
 
 .staff-form .accordion-button:hover {
-  color: var(--admin-green-dark);
+  color: #fff;
+  background: var(--admin-green);
 }
 
 .staff-form .accordion-button:not(.collapsed) {
-  color: var(--admin-green-dark);
-  background: transparent;
+  color: #fff;
+  background: var(--admin-green);
 }
 
 .staff-form .accordion-button:focus {
   box-shadow: 0 0 0 2px rgb(23 107 114 / 12%);
+}
+
+/* style.css ships the +/− toggles as black SVGs; recolor per state so they
+   survive the green header backgrounds (this file only — shared page stays). */
+.staff-form .accordion-button::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' class='plus' viewBox='0 0 16 16'%3E%3Cpath fill='%23244336' d='M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z'/%3E%3C/svg%3E");
+}
+
+.staff-form .accordion-button:not(.collapsed)::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' class='minus' viewBox='0 0 16 16'%3E%3Cpath fill='%23fff' d='M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z'/%3E%3C/svg%3E");
+}
+
+.staff-form .accordion-button:hover::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' class='plus' viewBox='0 0 16 16'%3E%3Cpath fill='%23fff' d='M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z'/%3E%3C/svg%3E");
 }
 
 .staff-form .accordion-body {
@@ -1002,4 +1017,92 @@ button.staff-kpi-action:focus-visible {
 .staff-row-delete {
   min-height: 32px;
   padding: 4px 10px;
+}
+
+/* ---- Toasts (section 9): bottom-right, same pattern as manager dashboard ---- */
+.staff-toast {
+  position: fixed;
+  z-index: 9999;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+  padding: 14px 20px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(30px);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms;
+}
+
+.staff-toast.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.staff-success-toast {
+  background: #278a4b;
+}
+
+.staff-error-toast {
+  background: var(--admin-red, #a5483f);
+}
+
+.toast-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ---- Blank required-field errors (section 8) ---- */
+.staff-field-blank {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-red, #a5483f);
+}
+
+.staff-form .staff-input-blank {
+  border-color: var(--admin-red, #a5483f) !important;
+  background: var(--admin-red-soft, #f8ece9);
+}
+
+/* ---- Attendance history filter + pager (section 6) ---- */
+.staff-att-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--admin-muted);
+}
+
+.staff-att-filter select {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid var(--admin-line);
+  border-radius: 2px;
+  background: #fff;
+  color: var(--admin-ink);
+  font: 400 13px/1.4 var(--body-font, sans-serif);
+  outline: none;
+}
+
+.staff-att-filter select:focus {
+  border-color: var(--admin-green);
+}
+
+.staff-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--admin-muted);
 }

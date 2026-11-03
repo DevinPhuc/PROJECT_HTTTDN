@@ -247,356 +247,251 @@
             <p class="account-eyebrow">KHÔNG GIAN NHÂN VIÊN</p>
             <h1 id="staffPageTitle">Thông tin cá nhân</h1>
           </div>
-          <div class="admin-topbar-actions">
-            <!-- <button type="button" class="admin-secondary-btn" data-staff-view="salary-year">Bảng lương năm</button> -->
-          </div>
-        </header>
-
-        <div id="staffLoading" class="staff-loading">
-          Đang tải cổng nhân viên...
-        </div>
-
-        <div class="staff-portal">
-          <section class="staff-view active" data-staff-panel="profile" hidden>
-            <div class="staff-section-heading">
-              <div>
-                <p class="account-eyebrow">HỒ SƠ CỦA TÔI</p>
-                <h2>Thông tin cá nhân</h2>
+          <form class="staff-panel staff-form" id="profileForm">
+            <div class="accordion" id="profileAccordion">
+              <div class="accordion-item">
+                <h3 class="accordion-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionPersonal" aria-expanded="true" aria-controls="sectionPersonal">Thông tin cá nhân</button>
+                </h3>
+                <div id="sectionPersonal" class="accordion-collapse collapse show">
+                  <div class="accordion-body">
+                    <div class="staff-section-fields">
+                      <label>Họ và tên<input name="name" type="text" required maxlength="100"></label>
+                      <label>Email công việc<input name="email" type="email" readonly></label>
+                      <label>Ngày sinh<input name="birthDate" type="date"></label>
+                      <label>Số điện thoại<input name="phone" type="tel" required maxlength="20"></label>
+                      <label class="staff-field-wide">Địa chỉ<input name="address" type="text" maxlength="180"></label>
+                      <label>Tình trạng hôn nhân<select name="marital_status"><option value="">—</option><option>Độc thân</option><option>Đã kết hôn</option><option>Ly hôn</option></select></label>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <span class="staff-employee-code"
-                >Mã nhân viên <strong></strong
-              ></span>
+              <div class="accordion-item">
+                <h3 class="accordion-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionJob" aria-expanded="true" aria-controls="sectionJob">Thông tin công việc</button>
+                </h3>
+                <div id="sectionJob" class="accordion-collapse collapse show">
+                  <div class="accordion-body">
+                    <div class="staff-job-card"><dl>
+                      <div><dt>Chức vụ</dt><dd id="jobPosition">—</dd></div>
+                      <div><dt>Phòng ban</dt><dd id="jobDepartment">—</dd></div>
+                      <div><dt>Ngày vào làm</dt><dd id="jobHireDate">—</dd></div>
+                    </dl></div>
+                  </div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h3 class="accordion-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionIdentity" aria-expanded="true" aria-controls="sectionIdentity">Thông tin giấy tờ</button>
+                </h3>
+                <div id="sectionIdentity" class="accordion-collapse collapse show">
+                  <div class="accordion-body">
+                    <div class="staff-section-fields">
+                      <label>Loại giấy tờ<select name="id_type">
+                        <option value="">—</option>
+                        <option value="CCCD">CCCD</option>
+                        <option value="Passport">Passport</option>
+                      </select></label>
+                      <label>Số giấy tờ<input name="national_id" type="text" maxlength="20"></label>
+                      <label>Quốc tịch<input name="nationality" type="text" maxlength="50"></label>
+                      <div class="staff-field-wide" id="protectedRow" hidden>
+                        <label>Bảo hộ đến<input name="protected_until" type="text" readonly></label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h3 class="accordion-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionTax" aria-expanded="true" aria-controls="sectionTax">Thông tin thuế &amp; BHXH</button>
+                </h3>
+                <div id="sectionTax" class="accordion-collapse collapse show">
+                  <div class="accordion-body">
+                    <div class="staff-section-fields">
+                      <label>Mã số thuế<input name="tax_code" type="text" maxlength="20"></label>
+                      <label>Số BHXH<input name="social_insurance_no" type="text" maxlength="20"></label>
+                      <label>Số BHYT<input name="health_insurance_no" type="text" maxlength="20"></label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h3 class="accordion-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionBank" aria-expanded="true" aria-controls="sectionBank">Ngân hàng</button>
+                </h3>
+                <div id="sectionBank" class="accordion-collapse collapse show">
+                  <div class="accordion-body">
+                    <div class="staff-section-fields">
+                      <label>Ngân hàng<input name="bank_name" type="text" maxlength="100"></label>
+                      <label>Số tài khoản<input name="bank_account_no" type="text" maxlength="30"></label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h3 class="accordion-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionQualification" aria-expanded="true" aria-controls="sectionQualification">Bằng cấp &amp; trình độ</button>
+                </h3>
+                <div id="sectionQualification" class="accordion-collapse collapse show">
+                  <div class="accordion-body">
+                    <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Bằng cấp</th><th>Chuyên ngành</th><th>Cơ sở đào tạo</th><th>Năm tốt nghiệp</th><th></th></tr></thead><tbody id="qualificationRows"></tbody></table></div>
+                    <button type="button" class="admin-secondary-btn staff-row-add" data-row-add="qualificationRows">Thêm bằng cấp</button>
+                  </div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h3 class="accordion-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#sectionHistory" aria-expanded="true" aria-controls="sectionHistory">Lịch sử trạng thái</button>
+                </h3>
+                <div id="sectionHistory" class="accordion-collapse collapse show">
+                  <div class="accordion-body">
+                    <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Ngày hiệu lực</th><th>Trạng thái</th><th>Lý do</th><th></th></tr></thead><tbody id="statusRows"></tbody></table></div>
+                    <button type="button" class="admin-secondary-btn staff-row-add" data-row-add="statusRows">Thêm dòng</button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <form class="staff-panel staff-form" id="profileForm">
-              <div class="accordion" id="profileAccordion">
-                <div class="accordion-item">
-                  <h3 class="accordion-header">
-                    <button
-                      class="accordion-button"
-                      type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#sectionPersonal"
-                      aria-expanded="true"
-                      aria-controls="sectionPersonal"
-                    >
-                      Thông tin cá nhân
-                    </button>
-                  </h3>
-                  <div
-                    id="sectionPersonal"
-                    class="accordion-collapse collapse show"
-                    data-bs-parent="#profileAccordion"
-                  >
-                    <div class="accordion-body">
-                      <div class="staff-section-fields">
-                        <label
-                          >Họ và tên<input
-                            name="name"
-                            type="text"
-                            required
-                            maxlength="100"
-                        /></label>
-                        <label
-                          >Email công việc<input
-                            name="email"
-                            type="email"
-                            readonly
-                        /></label>
-                        <label
-                          >Ngày sinh<input name="birthDate" type="date"
-                        /></label>
-                        <label
-                          >Số điện thoại<input
-                            name="phone"
-                            type="tel"
-                            required
-                            maxlength="20"
-                        /></label>
-                        <label class="staff-field-wide"
-                          >Địa chỉ<input
-                            name="address"
-                            type="text"
-                            maxlength="180"
-                        /></label>
-                        <label
-                          >Tình trạng hôn nhân<select name="marital_status">
-                            <option value="">—</option>
-                            <option>Độc thân</option>
-                            <option>Đã kết hôn</option>
-                            <option>Ly hôn</option>
-                            <option>Goá</option>
-                          </select></label
-                        >
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="accordion-item">
-                  <h3 class="accordion-header">
-                    <button
-                      class="accordion-button collapsed"
-                      type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#sectionJob"
-                      aria-expanded="false"
-                      aria-controls="sectionJob"
-                    >
-                      Thông tin công việc
-                    </button>
-                  </h3>
-                  <div
-                    id="sectionJob"
-                    class="accordion-collapse collapse"
-                    data-bs-parent="#profileAccordion"
-                  >
-                    <div class="accordion-body">
-                      <div class="staff-job-card">
-                        <dl>
-                          <div>
-                            <dt>Chức vụ</dt>
-                            <dd id="jobPosition">—</dd>
-                          </div>
-                          <div>
-                            <dt>Phòng ban</dt>
-                            <dd id="jobDepartment">—</dd>
-                          </div>
-                          <div>
-                            <dt>Ngày vào làm</dt>
-                            <dd id="jobHireDate">—</dd>
-                          </div>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="accordion-item">
-                  <h3 class="accordion-header">
-                    <button
-                      class="accordion-button collapsed"
-                      type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#sectionIdentity"
-                      aria-expanded="false"
-                      aria-controls="sectionIdentity"
-                    >
-                      Thông tin giấy tờ
-                    </button>
-                  </h3>
-                  <div
-                    id="sectionIdentity"
-                    class="accordion-collapse collapse"
-                    data-bs-parent="#profileAccordion"
-                  >
-                    <div class="accordion-body">
-                      <div class="staff-section-fields">
-                        <label
-                          >Loại giấy tờ<select name="id_type">
-                            <option value="">—</option>
-                            <option value="CCCD">CCCD</option>
-                            <option value="CMND">CMND</option>
-                            <option value="Passport">Passport</option>
-                          </select></label
-                        >
-                        <label
-                          >Số giấy tờ<input
-                            name="national_id"
-                            type="text"
-                            maxlength="20"
-                        /></label>
-                        <label
-                          >Quốc tịch<input
-                            name="nationality"
-                            type="text"
-                            maxlength="50"
-                        /></label>
-                        <div class="staff-field-wide" id="protectedRow" hidden>
-                          <label
-                            >Bảo hộ đến<input
-                              name="protected_until"
-                              type="text"
-                              readonly
-                          /></label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="accordion-item">
-                  <h3 class="accordion-header">
-                    <button
-                      class="accordion-button collapsed"
-                      type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#sectionTax"
-                      aria-expanded="false"
-                      aria-controls="sectionTax"
-                    >
-                      Thông tin thuế &amp; BHXH
-                    </button>
-                  </h3>
-                  <div
-                    id="sectionTax"
-                    class="accordion-collapse collapse"
-                    data-bs-parent="#profileAccordion"
-                  >
-                    <div class="accordion-body">
-                      <div class="staff-section-fields">
-                        <label
-                          >Mã số thuế<input
-                            name="tax_code"
-                            type="text"
-                            maxlength="20"
-                        /></label>
-                        <label
-                          >Số BHXH<input
-                            name="social_insurance_no"
-                            type="text"
-                            maxlength="20"
-                        /></label>
-                        <label
-                          >Số BHYT<input
-                            name="health_insurance_no"
-                            type="text"
-                            maxlength="20"
-                        /></label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="accordion-item">
-                  <h3 class="accordion-header">
-                    <button
-                      class="accordion-button collapsed"
-                      type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#sectionBank"
-                      aria-expanded="false"
-                      aria-controls="sectionBank"
-                    >
-                      Ngân hàng
-                    </button>
-                  </h3>
-                  <div
-                    id="sectionBank"
-                    class="accordion-collapse collapse"
-                    data-bs-parent="#profileAccordion"
-                  >
-                    <div class="accordion-body">
-                      <div class="staff-section-fields">
-                        <label
-                          >Ngân hàng<input
-                            name="bank_name"
-                            type="text"
-                            maxlength="100"
-                        /></label>
-                        <label
-                          >Số tài khoản<input
-                            name="bank_account_no"
-                            type="text"
-                            maxlength="30"
-                        /></label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="accordion-item">
-                  <h3 class="accordion-header">
-                    <button
-                      class="accordion-button collapsed"
-                      type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#sectionQualification"
-                      aria-expanded="false"
-                      aria-controls="sectionQualification"
-                    >
-                      Bằng cấp &amp; trình độ
-                    </button>
-                  </h3>
-                  <div
-                    id="sectionQualification"
-                    class="accordion-collapse collapse"
-                    data-bs-parent="#profileAccordion"
-                  >
-                    <div class="accordion-body">
-                      <div class="staff-table-wrap">
-                        <table class="staff-table">
-                          <thead>
-                            <tr>
-                              <th>Bằng cấp</th>
-                              <th>Chuyên ngành</th>
-                              <th>Cơ sở đào tạo</th>
-                              <th>Năm tốt nghiệp</th>
-                              <th></th>
-                            </tr>
-                          </thead>
-                          <tbody id="qualificationRows"></tbody>
-                        </table>
-                      </div>
-                      <button
-                        type="button"
-                        class="admin-secondary-btn staff-row-add"
-                        data-row-add="qualificationRows"
-                      >
-                        Thêm bằng cấp
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div class="accordion-item">
-                  <h3 class="accordion-header">
-                    <button
-                      class="accordion-button collapsed"
-                      type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#sectionHistory"
-                      aria-expanded="false"
-                      aria-controls="sectionHistory"
-                    >
-                      Lịch sử trạng thái
-                    </button>
-                  </h3>
-                  <div
-                    id="sectionHistory"
-                    class="accordion-collapse collapse"
-                    data-bs-parent="#profileAccordion"
-                  >
-                    <div class="accordion-body">
-                      <div class="staff-table-wrap">
-                        <table class="staff-table">
-                          <thead>
-                            <tr>
-                              <th>Ngày hiệu lực</th>
-                              <th>Trạng thái</th>
-                              <th>Lý do</th>
-                              <th></th>
-                            </tr>
-                          </thead>
-                          <tbody id="statusRows"></tbody>
-                        </table>
-                      </div>
-                      <button
-                        type="button"
-                        class="admin-secondary-btn staff-row-add"
-                        data-row-add="statusRows"
-                      >
-                        Thêm dòng
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="staff-form-actions">
-                <button type="submit" class="admin-primary-btn">
-                  <img
-                    src="../shared/images/save.png"
-                    alt=""
-                    class="button-icon"
-                  />
-                  Lưu thay đổi
+            <div class="staff-form-actions"><button type="submit" class="admin-primary-btn">Lưu thay đổi</button><p id="profileFeedback" role="status" aria-live="polite"></p></div>
+          </form>
+        </section>
+
+        <section class="staff-view" data-staff-panel="attendance" hidden>
+          <div class="staff-section-heading">
+            <div><p class="account-eyebrow">GIỜ LÀM VIỆC</p><h2>Chấm công</h2></div>
+            <span class="staff-employee-code" id="attendanceSummary">Chưa chấm công hôm nay</span>
+          </div>
+          <section class="staff-panel staff-clock-card">
+            <div class="staff-clock-face">
+              <p class="staff-clock-date" id="clockDate"></p>
+            </div>
+            <div class="staff-clock-columns">
+              <div class="staff-clock-col">
+                <p class="staff-clock-col-label">Giờ vào</p>
+                <p class="staff-clock-time" id="attendanceCheckIn">--:--</p>
+                <button type="button" class="staff-clock-btn" id="attendanceCheckInBtn">
+                  <svg class="staff-btn-icon" aria-hidden="true"><use href="#staff-login"></use></svg>
+                  <span class="staff-clock-btn-label">Vào làm</span>
                 </button>
                 <p id="profileFeedback" role="status" aria-live="polite"></p>
               </div>
+              <div class="staff-clock-col">
+                <p class="staff-clock-col-label">Giờ ra</p>
+                <p class="staff-clock-time" id="attendanceCheckOut">--:--</p>
+                <button type="button" class="staff-clock-btn" id="attendanceCheckOutBtn">
+                  <svg class="staff-btn-icon" aria-hidden="true"><use href="#staff-logout"></use></svg>
+                  <span class="staff-clock-btn-label">Ra về</span>
+                </button>
+              </div>
+            </div>
+            <p id="attendanceFeedback" class="staff-clock-feedback" role="status" aria-live="polite"></p>
+          </section>
+          <section class="staff-panel staff-history-panel">
+            <div class="staff-section-heading">
+              <div><p class="account-eyebrow">LỊCH SỬ</p><h3>Điểm danh gần đây</h3></div>
+              <label class="staff-att-filter">Khoảng thời gian
+                <select id="attendanceFilter">
+                  <option value="all" selected>Tất cả</option>
+                  <option value="day">Theo ngày</option>
+                  <option value="week">Theo tuần</option>
+                  <option value="month">Theo tháng</option>
+                </select>
+                <select id="attendanceMonth" hidden></select>
+                <select id="attendanceWeek" hidden></select>
+              </label>
+            </div>
+            <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Ngày</th><th>Giờ vào</th><th>Giờ ra</th><th>Trạng thái</th></tr></thead><tbody id="attendanceRows"></tbody></table></div>
+            <nav id="attendancePager" class="staff-pager" aria-label="Trang lịch sử chấm công" hidden></nav>
+          </section>
+        </section>
+
+        <section class="staff-view" data-staff-panel="leave" hidden>
+          <div class="staff-section-heading"><div><p class="account-eyebrow">NGHỈ PHÉP & NGHỈ VIỆC</p><h2>Nộp đơn</h2></div></div>
+          <div class="staff-leave-kpis" aria-label="Tổng quan nghỉ phép">
+            <article class="staff-kpi-card" data-kpi="balance">
+              <span class="staff-kpi-label"><svg class="staff-kpi-icon" aria-hidden="true"><use href="#staff-kpi-calendar"></use></svg><span>Phép năm còn lại</span></span>
+              <strong class="staff-kpi-value" id="kpiAnnualBalance">–</strong>
+              <small class="staff-kpi-detail" id="kpiAnnualBalanceDetail">Đang tải dữ liệu…</small>
+            </article>
+            <button type="button" class="staff-kpi-card staff-kpi-action" data-kpi="used" id="kpiUsedBtn">
+              <span class="staff-kpi-label"><svg class="staff-kpi-icon" aria-hidden="true"><use href="#staff-kpi-check"></use></svg><span>Đã nghỉ trong năm</span></span>
+              <strong class="staff-kpi-value" id="kpiUsed">–</strong>
+              <small class="staff-kpi-detail" id="kpiUsedDetail">Đang tải dữ liệu…</small>
+            </button>
+            <button type="button" class="staff-kpi-card staff-kpi-action" data-kpi="pending" id="kpiPendingBtn">
+              <span class="staff-kpi-label"><svg class="staff-kpi-icon" aria-hidden="true"><use href="#staff-kpi-clock"></use></svg><span>Đơn chờ phê duyệt</span></span>
+              <strong class="staff-kpi-value" id="kpiPending">–</strong>
+              <small class="staff-kpi-detail" id="kpiPendingDetail">Đang tải dữ liệu…</small>
+            </button>
+            <button type="button" class="staff-kpi-card staff-kpi-action" data-kpi="upcoming" id="kpiUpcomingBtn">
+              <span class="staff-kpi-label"><svg class="staff-kpi-icon" aria-hidden="true"><use href="#staff-kpi-suitcase"></use></svg><span>Kỳ nghỉ sắp tới</span></span>
+              <strong class="staff-kpi-value" id="kpiUpcoming">–</strong>
+              <small class="staff-kpi-detail" id="kpiUpcomingDetail">Đang tải dữ liệu…</small>
+            </button>
+          </div>
+          <div class="staff-profile-layout">
+            <form class="staff-panel staff-form" id="leaveForm">
+              <h3>Thông tin đơn</h3>
+              <label>Loại đơn<select name="type" id="leaveType" required><option value="Nghỉ phép">Nghỉ phép</option><option value="Nghỉ ốm đau">Nghỉ ốm đau</option><option value="Nghỉ thai sản">Nghỉ thai sản</option><option value="Xin nghỉ việc">Xin nghỉ việc</option></select></label>
+              <label>Ngày bắt đầu<input name="startDate" id="leaveStart" type="date" required></label>
+              <label id="leaveEndField">Ngày kết thúc<input name="endDate" id="leaveEnd" type="date" required></label>
+              <label class="staff-field-wide">Lý do<textarea name="reason" rows="4" maxlength="500" required placeholder="Nhập lý do gửi quản lý..."></textarea></label>
+              <div class="staff-form-actions"><button type="submit" class="admin-primary-btn">Gửi đơn</button><p id="leaveFeedback" role="status" aria-live="polite"></p></div>
             </form>
+          </div>
+          <section class="staff-panel staff-history-panel"><div class="staff-section-heading"><div><p class="account-eyebrow">LỊCH SỬ</p><h2>Đơn đã gửi</h2></div></div><div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Loại đơn</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th></tr></thead><tbody id="leaveRows"></tbody></table></div></section>
+        </section>
+
+        <section class="staff-view" data-staff-panel="salary-month" hidden>
+          <div class="staff-section-heading"><div><p class="account-eyebrow">THU NHẬP CÁ NHÂN</p><h2>Bảng lương tháng</h2></div><div class="staff-period-control"><label for="salaryMonth">Chọn tháng</label><input id="salaryMonth" type="month"></div><button type="button" class="admin-primary-btn" id="printMonthlyBtn" disabled>In bảng lương tháng</button></div>
+          <div id="monthlySalaryContent"></div>
+          <section class="staff-panel staff-rules-panel"><p class="account-eyebrow">CÁCH TÍNH LƯƠNG</p><h3>Công thức áp dụng</h3><div class="staff-formula"><p><strong>Lương theo ngày công</strong><span>Lương cơ bản × ngày công thực tế / ngày công chuẩn</span></p><p><strong>Lương tăng ca</strong><span>Lương cơ bản / (ngày công chuẩn × 8 giờ) × 150% × số giờ tăng ca</span></p><p><strong>Tổng thu nhập</strong><span>Lương theo ngày công + thưởng/phụ cấp + lương tăng ca</span></p><p><strong>Tổng khấu trừ</strong><span>Bảo hiểm theo tỷ lệ ghi nhận + thuế TNCN do quản lý ghi nhận</span></p><p><strong>Thực nhận</strong><span>Tổng thu nhập − tổng khấu trừ</span></p></div><p class="staff-muted">Bảng lương tháng hiển thị dữ liệu đã lưu cho hồ sơ của bạn. Ngày công chuẩn, tỷ lệ bảo hiểm, phụ cấp và thuế được ghi nhận theo từng kỳ lương.</p></section>
+        </section>
+
+        <section class="staff-view" data-staff-panel="salary-year" hidden>
+          <div class="staff-section-heading"><div><p class="account-eyebrow">TỔNG HỢP THU NHẬP</p><h2>Bảng lương năm <span id="salaryYearTitle"></span></h2></div><button type="button" class="admin-primary-btn" id="printAnnualBtn">In bảng lương năm</button></div>
+          <section class="staff-panel staff-year-summary" id="annualSummary"></section>
+          <section class="staff-panel staff-history-panel"><div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Tháng</th><th>Ngày công</th><th>Thu nhập</th><th>Khấu trừ</th><th>Thực nhận</th></tr></thead><tbody id="annualRows"></tbody><tfoot id="annualTotals"></tfoot></table></div></section>
+        </section>
+      </div>
+
+      <section class="staff-print-sheet" id="monthlyPrintSheet" hidden aria-label="Bảng lương tháng để in"></section>
+      <section class="staff-print-sheet" id="annualPrintSheet" hidden aria-label="Bảng lương năm để in"></section>
+
+      <div class="staff-legacy-content" hidden>
+      <div class="admin-kpis">
+        <article class="admin-kpi">
+          <span>Doanh thu</span>
+          <strong>₫ 184,2M</strong>
+          <small>+18.4% so với tháng trước</small>
+        </article>
+        <article class="admin-kpi">
+          <span>Đơn hàng</span>
+          <strong>1,284</strong>
+          <small>+9.6% trong tuần này</small>
+        </article>
+        <article class="admin-kpi">
+          <span>Khách hàng</span>
+          <strong>8,640</strong>
+          <small>+142 khách mới</small>
+        </article>
+        <article class="admin-kpi">
+          <span>Hàng tồn kho</span>
+          <strong>96.7%</strong>
+          <small>54 sản phẩm cần bổ sung</small>
+        </article>
+      </div>
+
+      <div class="admin-module active" data-module="overview">
+        <div class="admin-content-grid">
+          <section class="admin-panel admin-panel-wide">
+            <div class="panel-heading">
+              <div>
+                <p class="account-eyebrow">TỔNG QUAN</p>
+                <h2>Quản lý tài khoản</h2>
+              </div>
+              <span class="panel-note">12 tài khoản</span>
+            </div>
+            <div class="admin-list" id="overviewAccounts"></div>
           </section>
 
           <section class="staff-view" data-staff-panel="attendance" hidden>
@@ -1720,20 +1615,25 @@
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../shared/js/supabase-client.js"></script>
-    <script src="../shared/js/portal-api.js"></script>
-    <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
-    <script src="js/staff-core.js"></script>
-    <script src="js/staff-profile.js"></script>
-    <script src="js/staff-leave.js"></script>
-    <script src="js/staff-attendance.js"></script>
-    <script src="js/staff-salary-month.js"></script>
-    <script src="js/staff-salary-year.js"></script>
-    <script>
-      loadStaffPortal().catch(() =>
-        showPageError("Không thể kết nối máy chủ."),
-      );
-    </script>
-  </body>
+  <div id="staffSuccessToast" class="staff-toast staff-success-toast" role="status" aria-live="polite">
+    <img src="../shared/images/check.png" alt="" class="toast-icon" />
+    <span></span>
+  </div>
+  <div id="staffErrorToast" class="staff-toast staff-error-toast" role="status" aria-live="polite">
+    <img src="../shared/images/x.png" alt="" class="toast-icon" />
+    <span></span>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../shared/js/supabase-client.js"></script>
+  <script src="../shared/js/portal-api.js"></script>
+  <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/staff-core.js"></script>
+  <script src="js/staff-profile.js"></script>
+  <script src="js/staff-leave.js"></script>
+  <script src="js/staff-attendance.js"></script>
+  <script src="js/staff-salary-month.js"></script>
+  <script src="js/staff-salary-year.js"></script>
+  <script>loadStaffPortal().catch(() => showPageError("Không thể kết nối máy chủ."));</script>
+</body>
 </html>

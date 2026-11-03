@@ -128,12 +128,19 @@ document.getElementById("leaveForm").addEventListener("submit", async (event) =>
     : { invalid_type: "Loại nghỉ không hợp lệ.", invalid_dates: "Ngày nghỉ không hợp lệ.", missing_reason: "Vui lòng nhập lý do.", leave_rule: "Số ngày vượt quy định của loại nghỉ này." }[result.error]
       || "Không thể gửi đơn. Vui lòng thử lại.");
   if (result.ok) {
+    showStaffToast("success", "Gửi đơn thành công!");
     form.reset(); updateLeaveType();
     await Promise.all([renderLeaveRequests(), renderLeaveKpis()]); // fresh fetch — the create response doesn't carry the lists
+  } else {
+    showStaffToast("error", "Không thành công. Vui lòng thử lại.");
   }
 });
 
 document.getElementById("leaveStart").min = new Date().toISOString().slice(0, 10);
+// Section 5: leave dates may extend into next calendar year at most.
+const leaveDateMax = `${new Date().getFullYear() + 1}-12-31`;
+document.getElementById("leaveStart").max = leaveDateMax;
+document.getElementById("leaveEnd").max = leaveDateMax;
 updateLeaveType();
 
 // Clearing the form when the employee navigates away mid-entry.
