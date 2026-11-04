@@ -80,8 +80,7 @@ function positionName(employee) {
 }
 
 function departmentName(employee) {
-  const position = employeePosition(employee);
-  return departments.find((department) => department.department_id === position?.department_id)?.department_name || "-";
+  return departments.find((department) => department.department_id === employee.department_id)?.department_name || "-";
 }
 
 function setView(viewName) {
@@ -213,7 +212,7 @@ function showEmployeeForm(employee = null) {
   saveIcon.className = "button-icon";
   saveButton.append(saveIcon, document.createTextNode(employee ? "Lưu thông tin" : "Thêm nhân sự"));
   const departmentSelect = document.getElementById("employeeDepartment");
-  fillSelect(departmentSelect, departments, "department_id", (department) => department.department_name, employee ? employeePosition(employee)?.department_id || "" : "");
+  fillSelect(departmentSelect, departments, "department_id", (department) => department.department_name, employee?.department_id || "");
   const dateOfBirthInput = form.elements.namedItem("dateOfBirth");
   const passwordInput = form.elements.namedItem("password");
   dateOfBirthInput.max = new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate()).toISOString().slice(0, 10);

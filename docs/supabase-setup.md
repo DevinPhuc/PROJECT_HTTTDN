@@ -5,7 +5,7 @@
 The portals use the existing tables and do not insert seed rows:
 
 - `employees`: `employee_id` (UUID), `employee_code`, `full_name`, `email`, `hire_date`, `employment_status`, `gender`, `date_of_birth`. The migration adds `position_id` and `education`.
-- `positions` and `departments`: `positions.position_id`, `position_title`, `department_id`; department names come from `departments.department_name`.
+- `positions` and `departments`: `positions.position_id`, `position_title`; department membership now lives in `department_positions` (N-N), department names come from `departments.department_name`.
 - `employee_contacts`: `employee_id`, `phone_number`, `address`.
 - `user_roles`, `roles`, `role_permissions`, `permissions`: existing role and permission assignments.
 - `attendance_records`: daily attendance by `employee_id`, `work_date`, `status`, `overtime_hours`, `notes`, plus `check_in_time`/`check_out_time` (time of day, Asia/Ho_Chi_Minh) for employee self clock-in/out.

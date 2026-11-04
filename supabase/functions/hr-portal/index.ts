@@ -239,7 +239,8 @@ async function bootAction(actor: Actor): Promise<Response> {
   const [employees, contacts, positions, departments, roles, permissions, assignments, rolePerms, roleHistory, leaveRows, payrollRows, attendanceRows, statusHistory] = await Promise.all([
     sql!`
       select employee_id, employee_code, full_name, email, hire_date,
-             employment_status, current_position_id as position_id, education
+             employment_status, current_position_id as position_id,
+             current_department_id as department_id, education
       from public.employees
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by full_name`,
@@ -249,21 +250,30 @@ async function bootAction(actor: Actor): Promise<Response> {
       where c.employee_id = any(${sql.array(ids)}::uuid[])`,
     actor.is_admin
       ? sql!`
-          select position_id, department_id, position_title, description
-          from public.positions
-          order by position_title`
+          select p.position_id, p.position_title, p.description,
+                 coalesce((select json_agg(dp.department_id) from public.department_positions dp
+                           where dp.position_id = p.position_id), '[]'::json) as department_ids
+          from public.positions p
+          order by p.position_title`
       : actor.department_id === null
         ? sql!`
-          select p.position_id, p.department_id, p.position_title, p.description
+          select p.position_id, p.position_title, p.description,
+                 coalesce((select json_agg(dp.department_id) from public.department_positions dp
+                           where dp.position_id = p.position_id), '[]'::json) as department_ids
           from public.positions p
           join public.employees e on e.current_position_id = p.position_id
           where e.employee_id = ${actor.employee_id}::uuid
           order by p.position_title`
         : sql!`
-          select dp.department_id, p.position_id, p.position_title, p.description
-          from public.department_positions dp
-          join public.positions p on p.position_id = dp.position_id
-          where dp.department_id = ${actor.department_id}::uuid
+          select p.position_id, p.position_title, p.description,
+                 coalesce((select json_agg(dpm.department_id) from public.department_positions dpm
+                           where dpm.position_id = p.position_id), '[]'::json) as department_ids
+          from public.positions p
+          where exists (
+            select 1 from public.department_positions dp
+            where dp.position_id = p.position_id
+              and dp.department_id = ${actor.department_id}::uuid
+          )
           order by p.position_title`,
     sql!`select department_id, department_name, description from public.departments order by department_name`,
     actor.is_admin
