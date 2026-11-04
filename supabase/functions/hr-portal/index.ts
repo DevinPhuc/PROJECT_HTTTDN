@@ -260,10 +260,11 @@ async function bootAction(actor: Actor): Promise<Response> {
           where e.employee_id = ${actor.employee_id}::uuid
           order by p.position_title`
         : sql!`
-          select position_id, department_id, position_title, description
-          from public.positions
-          where department_id = ${actor.department_id}::uuid
-          order by position_title`,
+          select dp.department_id, p.position_id, p.position_title, p.description
+          from public.department_positions dp
+          join public.positions p on p.position_id = dp.position_id
+          where dp.department_id = ${actor.department_id}::uuid
+          order by p.position_title`,
     sql!`select department_id, department_name, description from public.departments order by department_name`,
     actor.is_admin
       ? sql!`select role_id, role_name, description, true as assignable from public.roles order by role_name`
@@ -493,28 +494,30 @@ async function employeeSaveAction(actor: Actor, body: Record<string, unknown>): 
   if (id && !actor.is_admin && await employeeHoldsAdminRole(id)) {
     return json({ ok: false, error: "forbidden" }, 403); // managers never edit Admin holders
   }
-  // Managers may only create/update inside their own department.
-  const [position] = await sql!`
-    select department_id from public.positions
-    where position_id = ${positionId}::uuid`;
-  if (!position) return json({ ok: false, error: "invalid_employee" }, 400);
+  // Positions link N-N now: membership lives in department_positions, not positions.department_id.
+  const links = await sql!`
+    select dp.department_id
+    from public.department_positions dp
+    where dp.position_id = ${positionId}::uuid
+    order by dp.department_id`;
+  if (!links.length) return json({ ok: false, error: "invalid_employee" }, 400);
+  const deptIds = links.map((link) => String(link.department_id));
+  let departmentId: string | null = null;
   if (!actor.is_admin) {
-    const positionDepartmentId = position.department_id === null ? null : String(position.department_id);
-    if (actor.department_id === null) {
-      if (id !== actor.employee_id || positionDepartmentId !== null) return json({ ok: false, error: "forbidden" }, 403);
-    } else if (positionDepartmentId !== actor.department_id) {
+    // Managers may only create/update inside their own department: the chosen
+    // position must be linked to it.
+    if (actor.department_id === null || !deptIds.includes(actor.department_id)) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
-  }
-  if (!id && !actor.is_admin && actor.department_id === null) {
-    return json({ ok: false, error: "forbidden" }, 403);
+    departmentId = actor.department_id;
+  } else {
+    // Admins: prefer their own department when linked, else the first membership.
+    departmentId = actor.department_id && deptIds.includes(actor.department_id) ? actor.department_id : deptIds[0];
   }
 
   try {
     await sql!.begin(async (tx) => {
       let employeeId = id;
-      // Department follows the chosen position (validated and fetched above).
-      const departmentId = position.department_id === null ? null : String(position.department_id);
 
       if (!employeeId) {
         const code = `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;

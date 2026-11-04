@@ -420,7 +420,8 @@ function fillSelectOptions(select, items, valueKey, labelKey, placeholder) {
 function renderPositionOptions(departmentId, selectedPositionId) {
   const form = document.getElementById("accountForm");
   if (!form) return;
-  const positions = (state.options?.positions || []).filter((item) => item.department_id === departmentId);
+  // Positions are linked N-N now: filter via department_ids membership.
+  const positions = (state.options?.positions || []).filter((item) => (item.department_ids || []).includes(departmentId));
   fillSelectOptions(form.elements.position_id, positions, "position_id", "position_title", "Chọn vị trí");
   if (selectedPositionId) form.elements.position_id.value = selectedPositionId;
 }

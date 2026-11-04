@@ -91,8 +91,8 @@ async function loadDepartmentAndRefs(departmentId: string, positionId: string) {
   const rows = await sql!`
     select d.department_name,
            exists(
-             select 1 from public.positions p
-             where p.position_id = ${positionId}::uuid and p.department_id = ${departmentId}::uuid
+             select 1 from public.department_positions dp
+             where dp.position_id = ${positionId}::uuid and dp.department_id = ${departmentId}::uuid
            ) as position_ok
     from public.departments d
     where d.department_id = ${departmentId}::uuid`;
@@ -244,7 +244,9 @@ async function optionsAction(): Promise<Response> {
         select json_agg(json_build_object(
           'position_id', p.position_id,
           'position_title', p.position_title,
-          'department_id', p.department_id
+          'department_ids', coalesce(
+            (select json_agg(dp.department_id) from public.department_positions dp
+             where dp.position_id = p.position_id), '[]'::json)
         ) order by p.position_title)
         from public.positions p
       ), '[]'::json) as positions`;

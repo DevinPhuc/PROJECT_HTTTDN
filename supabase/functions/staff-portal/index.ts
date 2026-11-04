@@ -117,10 +117,11 @@ async function bootAction(actor: Actor): Promise<Response> {
   const [contact, position, roleRows] = await Promise.all([
     ownContact(sql, actor.employee_id),
     sql!`
-      select p.position_id, p.position_title, p.department_id, d.department_name
-      from public.positions p
-      left join public.departments d on d.department_id = p.department_id
-      where p.position_id = (select current_position_id from public.employees where employee_id = ${actor.employee_id}::uuid)
+      select p.position_id, p.position_title, e.current_department_id as department_id, d.department_name
+      from public.employees e
+      join public.positions p on p.position_id = e.current_position_id
+      left join public.departments d on d.department_id = e.current_department_id
+      where e.employee_id = ${actor.employee_id}::uuid
       limit 1`,
     sql!`
       select r.role_id, r.role_name
