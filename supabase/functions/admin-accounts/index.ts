@@ -10,7 +10,8 @@ import { jwtVerify } from "npm:jose@5";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-token",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-admin-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -29,16 +30,21 @@ const sql = SUPABASE_DB_URL
   ? postgres(SUPABASE_DB_URL, { max: 1, prepare: false, ssl: "require" })
   : null;
 
-const JWT_KEY = ADMIN_JWT_SECRET ? new TextEncoder().encode(ADMIN_JWT_SECRET) : null;
+const JWT_KEY = ADMIN_JWT_SECRET
+  ? new TextEncoder().encode(ADMIN_JWT_SECRET)
+  : null;
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Vietnam calendar date (YYYY-MM-DD), shared by every date-sensitive query.
 // Computed in JS on purpose: a module-level query would start an unhandled
 // database round-trip during boot and can wedge the isolate on a cold start.
-const VN_TODAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
+const VN_TODAY = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Ho_Chi_Minh",
+}).format(new Date());
 
 type Actor = { employee_id: string; username: string; full_name: string };
 
@@ -49,7 +55,10 @@ function str(value: unknown): string {
 function isRealDate(value: string): boolean {
   if (!DATE_RE.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
 }
 
 function readProfile(body: Record<string, unknown>) {
@@ -65,20 +74,33 @@ function readProfile(body: Record<string, unknown>) {
   };
 
   if (
-    !fields.employee_code || !fields.full_name || !fields.email || !fields.gender ||
-    !fields.date_of_birth || !fields.hire_date
-  ) return { error: "missing_fields" } as const;
+    !fields.employee_code ||
+    !fields.full_name ||
+    !fields.email ||
+    !fields.gender ||
+    !fields.date_of_birth ||
+    !fields.hire_date
+  )
+    return { error: "missing_fields" } as const;
 
   if (!EMAIL_RE.test(fields.email)) return { error: "invalid_email" } as const;
-  if (!isRealDate(fields.date_of_birth)) return { error: "invalid_date_of_birth" } as const;
-  if (!isRealDate(fields.hire_date)) return { error: "invalid_hire_date" } as const;
-  if (![fields.department_id, fields.position_id].every((v) => UUID_RE.test(v))) {
+  if (!isRealDate(fields.date_of_birth))
+    return { error: "invalid_date_of_birth" } as const;
+  if (!isRealDate(fields.hire_date))
+    return { error: "invalid_hire_date" } as const;
+  if (
+    ![fields.department_id, fields.position_id].every((v) => UUID_RE.test(v))
+  ) {
     return { error: "invalid_reference" } as const;
   }
 
   // Mirrors ck_employees_min_working_age: hire_date >= date_of_birth + 15 years.
   const dob = new Date(`${fields.date_of_birth}T00:00:00Z`);
-  const earliest = Date.UTC(dob.getUTCFullYear() + 15, dob.getUTCMonth(), dob.getUTCDate());
+  const earliest = Date.UTC(
+    dob.getUTCFullYear() + 15,
+    dob.getUTCMonth(),
+    dob.getUTCDate(),
+  );
   if (new Date(`${fields.hire_date}T00:00:00Z`).getTime() < earliest) {
     return { error: "under_min_age" } as const;
   }
@@ -86,15 +108,16 @@ function readProfile(body: Record<string, unknown>) {
   return { fields } as const;
 }
 
-// Returns the department name (needed for the password rule) plus reference validity.
+// Returns department details and position name plus reference validity.
 async function loadDepartmentAndRefs(departmentId: string, positionId: string) {
   const rows = await sql!`
-    select d.department_name,
+    select d.department_name, d.description, p.position_title,
            exists(
              select 1 from public.department_positions dp
              where dp.position_id = ${positionId}::uuid and dp.department_id = ${departmentId}::uuid
            ) as position_ok
     from public.departments d
+    left join public.positions p on p.position_id = ${positionId}::uuid
     where d.department_id = ${departmentId}::uuid`;
   return rows[0] ?? null;
 }
@@ -103,11 +126,86 @@ async function resolveProfile(body: Record<string, unknown>) {
   const parsed = readProfile(body);
   if ("error" in parsed) return { error: parsed.error } as const;
 
-  const ref = await loadDepartmentAndRefs(parsed.fields.department_id, parsed.fields.position_id);
+  const ref = await loadDepartmentAndRefs(
+    parsed.fields.department_id,
+    parsed.fields.position_id,
+  );
   if (!ref) return { error: "unknown_department" } as const;
-  if (!ref.position_ok) return { error: "position_department_mismatch" } as const;
+  if (!ref.position_ok)
+    return { error: "position_department_mismatch" } as const;
 
-  return { fields: parsed.fields, departmentName: String(ref.department_name) } as const;
+  return {
+    fields: parsed.fields,
+    departmentName: String(ref.department_name),
+    departmentDescription: String(ref.description || ""),
+    positionName: String(ref.position_title || ""),
+  } as const;
+}
+
+function abbreviatePosition(positionName: string) {
+  const role = positionName.trim().toLowerCase();
+  if (role === "nhân viên") return "NV";
+  if (role === "quản lý") return "QL";
+  if (role === "trưởng nhóm") return "TN";
+
+  const normalized = positionName
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "D");
+  const words = normalized.split(/\s+/).filter(Boolean);
+  return (
+    words.length > 1
+      ? words
+          .slice(0, 2)
+          .map((word) => word[0])
+          .join("")
+      : normalized.slice(0, 2)
+  ).toUpperCase();
+}
+
+function generateAccountPassword(
+  roleName: string,
+  departmentDescription: string,
+  dateOfBirth: string,
+): string {
+  const positionPrefix = abbreviatePosition(roleName);
+  const departmentPrefix = departmentDescription
+    .trim()
+    .slice(0, 3)
+    .toLowerCase();
+  const [year, month, day] = dateOfBirth.split("-");
+  return `${positionPrefix}${departmentPrefix}@${day}${month}${year}`;
+}
+
+async function updateAccountPassword(
+  tx: postgres.TransactionSql,
+  employeeId: string,
+  roleId: string,
+  passwordOverride = "",
+): Promise<void> {
+  const [details] = await tx`
+    select r.role_name,
+           coalesce(d.description, '') as department_description,
+           to_char(e.date_of_birth, 'YYYY-MM-DD') as date_of_birth
+    from public.employees e
+    left join public.departments d on d.department_id = e.current_department_id
+    join public.roles r on r.role_id = ${roleId}::uuid
+    where e.employee_id = ${employeeId}::uuid
+    limit 1`;
+  if (!details) return;
+
+  const generatedPassword = generateAccountPassword(
+    String(details.role_name || ""),
+    String(details.department_description || ""),
+    String(details.date_of_birth || ""),
+  );
+  const password = passwordOverride || generatedPassword;
+  await tx`
+    update public.employee_accounts
+    set password_hash = extensions.crypt(${password}, extensions.gen_salt('bf', 10))
+    where employee_id = ${employeeId}::uuid`;
 }
 
 // Admin is never assignable; a missing role falls back to the default "Nhân viên" role.
@@ -167,7 +265,9 @@ async function setActiveRole(
 
 function readPermissionIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  const ids = value.filter((item): item is string => typeof item === "string" && UUID_RE.test(item));
+  const ids = value.filter(
+    (item): item is string => typeof item === "string" && UUID_RE.test(item),
+  );
   return [...new Set(ids)];
 }
 
@@ -187,16 +287,21 @@ async function replaceRolePermissions(
 
 async function getActor(token: string): Promise<Actor | null> {
   let employeeId = "";
+  let iat = 0;
   try {
-    const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
-    employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
+    const { payload } = await jwtVerify(token, JWT_KEY!, {
+      algorithms: ["HS256"],
+    });
+    employeeId =
+      typeof payload.employee_id === "string" ? payload.employee_id : "";
+    iat = typeof payload.iat === "number" ? payload.iat : 0;
   } catch {
     return null;
   }
   if (!UUID_RE.test(employeeId)) return null;
 
   const rows = await sql!`
-    select e.employee_id, a.username, e.full_name
+    select e.employee_id, a.username, e.full_name, e.updated_at 
     from public.employees e
     join public.employee_accounts a on a.employee_id = e.employee_id
     where e.employee_id = ${employeeId}::uuid
@@ -213,7 +318,24 @@ async function getActor(token: string): Promise<Actor | null> {
       )
     limit 1`;
 
-  return (rows[0] as Actor | undefined) ?? null;
+  const row = rows[0];
+  if (!row) return null;
+
+  // TÍNH NĂNG MỚI: Kiểm tra Token cũ hay mới so với lần cập nhật cuối
+  if (row.updated_at && iat > 0) {
+    const lastUpdated = Math.floor(new Date(row.updated_at).getTime() / 1000);
+    // Độ trễ 5 giây để tránh lỗi sai số đồng hồ lúc vừa cấp token
+    if (iat < lastUpdated - 5) {
+      return null; // Trả về null -> Hệ thống báo 401 Unauthorized -> Văng ra login
+    }
+  }
+
+  // (Return giữ nguyên theo file cũ của bạn)
+  return {
+    employee_id: row.employee_id,
+    username: row.username,
+    full_name: row.full_name,
+  } as Actor;
 }
 
 const DB_ERRORS: Record<string, string> = {
@@ -231,26 +353,27 @@ function dbError(err: unknown): Response {
 }
 
 async function optionsAction(): Promise<Response> {
-  const rows = await sql!`
-    select
-      coalesce((
-        select json_agg(json_build_object(
-          'department_id', d.department_id,
-          'department_name', d.department_name
-        ) order by d.department_name)
-        from public.departments d
-      ), '[]'::json) as departments,
-      coalesce((
-        select json_agg(json_build_object(
-          'position_id', p.position_id,
-          'position_title', p.position_title,
-          'department_ids', coalesce(
-            (select json_agg(dp.department_id) from public.department_positions dp
-             where dp.position_id = p.position_id), '[]'::json)
-        ) order by p.position_title)
-        from public.positions p
-      ), '[]'::json) as positions`;
-  return json({ ok: true, ...(rows[0] ?? {}) });
+  const [departments, positions] = await Promise.all([
+    departmentRows(),
+    sql!`
+      select p.position_id, p.position_title,
+             coalesce(
+               (select json_agg(dp.department_id)
+                from public.department_positions dp
+                where dp.position_id = p.position_id), '[]'::json
+             ) as department_ids
+      from public.positions p
+      order by p.position_title`,
+  ]);
+
+  return json({ ok: true, departments, positions });
+}
+
+async function departmentRows() {
+  return await sql!`
+    select department_id, department_name, description
+    from public.departments
+    order by department_name`;
 }
 
 async function rolesRows() {
@@ -284,12 +407,15 @@ async function permissionsAction(): Promise<Response> {
   return json({ ok: true, permissions: await permissionsRows() });
 }
 
-async function createRoleAction(body: Record<string, unknown>): Promise<Response> {
+async function createRoleAction(
+  body: Record<string, unknown>,
+): Promise<Response> {
   const roleName = str(body.role_name);
   const description = str(body.description);
   const permissionIds = readPermissionIds(body.permission_ids);
   if (!roleName) return json({ ok: false, error: "missing_fields" }, 400);
-  if (roleName.toLowerCase() === "admin") return json({ ok: false, error: "role_name_reserved" }, 400);
+  if (roleName.toLowerCase() === "admin")
+    return json({ ok: false, error: "role_name_reserved" }, 400);
 
   const created = await sql!.begin(async (tx) => {
     const [role] = await tx`
@@ -303,15 +429,19 @@ async function createRoleAction(body: Record<string, unknown>): Promise<Response
   return json({ ok: true, ...created });
 }
 
-async function updateRoleAction(body: Record<string, unknown>): Promise<Response> {
+async function updateRoleAction(
+  body: Record<string, unknown>,
+): Promise<Response> {
   const roleId = str(body.role_id);
-  if (!UUID_RE.test(roleId)) return json({ ok: false, error: "invalid_role" }, 400);
+  if (!UUID_RE.test(roleId))
+    return json({ ok: false, error: "invalid_role" }, 400);
 
   const roleName = str(body.role_name);
   const description = str(body.description);
   const permissionIds = readPermissionIds(body.permission_ids);
   if (!roleName) return json({ ok: false, error: "missing_fields" }, 400);
-  if (roleName.toLowerCase() === "admin") return json({ ok: false, error: "role_name_reserved" }, 400);
+  if (roleName.toLowerCase() === "admin")
+    return json({ ok: false, error: "role_name_reserved" }, 400);
 
   const result = await sql!.begin(async (tx) => {
     const [role] = await tx`
@@ -328,11 +458,16 @@ async function updateRoleAction(body: Record<string, unknown>): Promise<Response
   return json({ ok: true, role_id: roleId });
 }
 
-async function assignRoleAction(body: Record<string, unknown>, actor: Actor): Promise<Response> {
+async function assignRoleAction(
+  body: Record<string, unknown>,
+  actor: Actor,
+): Promise<Response> {
   const employeeId = str(body.employee_id);
   const roleId = str(body.role_id);
-  if (!UUID_RE.test(employeeId)) return json({ ok: false, error: "invalid_employee" }, 400);
-  if (!UUID_RE.test(roleId)) return json({ ok: false, error: "invalid_reference" }, 400);
+  if (!UUID_RE.test(employeeId))
+    return json({ ok: false, error: "invalid_employee" }, 400);
+  if (!UUID_RE.test(roleId))
+    return json({ ok: false, error: "invalid_reference" }, 400);
 
   const result = await sql!.begin(async (tx) => {
     const [employee] = await tx`
@@ -345,6 +480,7 @@ async function assignRoleAction(body: Record<string, unknown>, actor: Actor): Pr
     if (!role) return { error: "unknown_role" } as const;
 
     await setActiveRole(tx, employeeId, roleId, actor);
+    await updateAccountPassword(tx, employeeId, roleId);
     return { ok: true } as const;
   });
 
@@ -361,8 +497,10 @@ async function listRows() {
            e.gender,
            to_char(e.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
            to_char(e.hire_date, 'YYYY-MM-DD') as hire_date,
-           e.current_department_id as department_id,
+           coalesce(e.current_department_id, position_department.department_id) as department_id,
            e.current_position_id as position_id,
+           d.department_name,
+           p.position_title,
            a.username,
            a.is_active,
            to_char(a.last_login at time zone 'Asia/Ho_Chi_Minh', 'DD/MM/YYYY HH24:MI') as last_login,
@@ -370,6 +508,16 @@ async function listRows() {
            active_role.role_id,
            active_role.role_name
     from public.employees e
+    left join lateral (
+      select dp.department_id
+      from public.department_positions dp
+      where dp.position_id = e.current_position_id
+      order by dp.department_id
+      limit 1
+    ) position_department on true
+    left join public.departments d
+      on d.department_id = coalesce(e.current_department_id, position_department.department_id)
+    left join public.positions p on p.position_id = e.current_position_id
     join public.employee_accounts a on a.employee_id = e.employee_id
     left join lateral (
       select ur.role_id, r.role_name
@@ -411,12 +559,17 @@ async function initAction(): Promise<Response> {
     staff: await staffRows(),
     roles: await rolesRows(),
     permissions: await permissionsRows(),
+    departments: await departmentRows(),
   });
 }
 
-async function createAction(body: Record<string, unknown>, actor: Actor): Promise<Response> {
+async function createAction(
+  body: Record<string, unknown>,
+  actor: Actor,
+): Promise<Response> {
   const resolved = await resolveProfile(body);
-  if ("error" in resolved) return json({ ok: false, error: resolved.error }, 400);
+  if ("error" in resolved)
+    return json({ ok: false, error: resolved.error }, 400);
 
   const fields = resolved.fields;
   const isActive = body.is_active !== false;
@@ -424,11 +577,19 @@ async function createAction(body: Record<string, unknown>, actor: Actor): Promis
   const roleId = await resolveRoleId(body.role_id);
   if (!roleId) return json({ ok: false, error: "unknown_role" }, 400);
 
-  // Username = lowercase local part of the email. Password is derived from the
-  // department name and date of birth, hashed in SQL and never returned.
   const username = fields.email.split("@")[0].toLowerCase();
-  const [year, month, day] = fields.date_of_birth.split("-");
-  const password = `${resolved.departmentName.slice(0, 3).toLowerCase()}@${day}${month}${year}`;
+  const [role] = await sql!`
+    select role_name
+    from public.roles
+    where role_id = ${roleId}::uuid
+    limit 1`;
+
+  const password = generateAccountPassword(
+    String(role?.role_name || ""),
+    resolved.departmentDescription,
+    fields.date_of_birth,
+  );
+  const submittedPassword = str(body.generated_password);
 
   const created = await sql!.begin(async (tx) => {
     const [employee] = await tx`
@@ -444,7 +605,7 @@ async function createAction(body: Record<string, unknown>, actor: Actor): Promis
     await tx`
       insert into public.employee_accounts (employee_id, username, password_hash, is_active)
       values (${employee.employee_id}::uuid, ${username},
-              extensions.crypt(${password}, extensions.gen_salt('bf', 10)), ${isActive})`;
+              extensions.crypt(${submittedPassword || password}, extensions.gen_salt('bf', 10)), ${isActive})`;
 
     await tx`
       insert into public.user_roles (employee_id, role_id, valid_from, assigned_by, reason)
@@ -454,15 +615,24 @@ async function createAction(body: Record<string, unknown>, actor: Actor): Promis
     return { employee_id: employee.employee_id as string, username };
   });
 
-  return json({ ok: true, employee_id: created.employee_id, username: created.username });
+  return json({
+    ok: true,
+    employee_id: created.employee_id,
+    username: created.username,
+  });
 }
 
-async function updateAction(body: Record<string, unknown>, actor: Actor): Promise<Response> {
+async function updateAction(
+  body: Record<string, unknown>,
+  actor: Actor,
+): Promise<Response> {
   const employeeId = str(body.employee_id);
-  if (!UUID_RE.test(employeeId)) return json({ ok: false, error: "invalid_employee" }, 400);
+  if (!UUID_RE.test(employeeId))
+    return json({ ok: false, error: "invalid_employee" }, 400);
 
   const resolved = await resolveProfile(body);
-  if ("error" in resolved) return json({ ok: false, error: resolved.error }, 400);
+  if ("error" in resolved)
+    return json({ ok: false, error: resolved.error }, 400);
 
   const fields = resolved.fields;
   const isActive = body.is_active !== false;
@@ -500,6 +670,35 @@ async function updateAction(body: Record<string, unknown>, actor: Actor): Promis
       await setActiveRole(tx, employeeId, roleId, actor);
     }
 
+    const submittedPassword = str(body.generated_password);
+
+    if (submittedPassword) {
+      await tx`
+        update public.employee_accounts
+        set password_hash = extensions.crypt(${submittedPassword}, extensions.gen_salt('bf', 10))
+        where employee_id = ${employeeId}::uuid`;
+    } else {
+      if (roleId) {
+        await updateAccountPassword(tx, employeeId, roleId);
+      } else {
+        const [activeRole] = await tx`
+          select role_id
+          from public.user_roles
+          where employee_id = ${employeeId}::uuid
+            and valid_from <= ${VN_TODAY}::date
+            and (valid_to is null or valid_to >= ${VN_TODAY}::date)
+          order by valid_from desc, user_role_id desc
+          limit 1`;
+        if (activeRole) {
+          await updateAccountPassword(
+            tx,
+            employeeId,
+            String(activeRole.role_id),
+          );
+        }
+      }
+    }
+
     return { ok: true } as const;
   });
 
@@ -508,9 +707,12 @@ async function updateAction(body: Record<string, unknown>, actor: Actor): Promis
 }
 
 // Lock/unlock a single account. The row stays in the list, only the login state changes.
-async function setActiveAction(body: Record<string, unknown>): Promise<Response> {
+async function setActiveAction(
+  body: Record<string, unknown>,
+): Promise<Response> {
   const employeeId = str(body.employee_id);
-  if (!UUID_RE.test(employeeId)) return json({ ok: false, error: "invalid_employee" }, 400);
+  if (!UUID_RE.test(employeeId))
+    return json({ ok: false, error: "invalid_employee" }, 400);
 
   const isActive = body.is_active !== false;
   const rows = await sql!`
@@ -521,14 +723,19 @@ async function setActiveAction(body: Record<string, unknown>): Promise<Response>
     returning employee_id, is_active`;
   if (rows.length === 0) return json({ ok: false, error: "not_found" }, 400);
 
-  return json({ ok: true, employee_id: rows[0].employee_id, is_active: rows[0].is_active });
+  return json({
+    ok: true,
+    employee_id: rows[0].employee_id,
+    is_active: rows[0].is_active,
+  });
 }
 
 // Soft delete only: the row stays visible in the list with is_active = false,
 // while admin_login refuses it because it never accepts an inactive account.
 async function deleteAction(body: Record<string, unknown>): Promise<Response> {
   const employeeId = str(body.employee_id);
-  if (!UUID_RE.test(employeeId)) return json({ ok: false, error: "invalid_employee" }, 400);
+  if (!UUID_RE.test(employeeId))
+    return json({ ok: false, error: "invalid_employee" }, 400);
 
   const rows = await sql!`
     update public.employee_accounts
@@ -544,7 +751,8 @@ async function deleteAction(body: Record<string, unknown>): Promise<Response> {
 // Undo a soft delete: clear the marker and give the account a usable state again.
 async function restoreAction(body: Record<string, unknown>): Promise<Response> {
   const employeeId = str(body.employee_id);
-  if (!UUID_RE.test(employeeId)) return json({ ok: false, error: "invalid_employee" }, 400);
+  if (!UUID_RE.test(employeeId))
+    return json({ ok: false, error: "invalid_employee" }, 400);
 
   const rows = await sql!`
     update public.employee_accounts
@@ -554,15 +762,66 @@ async function restoreAction(body: Record<string, unknown>): Promise<Response> {
     returning employee_id, is_active`;
   if (rows.length === 0) return json({ ok: false, error: "not_found" }, 400);
 
-  return json({ ok: true, employee_id: rows[0].employee_id, is_active: rows[0].is_active });
+  return json({
+    ok: true,
+    employee_id: rows[0].employee_id,
+    is_active: rows[0].is_active,
+  });
+}
+
+async function permanentDeleteAction(
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const employeeId = str(body.employee_id);
+  if (!UUID_RE.test(employeeId))
+    return json({ ok: false, error: "invalid_employee" }, 400);
+
+  let result;
+  try {
+    result = await sql!.begin(async (tx) => {
+      const [account] = await tx`
+        select employee_id
+        from public.employee_accounts
+        where employee_id = ${employeeId}::uuid
+          and deleted_at is not null
+        for update`;
+      if (!account) return { error: "not_found" } as const;
+
+      await tx`
+        delete from public.user_roles
+        where employee_id = ${employeeId}::uuid
+           or assigned_by = ${employeeId}::uuid`;
+      const rows = await tx`
+        delete from public.employee_accounts
+        where employee_id = ${employeeId}::uuid
+          and deleted_at is not null
+        returning employee_id`;
+      if (rows.length === 0) return { error: "not_found" } as const;
+      return { ok: true, employee_id: rows[0].employee_id } as const;
+    });
+  } catch (error) {
+    console.error("admin-accounts: permanent delete failed", {
+      employee_id: employeeId,
+      code: (error as { code?: string })?.code,
+      detail: (error as { detail?: string })?.detail,
+    });
+    return json({ ok: false, error: "permanent_delete_failed" }, 400);
+  }
+  if ("error" in result) return json({ ok: false, error: result.error }, 400);
+
+  return json({ ok: true, employee_id: result.employee_id });
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
-  if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
+  if (req.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  if (req.method !== "POST")
+    return json({ ok: false, error: "method_not_allowed" }, 405);
 
   if (!sql || !JWT_KEY) {
-    console.error("admin-accounts: SUPABASE_DB_URL or ADMIN_JWT_SECRET is not set");
+    console.error(
+      "admin-accounts: SUPABASE_DB_URL or ADMIN_JWT_SECRET is not set",
+    );
     return json({ ok: false, error: "server_not_configured" }, 500);
   }
 
@@ -582,25 +841,45 @@ Deno.serve(async (req) => {
   } catch {
     return json({ ok: false, error: "bad_request" }, 400);
   }
-  if (!body || typeof body !== "object") return json({ ok: false, error: "bad_request" }, 400);
+  if (!body || typeof body !== "object")
+    return json({ ok: false, error: "bad_request" }, 400);
 
   try {
     switch (body.action) {
-      case "init": return await initAction();
-      case "options": return await optionsAction();
-      case "list": return await listAction();
-      case "staff": return await staffAction();
-      case "create": return await createAction(body, actor);
-      case "update": return await updateAction(body, actor);
-      case "set_active": return await setActiveAction(body);
-      case "delete": return await deleteAction(body);
-      case "restore": return await restoreAction(body);
-      case "roles": return await rolesAction();
-      case "permissions": return await permissionsAction();
-      case "create_role": return await createRoleAction(body);
-      case "update_role": return await updateRoleAction(body);
-      case "assign_role": return await assignRoleAction(body, actor);
-      default: return json({ ok: false, error: "unknown_action" }, 400);
+      case "ping":
+        return json({ ok: true });
+      case "init":
+        return await initAction();
+      case "options":
+        return await optionsAction();
+      case "list":
+        return await listAction();
+      case "staff":
+        return await staffAction();
+      case "create":
+        return await createAction(body, actor);
+      case "update":
+        return await updateAction(body, actor);
+      case "set_active":
+        return await setActiveAction(body);
+      case "delete":
+        return await deleteAction(body);
+      case "restore":
+        return await restoreAction(body);
+      case "permanent_delete":
+        return await permanentDeleteAction(body);
+      case "roles":
+        return await rolesAction();
+      case "permissions":
+        return await permissionsAction();
+      case "create_role":
+        return await createRoleAction(body);
+      case "update_role":
+        return await updateRoleAction(body);
+      case "assign_role":
+        return await assignRoleAction(body, actor);
+      default:
+        return json({ ok: false, error: "unknown_action" }, 400);
     }
   } catch (err) {
     return dbError(err);

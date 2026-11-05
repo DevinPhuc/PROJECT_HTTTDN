@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Cổng quản trị nhân sự của Jewels." />
     <title>Quản trị nhân sự - Jewels</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../shared/images/brand-logo-1.svg"
+    />
     <link rel="stylesheet" href="../shared/css/vendor/bootstrap.min.css" />
     <link rel="stylesheet" href="../shared/css/style.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -61,8 +66,8 @@
               aria-controls="adminProfileMenu"
             >
               <span>
-                <strong>Quản lý nhân sự</strong>
-                <span>Nguyễn Quỳnh Trang</span>
+                <strong id="managerProfileName">Đang tải...</strong>
+                <span id="managerProfileEmail"></span>
               </span>
               <span class="admin-profile-chevron" aria-hidden="true"></span>
             </button>
@@ -174,15 +179,13 @@
             <div class="panel-heading">
               <div>
                 <p class="account-eyebrow">HỒ SƠ</p>
-                <h2>Danh sách nhân sự</h2>
+                <h2>
+                  Danh sách nhân sự
+                  <em class="hr-list-hint">Bấm vào dòng để xem thông tin</em>
+                </h2>
               </div>
               <div class="admin-module-actions">
-                <input
-                  id="employeeSearch"
-                  class="admin-search"
-                  type="search"
-                  placeholder="Tìm nhân sự..."
-                /><button
+                <button
                   type="button"
                   class="admin-primary-btn"
                   id="addEmployeeBtn"
@@ -249,7 +252,7 @@
                         required
                       ></select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="employeeDepartmentGroup">
                       <label>Phòng ban</label>
                       <select
                         name="departmentId"
@@ -277,6 +280,7 @@
                         name="password"
                         id="employeePassword"
                         type="text"
+                        readonly
                         required
                       />
                     </div>
@@ -307,21 +311,120 @@
               </div>
             </div>
             <section class="admin-panel hr-table-panel">
+              <div class="employee-list-filters">
+                <input
+                  id="employeeSearch"
+                  class="admin-search"
+                  type="search"
+                  placeholder="Tìm mã, tên, chức vụ..."
+                  aria-label="Tìm kiếm nhân sự nâng cao"
+                />
+                <select
+                  id="employeePositionFilter"
+                  class="admin-search"
+                  aria-label="Lọc theo chức vụ"
+                >
+                  <option value="all">Tất cả chức vụ</option>
+                  <option value="employee">Nhân viên</option>
+                  <option value="manager">Quản lý</option>
+                </select>
+                <button
+                  type="button"
+                  class="admin-secondary-btn employee-refresh-btn"
+                  id="employeeRefreshBtn"
+                  aria-label="Làm mới dữ liệu"
+                  title="Làm mới dữ liệu"
+                >
+                  <img
+                    src="../shared/images/reset.png"
+                    alt=""
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
               <div class="hr-table-wrap">
                 <table class="hr-table">
                   <thead>
                     <tr>
-                      <th>Nhân sự</th>
-                      <th>Chức vụ</th>
-                      <th>Phòng ban</th>
-                      <th>Trình độ</th>
-                      <th>Tình trạng</th>
-                      <th>Thao tác</th>
+                      <th>
+                        <button
+                          type="button"
+                          class="hr-sort-button"
+                          data-employee-sort="employee_code"
+                        >
+                          Mã nhân viên
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          class="hr-sort-button"
+                          data-employee-sort="full_name"
+                        >
+                          Nhân sự
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          class="hr-sort-button"
+                          data-employee-sort="position"
+                        >
+                          Chức vụ
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          class="hr-sort-button"
+                          data-employee-sort="department"
+                        >
+                          Phòng ban
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          class="hr-sort-button"
+                          data-employee-sort="education"
+                        >
+                          Trình độ
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          class="hr-sort-button"
+                          data-employee-sort="hire_date"
+                        >
+                          Ngày vào làm
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          class="hr-sort-button"
+                          data-employee-sort="base_salary"
+                        >
+                          Lương cơ bản
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          class="hr-sort-button"
+                          data-employee-sort="status"
+                        >
+                          Tình trạng
+                        </button>
+                      </th>
+                      <th class="hr-actions-column">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody id="employeesBody"></tbody>
                 </table>
               </div>
+              <div class="hr-pagination" id="employeesPagination"></div>
             </section>
           </section>
 
@@ -331,13 +434,22 @@
                 <p class="account-eyebrow">HỘP THƯ NHÂN SỰ</p>
                 <h2>Duyệt đơn nghỉ</h2>
               </div>
-              <select id="requestFilter" class="admin-search">
-                <option value="all">Tất cả đơn</option>
-                <option value="pending">Chờ duyệt</option>
-                <option value="resolved">Đã xử lý</option>
-              </select>
             </div>
             <section class="admin-panel hr-table-panel">
+              <div class="employee-list-filters request-list-filters">
+                <input
+                  id="requestSearch"
+                  class="admin-search"
+                  type="search"
+                  placeholder="Tìm nhân sự, loại đơn, lý do..."
+                  aria-label="Tìm kiếm đơn nghỉ nâng cao"
+                />
+                <select id="requestFilter" class="admin-search">
+                  <option value="all">Tất cả đơn</option>
+                  <option value="pending">Chờ duyệt</option>
+                  <option value="resolved">Đã xử lý</option>
+                </select>
+              </div>
               <div class="hr-table-wrap">
                 <table class="hr-table">
                   <thead>
@@ -347,12 +459,12 @@
                       <th>Thời gian</th>
                       <th>Lý do</th>
                       <th>Trạng thái</th>
-                      <th>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody id="requestsBody"></tbody>
                 </table>
               </div>
+              <div class="hr-pagination" id="requestsPagination"></div>
             </section>
           </section>
 
@@ -731,29 +843,6 @@
         </div>
 
         <div class="admin-legacy-content" hidden>
-          <div class="admin-kpis">
-            <article class="admin-kpi">
-              <span>Doanh thu</span>
-              <strong>₫ 184,2M</strong>
-              <small>+18.4% so với tháng trước</small>
-            </article>
-            <article class="admin-kpi">
-              <span>Đơn hàng</span>
-              <strong>1,284</strong>
-              <small>+9.6% trong tuần này</small>
-            </article>
-            <article class="admin-kpi">
-              <span>Khách hàng</span>
-              <strong>8,640</strong>
-              <small>+142 khách mới</small>
-            </article>
-            <article class="admin-kpi">
-              <span>Hàng tồn kho</span>
-              <strong>96.7%</strong>
-              <small>54 sản phẩm cần bổ sung</small>
-            </article>
-          </div>
-
           <div class="admin-module active" data-module="overview">
             <div class="admin-content-grid">
               <section class="admin-panel admin-panel-wide">
@@ -1517,10 +1606,41 @@
       <span>Đã xóa nhân viên thành công!</span>
     </div>
 
+    <div id="permanentDeleteModal" class="account-confirm-modal" hidden>
+      <div
+        class="account-confirm-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="permanentDeleteTitle"
+      >
+        <h3 id="permanentDeleteTitle">Xác nhận xóa hồ sơ</h3>
+        <p>
+          Bạn đang thực hiện xóa hồ sơ nhân sự này, tài khoản sẽ chuyển sang
+          trạng thái đã xóa.
+        </p>
+        <div class="admin-form-actions">
+          <button
+            type="button"
+            class="admin-secondary-btn"
+            data-permanent-delete-cancel
+          >
+            Không
+          </button>
+          <button
+            type="button"
+            class="admin-primary-btn danger-btn"
+            data-permanent-delete-confirm
+          >
+            Có, xóa
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../shared/js/supabase-client.js"></script>
     <script src="../shared/js/portal-api.js"></script>
     <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
-    <script src="js/hr-current-schema.js"></script>
+    <script src="js/hr-current-schema.js?v=20261105-1"></script>
   </body>
 </html>

@@ -181,6 +181,10 @@ body:has(.admin-page) {
   font-size: 11px;
 }
 
+.admin-profile-toggle > span > span {
+  margin-top: 3px;
+}
+
 .admin-nav {
   display: grid;
   gap: 4px;
@@ -862,8 +866,62 @@ body:has(.admin-page) {
   font-size: 27px;
 }
 
+.hr-list-hint {
+  margin-left: 8px;
+  color: var(--admin-muted);
+  font-family: var(--body-font, sans-serif);
+  font-size: 11px;
+  font-weight: 400;
+}
+
 .hr-table-panel {
   padding: 0;
+}
+
+.employee-list-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--admin-line);
+  background: #fff;
+}
+
+.employee-list-filters .admin-search {
+  min-height: 38px;
+}
+
+.employee-list-filters input {
+  flex: 1 1 300px;
+}
+
+.employee-list-filters select {
+  flex: 0 1 210px;
+}
+
+.employee-refresh-btn {
+  width: 40px;
+  padding: 8px;
+}
+
+.employee-refresh-btn img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.employee-refresh-btn.is-loading img {
+  animation: employee-refresh-spin 800ms linear infinite;
+}
+
+@keyframes employee-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.request-list-filters {
+  border-bottom: 1px solid var(--admin-line);
 }
 
 .hr-table-wrap {
@@ -894,8 +952,106 @@ body:has(.admin-page) {
   white-space: nowrap;
 }
 
+.hr-table thead th.hr-actions-column,
+.hr-table tbody td.hr-actions-column {
+  text-align: center;
+}
+
+.hr-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.hr-sort-button::after {
+  content: "\2195";
+  color: #aab5ae;
+  font-size: 11px;
+}
+
+.hr-sort-button.is-ascending::after {
+  content: "\2191";
+  color: var(--admin-green);
+}
+
+.hr-sort-button.is-descending::after {
+  content: "\2193";
+  color: var(--admin-green);
+}
+
 .hr-table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.hr-employee-row {
+  cursor: pointer;
+}
+
+.hr-employee-row:hover td {
+  background: rgb(52 91 74 / 7%);
+}
+
+.hr-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px 14px;
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.hr-pagination > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.hr-pagination select {
+  min-width: 62px;
+  padding: 7px 8px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--admin-ink);
+}
+
+.hr-pagination-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hr-page-button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--admin-ink);
+  cursor: pointer;
+}
+
+.hr-page-button:hover:not(:disabled),
+.hr-page-button.is-active {
+  border-color: var(--admin-green);
+  background: var(--admin-green);
+  color: #fff;
+}
+
+.hr-page-button:disabled {
+  color: #b7c0ba;
+  cursor: not-allowed;
 }
 
 .hr-table td strong,
@@ -914,6 +1070,7 @@ body:has(.admin-page) {
   flex-wrap: wrap;
   align-items: center;
   align-content: center;
+  justify-content: center;
   gap: 6px;
   min-width: 110px;
 }
@@ -1662,6 +1819,19 @@ body:has(.admin-page) {
 .form-group select:focus {
   border-color: var(--admin-green);
   box-shadow: 0 0 0 2px rgb(52 91 74 / 12%);
+}
+
+#employeeForm input:disabled,
+#employeeForm select:disabled,
+#employeeForm input:read-only {
+  background: #f1f3f1;
+  color: #78827c;
+  cursor: not-allowed;
+}
+
+#employeeForm select:disabled {
+  appearance: none;
+  background-image: none;
 }
 
 .employee-contact-date-row {
