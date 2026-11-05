@@ -749,7 +749,7 @@ async function payrollSaveAction(actor: Actor, body: Record<string, unknown>): P
   const month = Number(body.pay_month);
   const baseSalary = Number(body.base_salary);
   const allowance = Number(body.allowance ?? 0);
-  const overtimePay = Number(body.overtime_pay ?? 0);
+  const overtimePay = 0;
   const workDays = Number(body.work_days ?? 0);
   const standardDays = Number(body.standard_days ?? 0);
   const insuranceAmount = Number(body.insurance_amount ?? 0);

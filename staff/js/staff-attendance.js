@@ -146,9 +146,9 @@ function refreshAttendanceUI() {
   const summary = document.getElementById("attendanceSummary");
   const sessions = todayRecords().filter((item) => item.check_in);
   if (activeRecord) {
-    summary.innerHTML = `Hôm nay: đang trong ca (lượt ${sessions.length}), vào <strong>${timeShort(activeRecord.check_in)}</strong> · ra —`;
+    summary.innerHTML = `Hôm nay: đang trong ca (lượt ${sessions.length})</strong>`;
   } else if (sessions.length > 0) {
-    summary.textContent = `Hôm nay đã hoàn thành ${sessions.length} lượt chấm công. Sẵn sàng cho lượt mới.`;
+    summary.textContent = `Hôm nay đã hoàn thành ${sessions.length} lượt chấm công.`;
   } else {
     summary.textContent = "Chưa chấm công hôm nay";
   }

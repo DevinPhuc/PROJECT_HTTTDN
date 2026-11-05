@@ -7,9 +7,7 @@ function payrollBreakdown(record) {
   const baseSalary = Number(record.base_salary ?? 0);
   const standardDays = Number(record.standard_days);
   const workDays = record.work_days == null ? NaN : Number(record.work_days);
-  const overtimeHours = Number(record.overtime_hours ?? 0);
   const allowance = Number(record.allowance ?? record.bonus ?? 0);
-  const overtimePay = Number(record.overtime_pay ?? 0);
   const paidLeaveDays = Number(record.paid_leave_days ?? 0);
   // payroll has no rate column: derive the % from the stored amount so the
   // formula label reflects what management actually applied.
@@ -25,7 +23,7 @@ function payrollBreakdown(record) {
     ? baseSalary * paidLeaveDays / standardDays
     : 0;
   const grossSalary = record.gross_salary == null
-    ? (basePay == null ? null : basePay + paidLeavePay + allowance + overtimePay)
+    ? (basePay == null ? null : basePay + paidLeavePay + allowance)
     : Number(record.gross_salary);
   const totalDeductions = record.total_deductions == null
     ? insuranceAmount + incomeTax
@@ -36,10 +34,6 @@ function payrollBreakdown(record) {
   const attendanceCalculation = standardDays > 0 && Number.isFinite(workDays)
     ? `${money(baseSalary)} × ${workDays} / ${standardDays} ngày`
     : "Không có dữ liệu ngày công chuẩn";
-  const overtimeCalculation = standardDays > 0
-    ? `${money(baseSalary)} / (${standardDays} × 8 giờ) × 150% × ${overtimeHours} giờ`
-    : "Không có dữ liệu ngày công chuẩn";
-
   const rows = [
     ["Lương cơ bản", "Mức lương cơ bản được ghi nhận cho kỳ lương", baseSalary],
     ["Lương theo ngày công", attendanceCalculation, basePay]
@@ -53,8 +47,7 @@ function payrollBreakdown(record) {
   }
   rows.push(
     ["Thưởng / phụ cấp", "Khoản được quản lý ghi nhận", allowance],
-    ["Lương tăng ca", overtimeCalculation, overtimePay],
-    ["Tổng thu nhập", "Lương ngày công + nghỉ phép hưởng lương + thưởng/phụ cấp + tăng ca", grossSalary],
+    ["Tổng thu nhập", "Lương ngày công + nghỉ phép hưởng lương + thưởng/phụ cấp", grossSalary],
     ["Bảo hiểm", insuranceLabel, insuranceAmount],
     ["Thuế TNCN", "Khoản thuế được quản lý ghi nhận", incomeTax],
     ["Tổng khấu trừ", "Bảo hiểm + thuế TNCN", totalDeductions],
@@ -122,7 +115,7 @@ async function loadMonthlyPayroll() {
   const label = document.createElement("span"); label.textContent = "Thực nhận"; const value = document.createElement("strong"); value.textContent = breakdown.netSalary == null ? "Chưa có dữ liệu" : money(breakdown.netSalary); const period = document.createElement("small"); period.textContent = monthLabel(year, month); amount.append(label, value, period);
   summary.append(amount);
   const panel = document.createElement("section"); panel.className = "staff-panel staff-month-details"; const titleRow = document.createElement("div"); titleRow.className = "staff-section-heading";
-  const title = document.createElement("h3"); title.textContent = `Chi tiết ${monthLabel(year, month)}`; const attendance = document.createElement("span"); attendance.className = "staff-muted"; attendance.textContent = `${data.work_days ?? "-"}/${data.standard_days ?? "-"} ngày công · ${data.overtime_hours || 0} giờ tăng ca`; titleRow.append(title, attendance);
+  const title = document.createElement("h3"); title.textContent = `Chi tiết ${monthLabel(year, month)}`; const attendance = document.createElement("span"); attendance.className = "staff-muted"; attendance.textContent = `${data.work_days ?? "-"}/${data.standard_days ?? "-"} ngày công`; titleRow.append(title, attendance);
   const table = document.createElement("table"); table.className = "staff-table staff-pay-table"; const head = document.createElement("thead"); const headRow = document.createElement("tr"); ["Khoản mục", "Cách tính", "Số tiền"].forEach((text) => addCell(headRow, text, "th")); head.append(headRow); table.append(head);
   const body = document.createElement("tbody");
   breakdown.rows.forEach(([name, calculation, value]) => {

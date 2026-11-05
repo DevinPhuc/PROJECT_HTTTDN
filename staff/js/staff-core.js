@@ -107,9 +107,6 @@ const demoPayrollDetails = (year, month) => {
       payer: "Employee"
     });
   }
-  if (record.overtime_pay) {
-    details.push({ item_type: "Bonus", item_name: `${record.overtime_hours} giờ tăng ca`, amount: record.overtime_pay, payer: "Employee" });
-  }
   return details;
 };
 let demoAttendanceRecords = [];
@@ -137,10 +134,8 @@ const demoPayrollRecords = Array.from({ length: demoPayrollMonthCount }, (_, ind
   const workDays = Math.max(0, standardDays - leaveDays);
   const paidLeaveDays = leaveDays;
   const baseSalary = 22000000 + (year - demoHireYear) * 500000;
-  const overtimeHours = Math.floor(random() * 13);
   const allowance = 400000 + Math.floor(random() * 9) * 100000;
-  const overtimePay = Math.round(baseSalary / Math.max(standardDays * 8, 1) * 1.5 * overtimeHours);
-  const grossSalary = Math.round(baseSalary * (workDays + paidLeaveDays) / Math.max(standardDays, 1) + allowance + overtimePay);
+  const grossSalary = Math.round(baseSalary * (workDays + paidLeaveDays) / Math.max(standardDays, 1) + allowance);
   const insuranceAmount = Math.round(baseSalary * 0.105);
   const personalIncomeTax = Math.max(0, Math.round((grossSalary - baseSalary * 0.7) * (0.03 + random() * 0.04)));
   const totalDeductions = insuranceAmount + personalIncomeTax;
@@ -151,9 +146,8 @@ const demoPayrollRecords = Array.from({ length: demoPayrollMonthCount }, (_, ind
     standard_days: standardDays,
     work_days: workDays,
     paid_leave_days: paidLeaveDays,
-    overtime_hours: overtimeHours,
     allowance,
-    overtime_pay: overtimePay,
+    overtime_pay: 0,
     insurance_rate: 10.5,
     insurance_amount: insuranceAmount,
     personal_income_tax: personalIncomeTax,
