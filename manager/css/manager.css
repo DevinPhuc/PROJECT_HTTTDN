@@ -1919,3 +1919,189 @@ body:has(.admin-page) {
     width: 100%;
   }
 }
+
+/* ---------- Chấm công (clock card, ported from staff portal) ---------- */
+.mgr-clock-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border-top: 3px solid var(--admin-green);
+  box-shadow: 0 8px 22px rgb(52 91 74 / 10%);
+}
+
+.mgr-clock-face {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-align: center;
+  min-width: 0;
+}
+
+.mgr-clock-date {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.mgr-clock-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.mgr-clock-col {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px 14px 20px;
+  border: 1px solid var(--admin-line);
+  border-radius: 2px;
+  background: #fff;
+  min-width: 0;
+}
+
+.mgr-clock-col-label {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.mgr-clock-time {
+  margin: 0 0 6px;
+  color: var(--admin-ink);
+  font-family: var(--heading-font, Georgia, serif);
+  font-variant-numeric: tabular-nums;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.mgr-clock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 180px;
+  padding: 13px 28px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--admin-green) 0%, var(--admin-green-dark) 100%);
+  color: #fff;
+  font: 700 15px/1.2 var(--body-font, sans-serif);
+  letter-spacing: .4px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgb(52 91 74 / 22%);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.mgr-clock-btn-icon {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+  flex: none;
+}
+
+.mgr-clock-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgb(52 91 74 / 28%);
+}
+
+.mgr-clock-btn:disabled {
+  background: var(--admin-green-soft);
+  color: var(--admin-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.mgr-clock-btn[data-loading="1"] {
+  opacity: .75;
+}
+
+.mgr-clock-feedback {
+  margin: -6px 0 0;
+  min-height: 16px;
+  color: var(--admin-green-dark);
+  font-size: 12px;
+  text-align: center;
+}
+
+.mgr-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mgr-status-present {
+  background: var(--admin-green-soft);
+  color: var(--admin-green-dark);
+}
+
+.mgr-status-late,
+.mgr-status-halfday,
+.mgr-status-onleave {
+  background: #fff2df;
+  color: #8a5b20;
+}
+
+.mgr-status-absent {
+  background: var(--admin-red-soft);
+  color: var(--admin-red);
+}
+
+.mgr-history-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.mgr-att-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mgr-pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.mgr-pager span {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.mgr-empty-cell {
+  text-align: center;
+  color: var(--admin-muted);
+  padding: 18px 8px;
+}
+
+@media (max-width: 720px) {
+  .mgr-clock-columns {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .mgr-clock-col {
+    padding: 16px 10px;
+  }
+
+  .mgr-clock-btn {
+    width: 100%;
+  }
+
+  .mgr-clock-time {
+    font-size: 26px;
+  }
+}
