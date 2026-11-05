@@ -2105,3 +2105,258 @@ body:has(.admin-page) {
     font-size: 26px;
   }
 }
+
+/* ---------- Bảng chấm công (code sheet) ---------- */
+.cc-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cc-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cc-wrap {
+  overflow: auto;
+  max-height: calc(100vh - 330px);
+  background: #fff;
+  border: 1px solid var(--admin-line);
+  border-radius: 2px;
+}
+
+table.cc {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  user-select: none;
+}
+
+.cc th,
+.cc td {
+  border-right: 1px solid var(--admin-line);
+  border-bottom: 1px solid var(--admin-line);
+  text-align: center;
+  padding: 0;
+  height: 34px;
+}
+
+.cc thead th {
+  position: sticky;
+  top: 0;
+  background: var(--admin-green-soft);
+  z-index: 3;
+  font-weight: 700;
+  color: var(--admin-muted);
+  font-size: 11px;
+  padding: 4px 2px;
+  line-height: 1.2;
+}
+
+.cc thead th.we {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.cc thead th.td {
+  background: var(--admin-green);
+  color: #fff;
+}
+
+.cc-nm {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 2;
+  text-align: left;
+  padding: 0 12px;
+  min-width: 190px;
+  max-width: 190px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc thead .cc-nm {
+  z-index: 4;
+  background: var(--admin-green-soft);
+}
+
+.cc td.cc-d {
+  width: 32px;
+  min-width: 32px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.cc td.cc-d:hover {
+  outline: 2px solid var(--admin-green);
+  outline-offset: -2px;
+}
+
+.cc td.we {
+  background: #fff7f8;
+}
+
+.cc td.cc-sum {
+  min-width: 56px;
+  padding: 0 6px;
+  font-weight: 700;
+  background: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc td.cc-hl {
+  background: var(--admin-green-soft);
+  color: var(--admin-green-dark);
+}
+
+.cc td.cc-ot {
+  min-width: 56px;
+  padding: 0 6px;
+  background: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-muted {
+  color: var(--admin-muted);
+}
+
+.cc-brush {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+
+.cc-brush.on {
+  border-color: #0f172a;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+}
+
+.cc-brush small {
+  font-weight: 500;
+  opacity: .8;
+}
+
+/* Sheet pager: numbered page buttons + ellipsis gaps */
+.pg-n {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--admin-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pg-n:hover:not(:disabled) {
+  border-color: var(--admin-green);
+}
+
+.pg-n.on {
+  background: var(--admin-green);
+  border-color: var(--admin-green);
+  color: #fff;
+}
+
+.pg-n:disabled {
+  color: var(--admin-muted);
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.pg-dot {
+  color: var(--admin-muted);
+  padding: 0 2px;
+}
+
+/* ---------- Print (runPrint: screen hides everything but #print-root) ---------- */
+#print-root {
+  display: none;
+}
+
+body.is-printing > *:not(#print-root) {
+  display: none !important;
+}
+
+body.is-printing #print-root {
+  display: block;
+}
+
+.pr h2 {
+  text-align: center;
+  margin: 12px 0 4px;
+  font-size: 19px;
+  text-transform: uppercase;
+  color: #111;
+}
+
+.pr table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pr th {
+  background: var(--admin-green);
+  color: #fff;
+  padding: 6px;
+  font-size: 10.5px;
+  border: 1px solid var(--admin-green-dark);
+  text-align: center;
+}
+
+.pr td {
+  border: 1px solid #c9ced8;
+  padding: 5px 6px;
+  font-size: 11px;
+  vertical-align: top;
+}
+
+.pr td.c {
+  text-align: center;
+}
+
+.pr-signs {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 26px;
+  text-align: center;
+  page-break-inside: avoid;
+}
+
+.pr-signs div {
+  min-width: 150px;
+}
+
+.pr-signs b {
+  display: block;
+}
+
+.pr-signs i {
+  font-size: 11px;
+  color: #666;
+}
+
+.pr-signs .sp {
+  height: 72px;
+}
+
+.pr-note {
+  margin-top: 10px;
+  font-size: 11.5px;
+}
