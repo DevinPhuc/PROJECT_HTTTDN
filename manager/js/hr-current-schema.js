@@ -249,6 +249,7 @@ function setView(viewName) {
   document.getElementById("adminPageTitle").textContent =
     link?.textContent.trim() || "Hồ sơ nhân sự";
   history.replaceState(null, "", `#${viewName}`);
+  document.dispatchEvent(new CustomEvent("hr:view", { detail: { view: viewName } }));
 }
 
 document.querySelectorAll("[data-hr-view]").forEach((link) =>

@@ -43,6 +43,22 @@
           d="M.5 14.5h15v1H.5zm1-2.2V7.5h2v4.8zm4 0V4.5h2v7.8zm4 0V2.5h2v9.8zm4 0V8.5h2v3.8z"
         />
       </symbol>
+      <symbol id="staff-login" viewBox="0 0 16 16">
+        <path
+          d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"
+        />
+        <path
+          d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"
+        />
+      </symbol>
+      <symbol id="staff-logout" viewBox="0 0 16 16">
+        <path
+          d="M10 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 10.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 18.5 2h-8A1.5 1.5 0 0 0 9 3.5v2a.5.5 0 0 0 1 0v-2z"
+        />
+        <path
+          d="M4.146 8.354a.5.5 0 0 0 0 .708l3 3a.5.5 0 0 0 .708-.708L5.707 9.5H14.5a.5.5 0 0 0 0-1H5.707l2.147-2.146a.5.5 0 1 0-.708-.708l-3 3z"
+        />
+      </symbol>
     </svg>
 
     <main class="admin-page">
@@ -148,6 +164,30 @@
               class="nav-png-icon"
             />
             Chấm công & lương</a
+          >
+          <a
+            class="admin-nav-item"
+            href="#attendance-clock"
+            data-hr-view="attendance-clock"
+          >
+            <img
+              src="../shared/images/timekeeping.png"
+              alt=""
+              class="nav-png-icon"
+            />
+            Chấm công</a
+          >
+          <a
+            class="admin-nav-item"
+            href="#attendance-sheet"
+            data-hr-view="attendance-sheet"
+          >
+            <img
+              src="../shared/images/calendar-month.png"
+              alt=""
+              class="nav-png-icon"
+            />
+            Bảng chấm công</a
           >
         </nav>
 
@@ -828,6 +868,92 @@
                   <tbody id="payrollBody"></tbody>
                 </table>
               </div>
+            </section>
+          </section>
+
+          <section class="hr-view" data-hr-panel="attendance-clock" hidden>
+            <div class="panel-heading">
+              <div>
+                <p class="account-eyebrow">GIỜ LÀM VIỆC</p>
+                <h2>Chấm công</h2>
+              </div>
+              <span class="admin-employee-code" id="mgrAttendanceSummary">Chưa chấm công hôm nay</span>
+            </div>
+            <section class="admin-panel mgr-clock-card">
+              <div class="mgr-clock-face">
+                <p class="mgr-clock-date" id="mgrClockDate"></p>
+              </div>
+              <div class="mgr-clock-columns">
+                <div class="mgr-clock-col">
+                  <p class="mgr-clock-col-label">Giờ vào</p>
+                  <p class="mgr-clock-time" id="mgrAttendanceCheckIn">--:--</p>
+                  <button type="button" class="mgr-clock-btn" id="mgrAttendanceCheckInBtn">
+                    <svg class="mgr-clock-btn-icon" aria-hidden="true"><use href="#staff-login"></use></svg>
+                    <span class="mgr-clock-btn-label">Vào làm</span>
+                  </button>
+                </div>
+                <div class="mgr-clock-col">
+                  <p class="mgr-clock-col-label">Giờ ra</p>
+                  <p class="mgr-clock-time" id="mgrAttendanceCheckOut">--:--</p>
+                  <button type="button" class="mgr-clock-btn" id="mgrAttendanceCheckOutBtn">
+                    <svg class="mgr-clock-btn-icon" aria-hidden="true"><use href="#staff-logout"></use></svg>
+                    <span class="mgr-clock-btn-label">Ra về</span>
+                  </button>
+                </div>
+              </div>
+              <p id="mgrAttendanceFeedback" class="mgr-clock-feedback" role="status" aria-live="polite"></p>
+            </section>
+            <section class="admin-panel mgr-history-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="account-eyebrow">LỊCH SỬ</p>
+                  <h3>Điểm danh gần đây</h3>
+                </div>
+                <label class="mgr-att-filter">Khoảng thời gian
+                  <select id="mgrAttendanceFilter">
+                    <option value="all" selected>Tất cả</option>
+                    <option value="day">Theo ngày</option>
+                    <option value="week">Theo tuần</option>
+                    <option value="month">Theo tháng</option>
+                  </select>
+                  <select id="mgrAttendanceMonth" hidden></select>
+                  <select id="mgrAttendanceWeek" hidden></select>
+                </label>
+              </div>
+              <div class="hr-table-wrap"><table class="hr-table"><thead><tr><th>Ngày</th><th>Giờ vào</th><th>Giờ ra</th><th>Trạng thái</th></tr></thead><tbody id="mgrAttendanceRows"></tbody></table></div>
+              <nav id="mgrAttendancePager" class="mgr-pager" aria-label="Trang lịch sử chấm công" hidden></nav>
+            </section>
+          </section>
+
+          <section class="hr-view" data-hr-panel="attendance-sheet" hidden>
+            <div class="panel-heading">
+              <div>
+                <p class="account-eyebrow">BẢNG CHẤM CÔNG</p>
+                <h2>Chọn ký hiệu rồi bấm (hoặc kéo chuột) lên các ô ngày để chấm</h2>
+              </div>
+              <label class="hr-period-control"
+                >Kỳ lương<input id="mgrSheetMonth" type="month"
+              /></label>
+            </div>
+            <section class="admin-panel">
+              <div class="cc-tools">
+                <div class="cc-palette" id="mgrCcPalette"></div>
+                <input id="mgrCcSearch" class="admin-search" type="search" placeholder="Tìm tên / mã NV..." />
+                <select id="mgrCcDept" class="admin-search"></select>
+                <button type="button" class="admin-secondary-btn" id="mgrCcFillX">Điền X ngày trống</button>
+                <button type="button" class="admin-secondary-btn" id="mgrCcClearMonth">Xóa tháng</button>
+                <button type="button" class="admin-secondary-btn" id="mgrCcExcel">Xuất Excel</button>
+                <button type="button" class="admin-secondary-btn" id="mgrCcPrint">In bảng</button>
+              </div>
+              <p id="mgrCcFeedback" role="status" aria-live="polite"></p>
+              <div class="hr-table-wrap cc-wrap">
+                <table class="cc">
+                  <thead id="mgrCcHead"></thead>
+                  <tbody id="mgrCcBody"></tbody>
+                  <tfoot id="mgrCcFoot" hidden></tfoot>
+                </table>
+              </div>
+              <nav id="mgrCcPager" class="mgr-pager" aria-label="Trang bảng chấm công"></nav>
             </section>
           </section>
         </div>
@@ -1632,5 +1758,7 @@
     <script src="../shared/js/portal-api.js"></script>
     <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
     <script src="js/hr-current-schema.js?v=20261105-1"></script>
+    <script src="js/hr-attendance.js"></script>
+    <script src="js/hr-sheet.js"></script>
   </body>
 </html>
