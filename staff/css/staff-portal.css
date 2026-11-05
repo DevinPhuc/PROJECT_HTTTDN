@@ -105,7 +105,8 @@ body.staff-ready .staff-loading {
 .staff-form input,
 .staff-form select,
 .staff-form textarea,
-.staff-period-control input {
+.staff-period-control input,
+.staff-period-control select {
   width: 100%;
   min-height: 40px;
   padding: 9px 11px;
@@ -124,7 +125,8 @@ body.staff-ready .staff-loading {
 .staff-form input:focus,
 .staff-form select:focus,
 .staff-form textarea:focus,
-.staff-period-control input:focus {
+.staff-period-control input:focus,
+.staff-period-control select:focus {
   border-color: var(--admin-green);
   box-shadow: 0 0 0 2px rgb(23 107 114 / 12%);
 }
@@ -263,14 +265,19 @@ body.staff-ready .staff-loading {
 
 .staff-period-control {
   display: grid;
-  grid-template-columns: auto minmax(150px, 190px);
+  grid-template-columns: auto minmax(100px, 135px) auto minmax(90px, 120px);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: var(--admin-muted);
   font-size: 12px;
 }
 
-.staff-period-control input {
+.staff-annual-period-control {
+  grid-template-columns: auto minmax(90px, 120px);
+}
+
+.staff-period-control input,
+.staff-period-control select {
   min-height: 36px;
 }
 
@@ -538,6 +545,11 @@ button.staff-kpi-action:focus-visible {
 
   .staff-period-control {
     width: 100%;
+    grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .staff-annual-period-control {
     grid-template-columns: auto minmax(0, 1fr);
   }
 

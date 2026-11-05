@@ -10,6 +10,7 @@ function payrollBreakdown(record) {
   const overtimeHours = Number(record.overtime_hours ?? 0);
   const allowance = Number(record.allowance ?? record.bonus ?? 0);
   const overtimePay = Number(record.overtime_pay ?? 0);
+  const paidLeaveDays = Number(record.paid_leave_days ?? 0);
   // payroll has no rate column: derive the % from the stored amount so the
   // formula label reflects what management actually applied.
   const insuranceAmount = Number(record.insurance_amount ?? 0);
@@ -20,8 +21,11 @@ function payrollBreakdown(record) {
   const basePay = standardDays > 0 && Number.isFinite(workDays)
     ? baseSalary * workDays / standardDays
     : null;
+  const paidLeavePay = standardDays > 0
+    ? baseSalary * paidLeaveDays / standardDays
+    : 0;
   const grossSalary = record.gross_salary == null
-    ? (basePay == null ? null : basePay + allowance + overtimePay)
+    ? (basePay == null ? null : basePay + paidLeavePay + allowance + overtimePay)
     : Number(record.gross_salary);
   const totalDeductions = record.total_deductions == null
     ? insuranceAmount + incomeTax
@@ -36,20 +40,27 @@ function payrollBreakdown(record) {
     ? `${money(baseSalary)} / (${standardDays} × 8 giờ) × 150% × ${overtimeHours} giờ`
     : "Không có dữ liệu ngày công chuẩn";
 
-  return {
-    netSalary,
-    rows: [
-      ["Lương cơ bản", "Mức lương cơ bản được ghi nhận cho kỳ lương", baseSalary],
-      ["Lương theo ngày công", attendanceCalculation, basePay],
-      ["Thưởng / phụ cấp", "Khoản được quản lý ghi nhận", allowance],
-      ["Lương tăng ca", overtimeCalculation, overtimePay],
-      ["Tổng thu nhập", "Lương theo ngày công + thưởng/phụ cấp + lương tăng ca", grossSalary],
-      ["Bảo hiểm", insuranceLabel, insuranceAmount],
-      ["Thuế TNCN", "Khoản thuế được quản lý ghi nhận", incomeTax],
-      ["Tổng khấu trừ", "Bảo hiểm + thuế TNCN", totalDeductions],
-      ["Thực nhận", "Tổng thu nhập − tổng khấu trừ", netSalary]
-    ]
-  };
+  const rows = [
+    ["Lương cơ bản", "Mức lương cơ bản được ghi nhận cho kỳ lương", baseSalary],
+    ["Lương theo ngày công", attendanceCalculation, basePay]
+  ];
+  if (paidLeaveDays > 0) {
+    rows.push([
+      "Lương nghỉ phép hưởng lương",
+      `${money(baseSalary)} × ${paidLeaveDays} / ${standardDays} ngày`,
+      paidLeavePay
+    ]);
+  }
+  rows.push(
+    ["Thưởng / phụ cấp", "Khoản được quản lý ghi nhận", allowance],
+    ["Lương tăng ca", overtimeCalculation, overtimePay],
+    ["Tổng thu nhập", "Lương ngày công + nghỉ phép hưởng lương + thưởng/phụ cấp + tăng ca", grossSalary],
+    ["Bảo hiểm", insuranceLabel, insuranceAmount],
+    ["Thuế TNCN", "Khoản thuế được quản lý ghi nhận", incomeTax],
+    ["Tổng khấu trừ", "Bảo hiểm + thuế TNCN", totalDeductions],
+    ["Thực nhận", "Tổng thu nhập − tổng khấu trừ", netSalary]
+  );
+  return { netSalary, rows };
 }
 
 const PAY_DETAIL_TYPE_LABELS = { allowance: "Phụ cấp", insurance: "Bảo hiểm", tax: "Thuế TNCN", deduction: "Khấu trừ", bonus: "Thưởng" };
@@ -90,7 +101,11 @@ function renderPayrollItemization(details, content) {
 }
 
 async function loadMonthlyPayroll() {
-  const [year, month] = document.getElementById("salaryMonth").value.split("-").map(Number);
+  initializeSalaryYearOptions();
+  const [year, month] = [
+    Number(document.getElementById("salaryYear").value),
+    Number(document.getElementById("salaryMonth").value)
+  ];
   const printButton = document.getElementById("printMonthlyBtn");
   monthlyPayroll = null;
   printButton.disabled = true;
@@ -110,13 +125,13 @@ async function loadMonthlyPayroll() {
   const title = document.createElement("h3"); title.textContent = `Chi tiết ${monthLabel(year, month)}`; const attendance = document.createElement("span"); attendance.className = "staff-muted"; attendance.textContent = `${data.work_days ?? "-"}/${data.standard_days ?? "-"} ngày công · ${data.overtime_hours || 0} giờ tăng ca`; titleRow.append(title, attendance);
   const table = document.createElement("table"); table.className = "staff-table staff-pay-table"; const head = document.createElement("thead"); const headRow = document.createElement("tr"); ["Khoản mục", "Cách tính", "Số tiền"].forEach((text) => addCell(headRow, text, "th")); head.append(headRow); table.append(head);
   const body = document.createElement("tbody");
-  breakdown.rows.forEach(([name, calculation, value], index) => {
+  breakdown.rows.forEach(([name, calculation, value]) => {
     const row = document.createElement("tr");
     addCell(row, name, "th");
     addCell(row, calculation).className = "staff-pay-calculation";
     addCell(row, value == null ? "Chưa có dữ liệu" : money(value)).className = "staff-pay-amount";
-    if (index === 4) row.className = "staff-gross-row";
-    if (index === breakdown.rows.length - 1) row.className = "staff-net-row";
+    if (name === "Tổng thu nhập") row.className = "staff-gross-row";
+    if (name === "Thực nhận") row.className = "staff-net-row";
     body.append(row);
   });
   table.append(body); panel.append(titleRow, table); content.append(summary, panel);
@@ -139,8 +154,30 @@ document.getElementById("printMonthlyBtn").addEventListener("click", () => {
   if (monthlyPayroll) printMonthly(monthlyPayroll, monthlyPayrollYear, monthlyPayrollMonth);
 });
 
-const now = new Date();
-document.getElementById("salaryMonth").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-document.getElementById("salaryMonth").addEventListener("change", () => loadMonthlyPayroll().catch(() => showPageError("Không tải được bảng lương.")));
+const salaryMonthSelect = document.getElementById("salaryMonth");
+const salaryYearSelect = document.getElementById("salaryYear");
+const currentDate = new Date();
+const currentYear = currentDate.getFullYear();
+function initializeSalaryYearOptions() {
+  if (salaryYearSelect.dataset.initialized === "true") return;
+  const hireYear = Number(String(employee?.hire_date || "").slice(0, 4));
+  const firstYear = Number.isInteger(hireYear) && hireYear >= 1900 && hireYear <= currentYear
+    ? hireYear
+    : 2000;
+  const salaryYears = document.createDocumentFragment();
+  for (let year = currentYear; year >= firstYear; year -= 1) {
+    const option = document.createElement("option");
+    option.value = String(year);
+    option.textContent = String(year);
+    salaryYears.append(option);
+  }
+  salaryYearSelect.replaceChildren(salaryYears);
+  salaryYearSelect.value = String(currentYear);
+  salaryYearSelect.dataset.initialized = "true";
+}
+salaryMonthSelect.value = String(currentDate.getMonth() + 1);
+const reloadMonthlyPayroll = () => loadMonthlyPayroll().catch(() => showPageError("Không tải được bảng lương."));
+salaryMonthSelect.addEventListener("change", reloadMonthlyPayroll);
+salaryYearSelect.addEventListener("change", reloadMonthlyPayroll);
 
 VIEW_MODULES["salary-month"] = { load: loadMonthlyPayroll };

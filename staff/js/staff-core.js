@@ -22,13 +22,7 @@ let permissionCodes = [];
 const demoToday = new Date();
 const demoYear = demoToday.getFullYear();
 const demoMonth = demoToday.getMonth() + 1;
-let demoLeaveRequests = [{
-  leave_type: "annual",
-  start_date: `${demoYear}-01-15`,
-  end_date: `${demoYear}-01-16`,
-  reason: "Dữ liệu minh họa",
-  status: "approved"
-}];
+let demoLeaveRequests = [];
 const demoEmployee = {
   employee_id: "demo-staff",
   employee_code: "DEMO-024",
@@ -50,15 +44,74 @@ const demoQualifications = [{
 const demoStatusHistory = [{ status: "Active", effective_date: demoEmployee.hire_date, reason: "Nhận việc" }];
 const demoPayrollInfo = { bank_name: "Vietcombank", bank_account_no: "0071000812345", tax_code: "8123456789", social_insurance_no: "0123456789", health_insurance_no: "HK4120001234" };
 // Sample payroll_details lines, employee side first, employer side separate.
-const demoPayrollDetails = (year, month) => year === demoYear && month === demoMonth ? [
-  { item_type: "Allowance", item_name: "Phụ cấp ăn trưa", amount: 730000, payer: "Employee" },
-  { item_type: "Insurance", item_name: "BHXH người lao động (8%)", amount: 960000, payer: "Employee" },
-  { item_type: "Insurance", item_name: "BHYT người lao động (1,5%)", amount: 180000, payer: "Employee" },
-  { item_type: "Insurance", item_name: "BHTN người lao động (1%)", amount: 120000, payer: "Employee" },
-  { item_type: "Tax", item_name: "Thuế TNCN (dưới mức chịu thuế)", amount: 0, payer: "Employee" },
-  { item_type: "Insurance", item_name: "BHXH người sử dụng lao động (17,5%)", amount: 2100000, payer: "Employer" },
-  { item_type: "Insurance", item_name: "BHYT người sử dụng lao động (3%)", amount: 360000, payer: "Employer" }
-] : [];
+const demoHireYear = Number(demoEmployee.hire_date.slice(0, 4));
+const demoHireMonth = Number(demoEmployee.hire_date.slice(5, 7));
+function createDemoRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6D2B79F5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ value >>> 15, value | 1);
+    value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+    return ((value ^ value >>> 14) >>> 0) / 4294967296;
+  };
+}
+function demoDateString(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function demoWorkingDates(year, month, lastDay = new Date(year, month, 0).getDate()) {
+  const dates = [];
+  for (let day = 1; day <= lastDay; day += 1) {
+    const date = new Date(year, month - 1, day);
+    if (date.getDay() !== 0 && date.getDay() !== 6) dates.push(date);
+  }
+  return dates;
+}
+for (let year = demoHireYear; year <= demoYear; year += 1) {
+  const firstMonth = year === demoHireYear ? demoHireMonth : 1;
+  const lastMonth = year === demoYear ? demoMonth : 12;
+  for (let month = firstMonth; month <= lastMonth; month += 1) {
+    const random = createDemoRandom(year * 100 + month);
+    if (random() >= 0.32) continue;
+    const lastDay = year === demoYear && month === demoMonth ? demoToday.getDate() : undefined;
+    const workingDates = demoWorkingDates(year, month, lastDay);
+    if (!workingDates.length) continue;
+    const startIndex = Math.floor(random() * workingDates.length);
+    const duration = Math.min(1 + Math.floor(random() * 3), workingDates.length - startIndex);
+    const leaveType = random() < 0.72 ? "annual" : "sick";
+    demoLeaveRequests.push({
+      leave_type: leaveType,
+      start_date: demoDateString(workingDates[startIndex]),
+      end_date: demoDateString(workingDates[startIndex + duration - 1]),
+      reason: leaveType === "annual" ? "Nghỉ phép cá nhân (dữ liệu demo)" : "Nghỉ ốm (dữ liệu demo)",
+      status: "approved"
+    });
+  }
+}
+const demoPayrollDetails = (year, month) => {
+  const record = demoPayrollRecords.find((item) => item.pay_year === year && item.pay_month === month);
+  if (!record) return [];
+  const insurance = Math.round(record.base_salary * 0.105);
+  const employerInsurance = Math.round(record.base_salary * 0.205);
+  const details = [
+    { item_type: "Allowance", item_name: "Phụ cấp", amount: record.allowance, payer: "Employee" },
+    { item_type: "Insurance", item_name: "Bảo hiểm người lao động (10,5%)", amount: insurance, payer: "Employee" },
+    { item_type: "Tax", item_name: "Thuế TNCN", amount: record.personal_income_tax, payer: "Employee" },
+    { item_type: "Insurance", item_name: "Bảo hiểm do công ty đóng", amount: employerInsurance, payer: "Employer" }
+  ];
+  if (record.paid_leave_days) {
+    details.push({
+      item_type: "Bonus",
+      item_name: `Lương nghỉ phép hưởng lương (${record.paid_leave_days} ngày)`,
+      amount: Math.round(record.base_salary * record.paid_leave_days / record.standard_days),
+      payer: "Employee"
+    });
+  }
+  if (record.overtime_pay) {
+    details.push({ item_type: "Bonus", item_name: `${record.overtime_hours} giờ tăng ca`, amount: record.overtime_pay, payer: "Employee" });
+  }
+  return details;
+};
 let demoAttendanceRecords = [];
 function demoIsoToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date());
@@ -68,22 +121,47 @@ function demoTimeNow() {
     hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh"
   });
 }
-const demoPayrollRecords = Array.from({ length: demoMonth }, (_, index) => ({
-  pay_month: index + 1,
-  pay_year: demoYear,
-  base_salary: 22000000,
-  standard_days: 22,
-  work_days: 20,
-  overtime_hours: 4,
-  allowance: 1000000,
-  overtime_pay: 750000,
-  insurance_rate: 10.5,
-  insurance_amount: 2310000,
-  personal_income_tax: 250000,
-  gross_salary: 21750000,
-  total_deductions: 2560000,
-  net_salary: 19190000
-}));
+const demoPayrollMonthCount = (demoYear - demoHireYear) * 12 + demoMonth - demoHireMonth + 1;
+const demoPayrollRecords = Array.from({ length: demoPayrollMonthCount }, (_, index) => {
+  const payDate = new Date(demoHireYear, demoHireMonth - 1 + index, 1);
+  const year = payDate.getFullYear();
+  const month = payDate.getMonth() + 1;
+  const random = createDemoRandom(year * 100 + month);
+  const standardDays = demoWorkingDates(year, month).length;
+  const leaveDays = demoLeaveRequests
+    .filter((request) => request.status === "approved" && request.start_date.slice(0, 7) === `${year}-${String(month).padStart(2, "0")}`)
+    .reduce((total, request) => total + demoWorkingDates(year, month).filter((date) => {
+      const dateString = demoDateString(date);
+      return dateString >= request.start_date && dateString <= request.end_date;
+    }).length, 0);
+  const workDays = Math.max(0, standardDays - leaveDays);
+  const paidLeaveDays = leaveDays;
+  const baseSalary = 22000000 + (year - demoHireYear) * 500000;
+  const overtimeHours = Math.floor(random() * 13);
+  const allowance = 400000 + Math.floor(random() * 9) * 100000;
+  const overtimePay = Math.round(baseSalary / Math.max(standardDays * 8, 1) * 1.5 * overtimeHours);
+  const grossSalary = Math.round(baseSalary * (workDays + paidLeaveDays) / Math.max(standardDays, 1) + allowance + overtimePay);
+  const insuranceAmount = Math.round(baseSalary * 0.105);
+  const personalIncomeTax = Math.max(0, Math.round((grossSalary - baseSalary * 0.7) * (0.03 + random() * 0.04)));
+  const totalDeductions = insuranceAmount + personalIncomeTax;
+  return {
+    pay_month: month,
+    pay_year: year,
+    base_salary: baseSalary,
+    standard_days: standardDays,
+    work_days: workDays,
+    paid_leave_days: paidLeaveDays,
+    overtime_hours: overtimeHours,
+    allowance,
+    overtime_pay: overtimePay,
+    insurance_rate: 10.5,
+    insurance_amount: insuranceAmount,
+    personal_income_tax: personalIncomeTax,
+    gross_salary: grossSalary,
+    total_deductions: totalDeductions,
+    net_salary: grossSalary - totalDeductions
+  };
+});
 
 async function callStaff(body) {
   if (!DEMO_MODE) return portal.callPortal("staff", "staff-portal", body, { loginUrl: "staff-login.html" });
