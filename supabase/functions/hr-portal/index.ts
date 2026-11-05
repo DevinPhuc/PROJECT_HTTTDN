@@ -71,6 +71,12 @@ const ATTENDANCE_STATUS: Record<string, string> = {
   on_leave: "OnLeave",
 };
 
+// Code sheet paints these; each maps to the status enum so sums/views keep working.
+const DAY_CODE_STATUS: Record<string, { status: string }> = {
+  X: { status: "present" }, CT: { status: "present" }, N: { status: "halfday" },
+  P: { status: "on_leave" }, L: { status: "on_leave" }, O: { status: "absent" }, KP: { status: "absent" },
+};
+
 type Actor = {
   employee_id: string;
   full_name: string;
@@ -491,7 +497,8 @@ async function bootAction(actor: Actor): Promise<Response> {
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by pay_year desc nulls last, pay_month desc nulls last`,
     sql!`
-      select attendance_id, employee_id, work_date, status, overtime_hours, notes
+      select attendance_id, employee_id, work_date, status, day_code,
+             overtime_hours, notes
       from public.attendance_records
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by work_date desc`,
@@ -1006,6 +1013,19 @@ async function attendanceSaveAction(
   if (!(await employeeInScope(actor, employeeId)))
     return json({ ok: false, error: "forbidden" }, 403);
 
+  // Optional day_code (code sheet). Absent property = untouched (payroll panel
+  // keeps calling this without day_code); "" clears; otherwise must be a valid code.
+  const hasDayCode = Object.prototype.hasOwnProperty.call(body, "day_code");
+  let dayCode: string | null = null;
+  if (hasDayCode) {
+    dayCode = str(body.day_code).toUpperCase() || null; // "" → NULL (clear)
+    if (dayCode && !(dayCode in DAY_CODE_STATUS)) return json({ ok: false, error: "invalid_day_code" }, 400);
+  }
+  // day_code keeps status in sync on write; the code sheet owns the mapping.
+  const statusInputForDb = hasDayCode && dayCode ? DAY_CODE_STATUS[dayCode].status : statusInput;
+  // Fragment trick: empty fragment = untouched; value may be null (= clear).
+  const dayCodeFrag = hasDayCode ? sql!`day_code = ${dayCode},` : sql!``;
+
   try {
     await sql!.begin(async (tx) => {
       const [existing] = await tx`
@@ -1020,7 +1040,8 @@ async function attendanceSaveAction(
       if (existing) {
         await tx`
           update public.attendance_records
-          set status = ${ATTENDANCE_STATUS[statusInput]},
+          set ${dayCodeFrag}
+              status = ${ATTENDANCE_STATUS[statusInputForDb]},
               overtime_hours = ${overtimeHours},
               overtime_type = ${overtimeType},
               ot_consent = ${overtimeConsent},
@@ -1029,10 +1050,11 @@ async function attendanceSaveAction(
       } else {
         await tx`
           insert into public.attendance_records
-            (employee_id, work_date, status, overtime_hours, night_hours,
+            (employee_id, work_date, status, day_code, overtime_hours, night_hours,
              overtime_type, ot_consent, notes)
           values (${employeeId}::uuid, ${workDate}::date,
-                  ${ATTENDANCE_STATUS[statusInput]}, ${overtimeHours}, 0,
+                  ${ATTENDANCE_STATUS[statusInputForDb]},
+                  ${hasDayCode ? dayCode : null}, ${overtimeHours}, 0,
                   ${overtimeType}, ${overtimeConsent}, ${notes})`;
       }
     });
@@ -1047,6 +1069,71 @@ async function payrollSaveAction(
   actor: Actor,
   body: Record<string, unknown>,
 ): Promise<Response> {
+// Code sheet drag-paint: one transaction for a whole batch of painted cells.
+async function attendanceBulkSaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+  const ym = str(body.ym);
+  const items = Array.isArray(body.items) ? body.items : [];
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym) || !items.length || items.length > 1200) {
+    return json({ ok: false, error: "invalid_request" }, 400);
+  }
+
+  // Validate every item before touching the database (all-or-nothing batch).
+  const prepared: { employeeId: string; workDate: string; dayCode: string | null }[] = [];
+  for (const item of items) {
+    const employeeId = item && typeof item === "object" ? str((item as Record<string, unknown>).employee_id) : "";
+    const workDate = item && typeof item === "object" ? str((item as Record<string, unknown>).work_date) : "";
+    const dayCodeRaw = item && typeof item === "object" ? str((item as Record<string, unknown>).day_code).toUpperCase() : "";
+    if (!UUID_RE.test(employeeId) || !isRealDate(workDate) || !workDate.startsWith(`${ym}-`)) {
+      return json({ ok: false, error: "invalid_request" }, 400);
+    }
+    const dayCode = dayCodeRaw || null; // "" → NULL = clear
+    if (dayCode && !(dayCode in DAY_CODE_STATUS)) return json({ ok: false, error: "invalid_day_code" }, 400);
+    prepared.push({ employeeId, workDate, dayCode });
+  }
+  for (const employeeId of new Set(prepared.map((it) => it.employeeId))) {
+    if (!await employeeInScope(actor, employeeId)) return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  try {
+    await sql!.begin(async (tx) => {
+      for (const it of prepared) {
+        const [existing] = await tx`
+          select attendance_id from public.attendance_records
+          where employee_id = ${it.employeeId}::uuid and work_date = ${it.workDate}::date
+          limit 1`;
+        if (existing) {
+          // Paint sets code + mapped status only; clear resets the code and keeps
+          // the row (clock timestamps untouched).
+          if (it.dayCode) {
+            await tx`
+              update public.attendance_records
+              set day_code = ${it.dayCode},
+                  status = ${ATTENDANCE_STATUS[DAY_CODE_STATUS[it.dayCode].status]}
+              where attendance_id = ${existing.attendance_id}`;
+          } else {
+            await tx`
+              update public.attendance_records
+              set day_code = null
+              where attendance_id = ${existing.attendance_id}`;
+          }
+        } else if (it.dayCode) {
+          // Fresh painted day: overtime_hours/night_hours default to 0.
+          await tx`
+            insert into public.attendance_records
+              (employee_id, work_date, status, day_code)
+            values (${it.employeeId}::uuid, ${it.workDate}::date,
+                    ${ATTENDANCE_STATUS[DAY_CODE_STATUS[it.dayCode].status]}, ${it.dayCode})`;
+        }
+      }
+    });
+  } catch (err) {
+    return dbError(err);
+  }
+
+  return json({ ok: true, count: prepared.length });
+}
+
+async function payrollSaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
   const employeeId = str(body.employee_id);
   const year = Number(body.pay_year);
   const month = Number(body.pay_month);
@@ -1160,26 +1247,17 @@ Deno.serve(async (req) => {
 
   try {
     switch (body.action) {
-      case "ping":
-        return json({ ok: true });
-      case "boot":
-        return await bootAction(actor);
-      case "employee_save":
-        return await employeeSaveAction(actor, body);
-      case "employee_delete":
-        return await employeeDeleteAction(actor, body);
-      case "role_assign":
-        return await roleAssignAction(actor, body);
-      case "permissions_save":
-        return await permissionsSaveAction(actor, body);
-      case "leave_review":
-        return await leaveReviewAction(actor, body);
-      case "attendance_save":
-        return await attendanceSaveAction(actor, body);
-      case "payroll_save":
-        return await payrollSaveAction(actor, body);
-      default:
-        return json({ ok: false, error: "unknown_action" }, 400);
+      case "ping": return json({ ok: true });
+      case "boot": return await bootAction(actor);
+      case "employee_save": return await employeeSaveAction(actor, body);
+      case "employee_delete": return await employeeDeleteAction(actor, body);
+      case "role_assign": return await roleAssignAction(actor, body);
+      case "permissions_save": return await permissionsSaveAction(actor, body);
+      case "leave_review": return await leaveReviewAction(actor, body);
+      case "attendance_save": return await attendanceSaveAction(actor, body);
+      case "attendance_bulk": return await attendanceBulkSaveAction(actor, body);
+      case "payroll_save": return await payrollSaveAction(actor, body);
+      default: return json({ ok: false, error: "unknown_action" }, 400);
     }
   } catch (err) {
     return dbError(err);
