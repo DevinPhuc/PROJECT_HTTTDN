@@ -20,7 +20,8 @@ import { jwtVerify } from "npm:jose@5";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-token",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-admin-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -39,26 +40,44 @@ const sql = SUPABASE_DB_URL
   ? postgres(SUPABASE_DB_URL, { max: 1, prepare: false, ssl: "require" })
   : null;
 
-const JWT_KEY = ADMIN_JWT_SECRET ? new TextEncoder().encode(ADMIN_JWT_SECRET) : null;
+const JWT_KEY = ADMIN_JWT_SECRET
+  ? new TextEncoder().encode(ADMIN_JWT_SECRET)
+  : null;
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Same membership rule portal_login used for the manager portal.
 const MANAGER_ROLES = ["manager", "hr_manager", "quản lý", "quản lý nhân sự"];
-const MANAGER_PERMISSIONS = ["manager", "hr_manager", "manage_staff", "manage_employees"];
+const MANAGER_PERMISSIONS = [
+  "manager",
+  "hr_manager",
+  "manage_staff",
+  "manage_employees",
+];
 
 // Live check constraints expect exactly these values.
-const EMPLOYMENT_STATUS: Record<string, string> = { active: "Active", on_leave: "OnLeave", resigned: "Resigned" };
+const EMPLOYMENT_STATUS: Record<string, string> = {
+  active: "Active",
+  on_leave: "OnLeave",
+  resigned: "Resigned",
+};
 const ATTENDANCE_STATUS: Record<string, string> = {
-  present: "Present", absent: "Absent", late: "Late", halfday: "HalfDay", on_leave: "OnLeave",
+  present: "Present",
+  absent: "Absent",
+  late: "Late",
+  halfday: "HalfDay",
+  on_leave: "OnLeave",
 };
 
 type Actor = {
   employee_id: string;
   full_name: string;
+  email: string;
   department_id: string | null;
   is_admin: boolean;
+  is_hr: boolean;
 };
 
 function makeError(code: string): Error {
@@ -73,35 +92,127 @@ function str(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function abbreviatePosition(positionName: string): string {
+  const normalized = positionName
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "D");
+  const words = normalized.split(/\s+/).filter(Boolean);
+  return (
+    words.length > 1
+      ? words
+          .slice(0, 2)
+          .map((word) => word[0])
+          .join("")
+      : normalized.slice(0, 2)
+  ).toUpperCase();
+}
+
+function generateAccountPassword(
+  positionName: string,
+  departmentDescription: string,
+  dateOfBirth: string,
+): string {
+  const [year, month, day] = dateOfBirth.split("-");
+  return `${abbreviatePosition(positionName)}${departmentDescription
+    .trim()
+    .slice(0, 3)
+    .toLowerCase()}@${day}${month}${year}`;
+}
+
+async function updateEmployeeAccountPassword(
+  tx: postgres.TransactionSql,
+  employeeId: string,
+  roleId: string,
+): Promise<void> {
+  const [details] = await tx`
+    select r.role_name,
+           coalesce(d.description, '') as department_description,
+           to_char(e.date_of_birth, 'YYYY-MM-DD') as date_of_birth
+    from public.employees e
+    left join public.departments d on d.department_id = e.current_department_id
+    join public.roles r on r.role_id = ${roleId}::uuid
+    where e.employee_id = ${employeeId}::uuid
+      and exists (
+        select 1 from public.user_roles ur
+        where ur.employee_id = e.employee_id
+          and ur.role_id = ${roleId}::uuid
+      )
+    limit 1`;
+  if (!details || !details.date_of_birth) return;
+
+  const password = generateAccountPassword(
+    String(details.role_name || ""),
+    String(details.department_description || ""),
+    String(details.date_of_birth),
+  );
+  await tx`
+    update public.employee_accounts
+    set password_hash = extensions.crypt(${password}, extensions.gen_salt('bf', 10))
+    where employee_id = ${employeeId}::uuid`;
+}
+
 function isRealDate(value: string): boolean {
   if (!DATE_RE.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
 }
 
 async function getActor(token: string): Promise<Actor | null> {
   let employeeId = "";
+  let iat = 0;
   try {
-    const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
-    employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
+    const { payload } = await jwtVerify(token, JWT_KEY!, {
+      algorithms: ["HS256"],
+    });
+    employeeId =
+      typeof payload.employee_id === "string" ? payload.employee_id : "";
+    iat = typeof payload.iat === "number" ? payload.iat : 0;
   } catch {
     return null;
   }
   if (!UUID_RE.test(employeeId)) return null;
 
   const rows = await sql!`
-    select e.employee_id, e.full_name, e.current_department_id
+    select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
+           lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr
     from public.employees e
     join public.employee_accounts a on a.employee_id = e.employee_id
+    left join public.departments d on d.department_id = e.current_department_id
     where e.employee_id = ${employeeId}::uuid
       and a.is_active is true
       and a.deleted_at is null
       and e.employment_status = 'Active'
     limit 1`;
 
-  const row = rows[0] as undefined | { employee_id: string; full_name: string; current_department_id: string | null };
+  const row = rows[0] as
+    | undefined
+    | {
+        employee_id: string;
+        full_name: string;
+        email: string;
+        current_department_id: string | null;
+        is_hr: boolean;
+        updated_at: string | Date | null;
+      };
   if (!row) return null;
 
+  if (row.updated_at && iat > 0) {
+    const updateTime = new Date(row.updated_at).getTime();
+    if (!Number.isNaN(updateTime)) {
+      const lastUpdated = Math.floor(updateTime / 1000);
+      if (iat < lastUpdated - 5) {
+        return null;
+      }
+    }
+  }
+
+  // THAY ĐỔI: Dùng (now() at time zone 'Asia/Ho_Chi_Minh')::date thay vì biến VN_TODAY
   const [adminCheck] = await sql!`
     select true as is_admin
     where exists (
@@ -134,8 +245,10 @@ async function getActor(token: string): Promise<Actor | null> {
   return {
     employee_id: row.employee_id,
     full_name: row.full_name,
+    email: row.email,
     department_id: row.current_department_id ?? null,
     is_admin: Boolean(adminCheck),
+    is_hr: Boolean(row.is_hr),
   };
 }
 
@@ -156,17 +269,35 @@ function dbError(err: unknown): Response {
   return json({ ok: false, error: "server_error" }, 500);
 }
 
+async function optionalBootQuery<T>(
+  label: string,
+  query: Promise<T>,
+  fallback: T,
+): Promise<T> {
+  try {
+    return await query;
+  } catch (error) {
+    const code = (error as { code?: string })?.code ?? "";
+    if (code === "42P01") {
+      console.error(`hr-portal boot skipped missing table: ${label}`, error);
+      return fallback;
+    }
+    throw error;
+  }
+}
+
 // Employees the actor may act on: the whole company for Admin role users,
 // otherwise only the employee(s) of the actor's department.
 //
 // sql.raw fragments proved unreliable under npm:postgres in Deno (see
 // staff-portal), so every statement inlines its SQL as literal template text.
 async function scopedEmployeeIds(actor: Actor): Promise<string[]> {
-  const rows = actor.is_admin
-    ? await sql!`select employee_id from public.employees`
-    : actor.department_id === null
-      ? await sql!`select employee_id from public.employees where employee_id = ${actor.employee_id}::uuid`
-      : await sql!`
+  const rows =
+    actor.is_admin || actor.is_hr
+      ? await sql!`select employee_id from public.employees`
+      : actor.department_id === null
+        ? await sql!`select employee_id from public.employees where employee_id = ${actor.employee_id}::uuid`
+        : await sql!`
         select employee_id from public.employees
         where current_department_id = ${actor.department_id}::uuid
            or employee_id = ${actor.employee_id}::uuid`;
@@ -174,14 +305,20 @@ async function scopedEmployeeIds(actor: Actor): Promise<string[]> {
 }
 
 // Guard: is employeeId one the actor may act on?
-async function employeeInScope(actor: Actor, employeeId: string): Promise<boolean> {
-  if (actor.is_admin) return UUID_RE.test(employeeId);
+async function employeeInScope(
+  actor: Actor,
+  employeeId: string,
+): Promise<boolean> {
+  if (actor.is_admin || actor.is_hr) return UUID_RE.test(employeeId);
   if (actor.department_id === null) return employeeId === actor.employee_id;
   const rows = await sql!`
-    select 1 from public.employees
-    where employee_id = ${employeeId}::uuid
-      and (current_department_id = ${actor.department_id}::uuid
-           or employee_id = ${actor.employee_id}::uuid)`;
+    select 1 from public.employees e
+    left join public.department_positions dp on dp.position_id = e.current_position_id
+    where e.employee_id = ${employeeId}::uuid
+      and (e.current_department_id = ${actor.department_id}::uuid 
+           or dp.department_id = ${actor.department_id}::uuid
+           or e.employee_id = ${actor.employee_id}::uuid)
+    limit 1`;
   return rows.length > 0;
 }
 
@@ -207,7 +344,10 @@ async function canAssignRole(actor: Actor, roleId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-async function employeeHasActiveRole(employeeId: string, roleId: string): Promise<boolean> {
+async function employeeHasActiveRole(
+  employeeId: string,
+  roleId: string,
+): Promise<boolean> {
   const rows = await sql!`
     select 1
     from public.user_roles
@@ -236,19 +376,38 @@ function tagged(ids: string[]): string[] {
 async function bootAction(actor: Actor): Promise<Response> {
   const ids = tagged(await scopedEmployeeIds(actor));
 
-  const [employees, contacts, positions, departments, roles, permissions, assignments, rolePerms, roleHistory, leaveRows, payrollRows, attendanceRows, statusHistory] = await Promise.all([
+  const [
+    employees,
+    contacts,
+    positions,
+    departments,
+    roles,
+    permissions,
+    assignments,
+    rolePerms,
+    roleHistory,
+    leaveRows,
+    payrollRows,
+    attendanceRows,
+    statusHistory,
+  ] = await Promise.all([
     sql!`
-      select employee_id, employee_code, full_name, email, hire_date,
-             employment_status, current_position_id as position_id,
-             current_department_id as department_id, education
-      from public.employees
-      where employee_id = any(${sql.array(ids)}::uuid[])
-      order by full_name`,
+      select e.employee_id, e.employee_code, e.full_name, e.email, e.hire_date,
+             e.employment_status, e.current_position_id as position_id,
+             e.current_department_id as department_id, e.education,
+             a.deleted_at, a.is_active
+      from public.employees e
+      left join public.employee_accounts a on a.employee_id = e.employee_id
+      where e.employee_id = any(${sql.array(ids)}::uuid[])
+        and a.deleted_at is null 
+        and a.is_active = true 
+        and e.employment_status = 'Active'
+      order by e.full_name`,
     sql!`
       select c.employee_id, c.phone_number, c.address
       from public.employee_contacts c
       where c.employee_id = any(${sql.array(ids)}::uuid[])`,
-    actor.is_admin
+    actor.is_admin || actor.is_hr
       ? sql!`
           select p.position_id, p.position_title, p.description,
                  coalesce((select json_agg(dp.department_id) from public.department_positions dp
@@ -310,7 +469,7 @@ async function bootAction(actor: Actor): Promise<Response> {
       order by ur.employee_id, ur.valid_from desc, ur.user_role_id desc`,
     sql!`
       select lr.leave_request_id, lr.employee_id, lr.start_date, lr.end_date,
-             lr.reason, lower(lr.status) as status,
+             lr.reason, lower(lr.status::text) as status,
              case lt.type_name
                when 'Nghỉ phép' then 'annual'
                when 'Nghỉ ốm đau' then 'sick'
@@ -336,20 +495,33 @@ async function bootAction(actor: Actor): Promise<Response> {
       from public.attendance_records
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by work_date desc`,
-    sql!`
+    optionalBootQuery(
+      "hr_employment_status_history",
+      sql!`
       select employee_id, employment_status, is_baseline, effective_from, effective_to
       from public.hr_employment_status_history
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by employee_id, effective_from`,
+      [],
+    ),
   ]);
 
   for (const row of attendanceRows) {
-    (row as Record<string, unknown>).status = String((row as Record<string, unknown>).status ?? "").toLowerCase();
+    (row as Record<string, unknown>).status = String(
+      (row as Record<string, unknown>).status ?? "",
+    ).toLowerCase();
   }
 
   return json({
     ok: true,
-    actor: { employee_id: actor.employee_id, department_id: actor.department_id, is_admin: actor.is_admin },
+    actor: {
+      employee_id: actor.employee_id,
+      full_name: actor.full_name,
+      email: actor.email,
+      department_id: actor.department_id,
+      is_admin: actor.is_admin,
+      is_hr: actor.is_hr,
+    },
     employees,
     contacts,
     positions,
@@ -366,7 +538,12 @@ async function bootAction(actor: Actor): Promise<Response> {
   });
 }
 
-async function contactTx(tx: typeof sql, employeeId: string, phone: string, address: string | null): Promise<void> {
+async function contactTx(
+  tx: typeof sql,
+  employeeId: string,
+  phone: string,
+  address: string | null,
+): Promise<void> {
   const existing = await tx`
     select employee_id from public.employee_contacts
     where employee_id = ${employeeId}::uuid
@@ -383,7 +560,12 @@ async function contactTx(tx: typeof sql, employeeId: string, phone: string, addr
   }
 }
 
-async function roleAssignTx(tx: typeof sql, actor: Actor, employeeId: string, roleId: string): Promise<void> {
+async function roleAssignTx(
+  tx: typeof sql,
+  actor: Actor,
+  employeeId: string,
+  roleId: string,
+): Promise<void> {
   const today = sql!`(now() at time zone 'Asia/Ho_Chi_Minh')::date`;
   const currentRoles = await tx`
     select user_role_id, role_id, valid_from,
@@ -394,9 +576,13 @@ async function roleAssignTx(tx: typeof sql, actor: Actor, employeeId: string, ro
       and (valid_to is null or valid_to >= ${today})
     order by valid_from desc, user_role_id desc
     for update`;
-  const matchingRole = currentRoles.find((row) => String(row.role_id) === roleId);
+  const matchingRole = currentRoles.find(
+    (row) => String(row.role_id) === roleId,
+  );
 
-  const sameDayRole = currentRoles.find((assignment) => assignment.starts_today);
+  const sameDayRole = currentRoles.find(
+    (assignment) => assignment.starts_today,
+  );
   if (!matchingRole && sameDayRole) {
     await tx`
       update public.user_roles
@@ -406,7 +592,9 @@ async function roleAssignTx(tx: typeof sql, actor: Actor, employeeId: string, ro
 
   const retainedRoleId = matchingRole
     ? String(matchingRole.user_role_id)
-    : sameDayRole ? String(sameDayRole.user_role_id) : "";
+    : sameDayRole
+      ? String(sameDayRole.user_role_id)
+      : "";
   for (const assignment of currentRoles) {
     if (String(assignment.user_role_id) === retainedRoleId) continue;
     if (assignment.starts_today) {
@@ -468,40 +656,61 @@ async function recordEmploymentStatusTx(
             ${actorId}::uuid, 'Cập nhật trạng thái nhân sự')`;
 }
 
-async function employeeSaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+async function employeeSaveAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
   const id = str(body.id);
   const fullName = str(body.full_name);
   const email = str(body.email).toLowerCase();
   const positionId = str(body.position_id);
+  const dateOfBirth = str(body.date_of_birth);
   const hireDate = str(body.hire_date);
   const statusInput = str(body.employment_status).toLowerCase();
   const roleId = str(body.role_id);
+  const requestedDepartmentId = str(body.department_id);
   const phone = str(body.phone_number);
   const education = str(body.education);
   let preserveExistingRole = false;
 
-  if (!fullName || !isRealDate(hireDate) || education.length > 120) {
+  if (
+    !fullName ||
+    !isRealDate(hireDate) ||
+    (dateOfBirth && !isRealDate(dateOfBirth)) ||
+    education.length > 120
+  ) {
     return json({ ok: false, error: "invalid_employee" }, 400);
   }
-  if (!(statusInput in EMPLOYMENT_STATUS)) return json({ ok: false, error: "invalid_status" }, 400);
+  if (!(statusInput in EMPLOYMENT_STATUS))
+    return json({ ok: false, error: "invalid_status" }, 400);
 
   const employmentStatus = EMPLOYMENT_STATUS[statusInput];
 
   if (id) {
-    if (!UUID_RE.test(id)) return json({ ok: false, error: "invalid_employee" }, 400);
-    if (!await employeeInScope(actor, id)) return json({ ok: false, error: "forbidden" }, 403);
+    if (!UUID_RE.test(id))
+      return json({ ok: false, error: "invalid_employee" }, 400);
+    if (!(await employeeInScope(actor, id)))
+      return json({ ok: false, error: "forbidden" }, 403);
   }
-  if (!isUUID(positionId)) return json({ ok: false, error: "invalid_employee" }, 400);
-  if (roleId && !UUID_RE.test(roleId)) return json({ ok: false, error: "invalid_employee" }, 400);
-  if (roleId && !await canAssignRole(actor, roleId)) {
-    preserveExistingRole = Boolean(id && await employeeHasActiveRole(id, roleId));
-    if (!preserveExistingRole) return json({ ok: false, error: "forbidden" }, 403);
+  if (!isUUID(positionId))
+    return json({ ok: false, error: "invalid_employee" }, 400);
+  if (requestedDepartmentId && !UUID_RE.test(requestedDepartmentId))
+    return json({ ok: false, error: "invalid_employee" }, 400);
+  if (roleId && !UUID_RE.test(roleId))
+    return json({ ok: false, error: "invalid_employee" }, 400);
+  if (roleId && !(await canAssignRole(actor, roleId))) {
+    preserveExistingRole = Boolean(
+      id && (await employeeHasActiveRole(id, roleId)),
+    );
+    if (!preserveExistingRole)
+      return json({ ok: false, error: "forbidden" }, 403);
   }
   if (id && id === actor.employee_id && !actor.is_admin && roleId) {
-    if (!await employeeHasActiveRole(id, roleId)) return json({ ok: false, error: "forbidden" }, 403);
+    if (!(await employeeHasActiveRole(id, roleId)))
+      return json({ ok: false, error: "forbidden" }, 403);
     preserveExistingRole = true;
   }
-  if (id && !actor.is_admin && await employeeHoldsAdminRole(id)) {
+  if (id && !actor.is_admin && (await employeeHoldsAdminRole(id))) {
     return json({ ok: false, error: "forbidden" }, 403); // managers never edit Admin holders
   }
   // Positions link N-N now: membership lives in department_positions, not positions.department_id.
@@ -513,16 +722,27 @@ async function employeeSaveAction(actor: Actor, body: Record<string, unknown>): 
   if (!links.length) return json({ ok: false, error: "invalid_employee" }, 400);
   const deptIds = links.map((link) => String(link.department_id));
   let departmentId: string | null = null;
-  if (!actor.is_admin) {
+  if (!actor.is_admin && !actor.is_hr) {
     // Managers may only create/update inside their own department: the chosen
     // position must be linked to it.
-    if (actor.department_id === null || !deptIds.includes(actor.department_id)) {
+    if (
+      actor.department_id === null ||
+      !deptIds.includes(actor.department_id)
+    ) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
     departmentId = actor.department_id;
+  } else if (actor.is_hr && requestedDepartmentId) {
+    if (!deptIds.includes(requestedDepartmentId)) {
+      return json({ ok: false, error: "invalid_employee" }, 400);
+    }
+    departmentId = requestedDepartmentId;
   } else {
     // Admins: prefer their own department when linked, else the first membership.
-    departmentId = actor.department_id && deptIds.includes(actor.department_id) ? actor.department_id : deptIds[0];
+    departmentId =
+      actor.department_id && deptIds.includes(actor.department_id)
+        ? actor.department_id
+        : deptIds[0];
   }
 
   try {
@@ -534,10 +754,11 @@ async function employeeSaveAction(actor: Actor, body: Record<string, unknown>): 
         const [created] = await tx`
           insert into public.employees
             (employee_code, full_name, email, hire_date, current_position_id,
-             current_department_id, employment_status, education)
+             current_department_id, employment_status, education, date_of_birth)
           values
             (${code}, ${fullName}, ${email}, ${hireDate}::date, ${positionId}::uuid,
-             ${departmentId}::uuid, ${employmentStatus}, ${education || null})
+             ${departmentId}::uuid, ${employmentStatus}, ${education || null},
+             ${dateOfBirth || null}::date)
           returning employee_id`;
         employeeId = String(created.employee_id);
       } else {
@@ -549,7 +770,8 @@ async function employeeSaveAction(actor: Actor, body: Record<string, unknown>): 
               employment_status = ${employmentStatus},
               current_position_id = ${positionId}::uuid,
               current_department_id = ${departmentId}::uuid,
-              education = ${education || null}
+              education = ${education || null},
+              date_of_birth = ${dateOfBirth || null}::date
           where employee_id = ${employeeId}::uuid`;
       }
 
@@ -561,7 +783,23 @@ async function employeeSaveAction(actor: Actor, body: Record<string, unknown>): 
         hireDate,
         actor.employee_id,
       );
-      if (roleId && !preserveExistingRole) await roleAssignTx(tx, actor, employeeId, roleId);
+      if (roleId && !preserveExistingRole)
+        await roleAssignTx(tx, actor, employeeId, roleId);
+      const [activeRole] = await tx`
+        select role_id
+        from public.user_roles
+        where employee_id = ${employeeId}::uuid
+          and valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+          and (valid_to is null or valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+        order by valid_from desc, user_role_id desc
+        limit 1`;
+      if (activeRole) {
+        await updateEmployeeAccountPassword(
+          tx,
+          employeeId,
+          String(activeRole.role_id),
+        );
+      }
     });
   } catch (err) {
     return dbError(err);
@@ -570,31 +808,63 @@ async function employeeSaveAction(actor: Actor, body: Record<string, unknown>): 
   return json({ ok: true });
 }
 
-async function employeeDeleteAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+async function employeeDeleteAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
   const id = str(body.id);
-  if (!UUID_RE.test(id)) return json({ ok: false, error: "invalid_employee" }, 400);
-  if (!actor.is_admin && id === actor.employee_id) return json({ ok: false, error: "forbidden" }, 403);
-  if (!await employeeInScope(actor, id)) return json({ ok: false, error: "forbidden" }, 403);
-  if (!actor.is_admin && await employeeHoldsAdminRole(id)) {
-    return json({ ok: false, error: "forbidden" }, 403);
+
+  if (!UUID_RE.test(id)) {
+    return json({ ok: false, error: "invalid_employee" }, 400);
+  }
+
+  if (!actor.is_admin && id === actor.employee_id) {
+    return json({ ok: false, error: "forbidden_self_delete" }, 403);
+  }
+
+  if (!(await employeeInScope(actor, id))) {
+    return json({ ok: false, error: "forbidden_out_of_scope" }, 403);
+  }
+
+  if (!actor.is_admin && (await employeeHoldsAdminRole(id))) {
+    return json({ ok: false, error: "forbidden_cannot_delete_admin" }, 403);
+  }
+
+  if (!actor.is_admin) {
+    const targetRoles = await sql!`
+      select 1 from public.user_roles ur
+      join public.roles r on r.role_id = ur.role_id
+      where ur.employee_id = ${id}::uuid
+        and lower(r.role_name) = any(${sql.array(MANAGER_ROLES)})
+        and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+        and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)`;
+
+    if (targetRoles.length > 0) {
+      return json(
+        { ok: false, error: "forbidden_manager_cannot_delete_manager" },
+        403,
+      );
+    }
   }
 
   try {
     await sql!.begin(async (tx) => {
-      // Clear dependents first; the employment status history also has an
-      // ON DELETE CASCADE constraint for the employee row.
-      await tx`delete from public.employee_accounts where employee_id = ${id}::uuid`;
-      await tx`delete from public.user_roles where employee_id = ${id}::uuid or assigned_by = ${id}::uuid`;
-      await tx`delete from public.employee_contacts where employee_id = ${id}::uuid`;
-      await tx`delete from public.employee_personal_info where employee_id = ${id}::uuid`;
-      await tx`delete from public.employee_payroll_info where employee_id = ${id}::uuid`;
-      await tx`delete from public.employee_qualifications where employee_id = ${id}::uuid`;
-      await tx`delete from public.employee_status_history where employee_id = ${id}::uuid or recorded_by = ${id}::uuid`;
-      await tx`delete from public.career_history where employee_id = ${id}::uuid or approved_by = ${id}::uuid`;
-      await tx`delete from public.leave_requests where employee_id = ${id}::uuid or approved_by = ${id}::uuid`;
-      await tx`delete from public.attendance_records where employee_id = ${id}::uuid or ot_approved_by = ${id}::uuid`;
-      await tx`delete from public.payroll where employee_id = ${id}::uuid`;
-      await tx`delete from public.employees where employee_id = ${id}::uuid`;
+      await tx`
+        update public.employee_accounts
+        set deleted_at = now(), is_active = false
+        where employee_id = ${id}::uuid
+          and deleted_at is null`;
+
+      await tx`
+        update public.employees
+        set employment_status = 'Resigned'
+        where employee_id = ${id}::uuid`;
+      const today = sql!`(now() at time zone 'Asia/Ho_Chi_Minh')::date`;
+      await tx`
+        insert into public.hr_employment_status_history
+          (employee_id, employment_status, effective_from, changed_by, reason)
+        values (${id}::uuid, 'Resigned', ${today},
+                ${actor.employee_id}::uuid, 'Quản lý xóa hồ sơ (Nghỉ việc)')`;
     });
   } catch (err) {
     return dbError(err);
@@ -603,14 +873,22 @@ async function employeeDeleteAction(actor: Actor, body: Record<string, unknown>)
   return json({ ok: true });
 }
 
-async function roleAssignAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+async function roleAssignAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
   const employeeId = str(body.employee_id);
   const roleId = str(body.role_id);
-  if (!UUID_RE.test(employeeId) || !UUID_RE.test(roleId)) return json({ ok: false, error: "invalid_request" }, 400);
-  if (!actor.is_admin && employeeId === actor.employee_id) return json({ ok: false, error: "forbidden" }, 403);
-  if (!await employeeInScope(actor, employeeId)) return json({ ok: false, error: "forbidden" }, 403);
-  if (!await canAssignRole(actor, roleId)) return json({ ok: false, error: "forbidden" }, 403);
-  if (!actor.is_admin && await employeeHoldsAdminRole(employeeId)) return json({ ok: false, error: "forbidden" }, 403);
+  if (!UUID_RE.test(employeeId) || !UUID_RE.test(roleId))
+    return json({ ok: false, error: "invalid_request" }, 400);
+  if (!actor.is_admin && employeeId === actor.employee_id)
+    return json({ ok: false, error: "forbidden" }, 403);
+  if (!(await employeeInScope(actor, employeeId)))
+    return json({ ok: false, error: "forbidden" }, 403);
+  if (!(await canAssignRole(actor, roleId)))
+    return json({ ok: false, error: "forbidden" }, 403);
+  if (!actor.is_admin && (await employeeHoldsAdminRole(employeeId)))
+    return json({ ok: false, error: "forbidden" }, 403);
 
   try {
     await sql!.begin(async (tx) => {
@@ -623,14 +901,22 @@ async function roleAssignAction(actor: Actor, body: Record<string, unknown>): Pr
   return json({ ok: true });
 }
 
-async function permissionsSaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+async function permissionsSaveAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
   const employeeId = str(body.employee_id);
   const roleId = str(body.role_id);
   const permissionIds = Array.isArray(body.permission_ids)
-    ? body.permission_ids.filter((value): value is string => typeof value === "string" && UUID_RE.test(value))
+    ? body.permission_ids.filter(
+        (value): value is string =>
+          typeof value === "string" && UUID_RE.test(value),
+      )
     : [];
-  if (!UUID_RE.test(employeeId) || !UUID_RE.test(roleId)) return json({ ok: false, error: "invalid_request" }, 400);
-  if (!await employeeInScope(actor, employeeId)) return json({ ok: false, error: "forbidden" }, 403);
+  if (!UUID_RE.test(employeeId) || !UUID_RE.test(roleId))
+    return json({ ok: false, error: "invalid_request" }, 400);
+  if (!(await employeeInScope(actor, employeeId)))
+    return json({ ok: false, error: "forbidden" }, 403);
   // role_permissions rows are global config shared by every department: the
   // Admin portal owns them. Managers may assign roles but never rewrite the
   // permission set of any role.
@@ -661,11 +947,16 @@ async function permissionsSaveAction(actor: Actor, body: Record<string, unknown>
   return json({ ok: true });
 }
 
-async function leaveReviewAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+async function leaveReviewAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
   const requestId = str(body.leave_request_id);
   const statusInput = str(body.status).toLowerCase();
-  if (!UUID_RE.test(requestId)) return json({ ok: false, error: "invalid_request" }, 400);
-  if (!["approved", "rejected"].includes(statusInput)) return json({ ok: false, error: "invalid_status" }, 400);
+  if (!UUID_RE.test(requestId))
+    return json({ ok: false, error: "invalid_request" }, 400);
+  if (!["approved", "rejected"].includes(statusInput))
+    return json({ ok: false, error: "invalid_status" }, 400);
 
   try {
     const [leave] = await sql`
@@ -673,11 +964,12 @@ async function leaveReviewAction(actor: Actor, body: Record<string, unknown>): P
       where leave_request_id = ${requestId}::uuid
       limit 1`;
     if (!leave) return json({ ok: false, error: "invalid_reference" }, 400);
-    if (leave.status !== "pending") return json({ ok: false, error: "already_decided" }, 400);
+    if (leave.status !== "pending")
+      return json({ ok: false, error: "already_decided" }, 400);
     if (String(leave.employee_id) === actor.employee_id) {
       return json({ ok: false, error: "forbidden" }, 403); // no self-approval
     }
-    if (!await employeeInScope(actor, String(leave.employee_id))) {
+    if (!(await employeeInScope(actor, String(leave.employee_id)))) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
 
@@ -696,16 +988,23 @@ async function leaveReviewAction(actor: Actor, body: Record<string, unknown>): P
   return json({ ok: true });
 }
 
-async function attendanceSaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+async function attendanceSaveAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
   const employeeId = str(body.employee_id);
   const workDate = str(body.work_date);
   const statusInput = str(body.status).toLowerCase();
   const overtimeHours = Number(body.overtime_hours ?? 0);
   const notes = str(body.notes) || null;
-  if (!UUID_RE.test(employeeId) || !isRealDate(workDate)) return json({ ok: false, error: "invalid_request" }, 400);
-  if (!(statusInput in ATTENDANCE_STATUS)) return json({ ok: false, error: "invalid_status" }, 400);
-  if (!Number.isFinite(overtimeHours) || overtimeHours < 0) return json({ ok: false, error: "invalid_request" }, 400);
-  if (!await employeeInScope(actor, employeeId)) return json({ ok: false, error: "forbidden" }, 403);
+  if (!UUID_RE.test(employeeId) || !isRealDate(workDate))
+    return json({ ok: false, error: "invalid_request" }, 400);
+  if (!(statusInput in ATTENDANCE_STATUS))
+    return json({ ok: false, error: "invalid_status" }, 400);
+  if (!Number.isFinite(overtimeHours) || overtimeHours < 0)
+    return json({ ok: false, error: "invalid_request" }, 400);
+  if (!(await employeeInScope(actor, employeeId)))
+    return json({ ok: false, error: "forbidden" }, 403);
 
   try {
     await sql!.begin(async (tx) => {
@@ -715,7 +1014,8 @@ async function attendanceSaveAction(actor: Actor, body: Record<string, unknown>)
         limit 1`;
       // Live constraints: overtime_hours > 0 requires a type (Weekday capped
       // at 4h, Holiday uncapped) plus consent.
-      const overtimeType = overtimeHours === 0 ? null : (overtimeHours <= 4 ? "Weekday" : "Holiday");
+      const overtimeType =
+        overtimeHours === 0 ? null : overtimeHours <= 4 ? "Weekday" : "Holiday";
       const overtimeConsent = overtimeHours === 0 ? null : true;
       if (existing) {
         await tx`
@@ -743,7 +1043,10 @@ async function attendanceSaveAction(actor: Actor, body: Record<string, unknown>)
   return json({ ok: true });
 }
 
-async function payrollSaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
+async function payrollSaveAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
   const employeeId = str(body.employee_id);
   const year = Number(body.pay_year);
   const month = Number(body.pay_month);
@@ -754,18 +1057,42 @@ async function payrollSaveAction(actor: Actor, body: Record<string, unknown>): P
   const standardDays = Number(body.standard_days ?? 0);
   const insuranceAmount = Number(body.insurance_amount ?? 0);
   const tax = Number(body.personal_income_tax ?? 0);
-  const totalDeductions = Number(body.total_deductions ?? insuranceAmount + tax);
+  const totalDeductions = Number(
+    body.total_deductions ?? insuranceAmount + tax,
+  );
   const grossSalary = Number(body.gross_salary ?? 0);
   const netSalary = Number(body.net_salary ?? 0);
 
-  if (!UUID_RE.test(employeeId)) return json({ ok: false, error: "invalid_request" }, 400);
-  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12 || year < 2000 || year > 2100) {
+  if (!UUID_RE.test(employeeId))
+    return json({ ok: false, error: "invalid_request" }, 400);
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    month < 1 ||
+    month > 12 ||
+    year < 2000 ||
+    year > 2100
+  ) {
     return json({ ok: false, error: "invalid_period" }, 400);
   }
-  const inputs = [baseSalary, allowance, overtimePay, workDays, standardDays, insuranceAmount, tax, totalDeductions, grossSalary, netSalary];
-  if (inputs.some((value) => !Number.isFinite(value) || value < 0)) return json({ ok: false, error: "invalid_amounts" }, 400);
-  if (netSalary > grossSalary) return json({ ok: false, error: "invalid_amounts" }, 400);
-  if (!await employeeInScope(actor, employeeId)) return json({ ok: false, error: "forbidden" }, 403);
+  const inputs = [
+    baseSalary,
+    allowance,
+    overtimePay,
+    workDays,
+    standardDays,
+    insuranceAmount,
+    tax,
+    totalDeductions,
+    grossSalary,
+    netSalary,
+  ];
+  if (inputs.some((value) => !Number.isFinite(value) || value < 0))
+    return json({ ok: false, error: "invalid_amounts" }, 400);
+  if (netSalary > grossSalary)
+    return json({ ok: false, error: "invalid_amounts" }, 400);
+  if (!(await employeeInScope(actor, employeeId)))
+    return json({ ok: false, error: "forbidden" }, 403);
 
   try {
     await sql!.begin(async (tx) => {
@@ -804,8 +1131,10 @@ async function payrollSaveAction(actor: Actor, body: Record<string, unknown>): P
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
-  if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
+  if (req.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  if (req.method !== "POST")
+    return json({ ok: false, error: "method_not_allowed" }, 405);
 
   if (!sql || !JWT_KEY) {
     console.error("hr-portal: SUPABASE_DB_URL or ADMIN_JWT_SECRET is not set");
@@ -831,15 +1160,26 @@ Deno.serve(async (req) => {
 
   try {
     switch (body.action) {
-      case "boot": return await bootAction(actor);
-      case "employee_save": return await employeeSaveAction(actor, body);
-      case "employee_delete": return await employeeDeleteAction(actor, body);
-      case "role_assign": return await roleAssignAction(actor, body);
-      case "permissions_save": return await permissionsSaveAction(actor, body);
-      case "leave_review": return await leaveReviewAction(actor, body);
-      case "attendance_save": return await attendanceSaveAction(actor, body);
-      case "payroll_save": return await payrollSaveAction(actor, body);
-      default: return json({ ok: false, error: "unknown_action" }, 400);
+      case "ping":
+        return json({ ok: true });
+      case "boot":
+        return await bootAction(actor);
+      case "employee_save":
+        return await employeeSaveAction(actor, body);
+      case "employee_delete":
+        return await employeeDeleteAction(actor, body);
+      case "role_assign":
+        return await roleAssignAction(actor, body);
+      case "permissions_save":
+        return await permissionsSaveAction(actor, body);
+      case "leave_review":
+        return await leaveReviewAction(actor, body);
+      case "attendance_save":
+        return await attendanceSaveAction(actor, body);
+      case "payroll_save":
+        return await payrollSaveAction(actor, body);
+      default:
+        return json({ ok: false, error: "unknown_action" }, 400);
     }
   } catch (err) {
     return dbError(err);
