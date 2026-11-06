@@ -63,6 +63,9 @@
   const isOff = (ym, d) => dow(ym, d) === 0; // Sunday only
   const departmentNameOf = (employee) =>
     departments.find((d) => d.department_id === employee.department_id)?.department_name || "-";
+  // Only Manager of dept "Nhân sự" (actor.is_hr) sees every department; other managers stay in their own.
+  const canSeeAllDepts = () => Boolean(currentActor?.is_hr);
+  const ownDeptId = () => String(currentActor?.department_id ?? "");
 
   /* ---------- Data: boot cache → overlay ---------- */
   function cachedCode(row) {
@@ -124,12 +127,21 @@
   }
 
   /* ---------- Eligible employees (mirrors source app rules) ---------- */
+  // Admin role holders never appear on the code sheet (any viewer, any dept).
+  function isAdminHolder(eid) {
+    const adminIds = roles.filter((r) => String(r.role_name || "").toLowerCase() === "admin").map((r) => r.role_id);
+    return (roleAssignments.get(eid) || []).some((id) => adminIds.includes(id));
+  }
+
   function eligibleEmployees() {
     const end = `${month}-31`;
     return employees.filter((e) =>
-      (!e.hire_date || e.hire_date <= end)
+      !isAdminHolder(e.employee_id)
+      && (!e.hire_date || e.hire_date <= end)
       && (String(e.employment_status || "").toLowerCase() !== "resigned" || overlayHasAny(e.employee_id))
-      && (!deptId || String(e.department_id) === deptId));
+      && (canSeeAllDepts()
+        ? (!deptId || String(e.department_id) === deptId)
+        : (e.employee_id === currentActor?.employee_id || (ownDeptId() !== "" && String(e.department_id) === ownDeptId()))));
   }
 
   function overlayHasAny(eid) {
@@ -222,9 +234,11 @@
   }
 
   function clearMonth() {
-    const scope = deptId ? ` của phòng ban đã chọn` : "";
+    const scope = canSeeAllDepts() ? (deptId ? ` của phòng ban đã chọn` : "") : ` của phòng ban bạn quản lý`;
+    const inScope = new Set(eligibleEmployees().map((e) => e.employee_id));
     if (!confirm(`Xóa toàn bộ chấm công ${monthLabel(month)}${scope}?`)) return;
     for (const [eid, perEmp] of overlay) {
+      if (!inScope.has(eid)) continue; // only the filtered department(s)
       for (const [day, code] of [...perEmp]) {
         if (code) perEmp.set(day, ""); // clear cell = day_code NULL, row survives
       }
@@ -303,8 +317,15 @@
     document.getElementById("mgrCcPalette").innerHTML = paletteHTML();
     document.getElementById("mgrSheetMonth").value = ym;
     const deptSel = document.getElementById("mgrCcDept");
-    deptSel.innerHTML = `<option value="">Tất cả phòng ban</option>`
-      + departments.map((d) => `<option value="${esc(d.department_id)}" ${d.department_id === deptId ? "selected" : ""}>${esc(d.department_name)}</option>`).join("");
+    if (canSeeAllDepts()) {
+      deptSel.style.display = "";
+      deptSel.innerHTML = `<option value="">Tất cả phòng ban</option>`
+        + departments.map((d) => `<option value="${esc(d.department_id)}" ${d.department_id === deptId ? "selected" : ""}>${esc(d.department_name)}</option>`).join("");
+    } else {
+      deptId = "";
+      deptSel.innerHTML = "";
+      deptSel.style.display = "none";
+    }
 
     const body = document.getElementById("mgrCcBody");
     body.innerHTML = emps.map((e) => {

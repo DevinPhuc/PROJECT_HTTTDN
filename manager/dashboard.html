@@ -19,6 +19,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/manager.css" />
+    <link rel="stylesheet" href="css/payroll-sheet.css" />
   </head>
   <body>
     <svg xmlns="http://www.w3.org/2000/svg" class="d-none" aria-hidden="true">
@@ -106,6 +107,30 @@
 
         <nav class="admin-nav" aria-label="Quản trị nhân sự">
           <a
+            class="admin-nav-item"
+            href="#attendance-clock"
+            data-hr-view="attendance-clock"
+          >
+            <img
+              src="../shared/images/timekeeping.png"
+              alt=""
+              class="nav-png-icon"
+            />
+            Chấm công</a
+          >
+          <a
+            class="admin-nav-item"
+            href="#attendance-sheet"
+            data-hr-view="attendance-sheet"
+          >
+            <img
+              src="../shared/images/calendar-month.png"
+              alt=""
+              class="nav-png-icon"
+            />
+            Bảng chấm công</a
+          >
+          <a
             class="admin-nav-item is-active"
             href="#employees"
             data-hr-view="employees"
@@ -133,17 +158,13 @@
             />
             Tình hình nhân sự</a
           >
-          <a
-            class="admin-nav-item"
-            href="#staff-stats"
-            data-hr-view="staff-stats"
-          >
+          <a class="admin-nav-item" href="#payroll" data-hr-view="payroll">
             <img
-              src="../shared/images/chart-pie.png"
+              src="../shared/images/wallet.png"
               alt=""
               class="nav-png-icon"
             />
-            Thống kê hồ sơ</a
+            Bảng lương</a
           >
           <a
             class="admin-nav-item"
@@ -157,37 +178,17 @@
             />
             Phân quyền</a
           >
-          <a class="admin-nav-item" href="#payroll" data-hr-view="payroll">
-            <img
-              src="../shared/images/wallet.png"
-              alt=""
-              class="nav-png-icon"
-            />
-            Chấm công & lương</a
-          >
           <a
             class="admin-nav-item"
-            href="#attendance-clock"
-            data-hr-view="attendance-clock"
+            href="#staff-stats"
+            data-hr-view="staff-stats"
           >
             <img
-              src="../shared/images/timekeeping.png"
+              src="../shared/images/chart-pie.png"
               alt=""
               class="nav-png-icon"
             />
-            Chấm công</a
-          >
-          <a
-            class="admin-nav-item"
-            href="#attendance-sheet"
-            data-hr-view="attendance-sheet"
-          >
-            <img
-              src="../shared/images/calendar-month.png"
-              alt=""
-              class="nav-png-icon"
-            />
-            Bảng chấm công</a
+            Thống kê hồ sơ</a
           >
         </nav>
 
@@ -203,16 +204,9 @@
             <p class="account-eyebrow">JEWELS · NHÂN SỰ</p>
             <h1 id="adminPageTitle">Hồ sơ nhân sự</h1>
           </div>
-          <div class="admin-topbar-actions">
-            <button
-              type="button"
-              class="admin-secondary-btn"
-              data-hr-view="payroll"
-            >
-              Chấm công & lương
-            </button>
-          </div>
         </header>
+
+        <div id="managerLoading" class="manager-loading">Đang tải cổng quản lý...</div>
 
         <div class="admin-hr-portal">
           <section class="hr-view active" data-hr-panel="employees">
@@ -705,13 +699,16 @@
           <section class="hr-view" data-hr-panel="payroll" hidden>
             <div class="panel-heading">
               <div>
-                <p class="account-eyebrow">CHẤM CÔNG & TÍNH LƯƠNG</p>
-                <h2>Bảng công và lương tháng</h2>
+                <p class="account-eyebrow">BẢNG LƯƠNG</p>
+                <h2>Bảng thanh toán tiền lương</h2>
               </div>
-              <label class="hr-period-control"
-                >Kỳ lương<input id="payrollMonth" type="month"
-              /></label>
+              <div class="pl-head-tools">
+                <label class="pl-mp">Kỳ lương <input type="month" id="plMonth" /></label>
+                <button type="button" class="admin-secondary-btn" id="plSlipAll">In phiếu lương</button>
+                <button type="button" class="admin-primary-btn" id="plSaveAll">Lưu bảng lương</button>
+              </div>
             </div>
+<<<<<<< HEAD
             <div class="hr-payroll-layout">
               <section class="admin-panel hr-attendance-panel">
                 <div class="panel-heading">
@@ -869,6 +866,9 @@
                 </table>
               </div>
             </section>
+=======
+            <div id="plSheet"></div>
+>>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
           </section>
 
           <section class="hr-view" data-hr-panel="attendance-clock" hidden>
@@ -928,22 +928,24 @@
           <section class="hr-view" data-hr-panel="attendance-sheet" hidden>
             <div class="panel-heading">
               <div>
-                <p class="account-eyebrow">BẢNG CHẤM CÔNG</p>
-                <h2>Chọn ký hiệu rồi bấm (hoặc kéo chuột) lên các ô ngày để chấm</h2>
+                <h2>Bảng chấm công</h2>
+                <p class="cc-subtitle">Chọn ký hiệu rồi bấm (hoặc kéo chuột) lên các ô ngày để chấm</p>
               </div>
-              <label class="hr-period-control"
-                >Kỳ lương<input id="mgrSheetMonth" type="month"
-              /></label>
+              <div class="cc-head-tools">
+                <label class="hr-period-control">Kỳ lương<input id="mgrSheetMonth" type="month" /></label>
+                <button type="button" class="admin-primary-btn cc-excel-btn" id="mgrCcExcel"><svg class="cc-btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4zM9.5 1.5V5H13M6 8.5h5M6 11h5"/></svg>Xuất Excel</button>
+                <button type="button" class="admin-secondary-btn" id="mgrCcPrint"><svg class="cc-btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6V2h8v4M4 12H2.5A1.5 1.5 0 0 1 1 10.5v-3A1.5 1.5 0 0 1 2.5 6h11A1.5 1.5 0 0 1 15 7.5v3a1.5 1.5 0 0 1-1.5 1.5H12M4 9.5h8V14H4z"/></svg>In</button>
+              </div>
             </div>
             <section class="admin-panel">
               <div class="cc-tools">
                 <div class="cc-palette" id="mgrCcPalette"></div>
-                <input id="mgrCcSearch" class="admin-search" type="search" placeholder="Tìm tên / mã NV..." />
+                <div class="cc-actions">
+                <input id="mgrCcSearch" class="admin-search" type="search" placeholder="Tìm nhân viên..." />
                 <select id="mgrCcDept" class="admin-search"></select>
-                <button type="button" class="admin-secondary-btn" id="mgrCcFillX">Điền X ngày trống</button>
-                <button type="button" class="admin-secondary-btn" id="mgrCcClearMonth">Xóa tháng</button>
-                <button type="button" class="admin-secondary-btn" id="mgrCcExcel">Xuất Excel</button>
-                <button type="button" class="admin-secondary-btn" id="mgrCcPrint">In bảng</button>
+                <button type="button" class="admin-secondary-btn" id="mgrCcFillX"><svg class="cc-btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg>Điền "X" ngày trống</button>
+                <button type="button" class="admin-secondary-btn" id="mgrCcClearMonth"><svg class="mgr-cc-clear-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>Xóa tháng</button>
+              </div>
               </div>
               <p id="mgrCcFeedback" role="status" aria-live="polite"></p>
               <div class="hr-table-wrap cc-wrap">
@@ -1758,6 +1760,8 @@
     <script src="../shared/js/portal-api.js"></script>
     <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
     <script src="js/hr-current-schema.js?v=20261105-1"></script>
+    <script src="js/payroll-sheet.js"></script>
+    <script src="js/hr-current-schema.js"></script>
     <script src="js/hr-attendance.js"></script>
     <script src="js/hr-sheet.js"></script>
   </body>
