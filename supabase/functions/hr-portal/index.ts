@@ -92,6 +92,7 @@ type Actor = {
   department_id: string | null;
   is_admin: boolean;
   is_hr: boolean;
+  pending_notice?: unknown;
 };
 
 function makeError(code: string): Error {
@@ -194,7 +195,8 @@ async function getActor(token: string): Promise<Actor | null> {
 
   const rows = await sql!`
     select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
-           lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr
+           lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr,
+           a.pending_notice
     from public.employees e
     join public.employee_accounts a on a.employee_id = e.employee_id
     left join public.departments d on d.department_id = e.current_department_id
@@ -213,18 +215,9 @@ async function getActor(token: string): Promise<Actor | null> {
         current_department_id: string | null;
         is_hr: boolean;
         updated_at: string | Date | null;
+        pending_notice?: unknown;
       };
   if (!row) return null;
-
-  if (row.updated_at && iat > 0) {
-    const updateTime = new Date(row.updated_at).getTime();
-    if (!Number.isNaN(updateTime)) {
-      const lastUpdated = Math.floor(updateTime / 1000);
-      if (iat < lastUpdated - 5) {
-        return null;
-      }
-    }
-  }
 
   // Ngày hiệu lực được đối chiếu theo múi giờ Asia/Ho_Chi_Minh.
   const [adminCheck] = await sql!`
@@ -254,7 +247,20 @@ async function getActor(token: string): Promise<Actor | null> {
         and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
         and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date))`;
 
-  if (!adminCheck && !managerCheck) return null;
+  if (!adminCheck && !managerCheck) {
+    if (row.pending_notice) {
+      return {
+        employee_id: row.employee_id,
+        full_name: row.full_name,
+        email: row.email,
+        department_id: row.current_department_id ?? null,
+        is_admin: false,
+        is_hr: false,
+        pending_notice: row.pending_notice,
+      };
+    }
+    return null;
+  }
 
   return {
     employee_id: row.employee_id,
@@ -263,6 +269,7 @@ async function getActor(token: string): Promise<Actor | null> {
     department_id: row.current_department_id ?? null,
     is_admin: Boolean(adminCheck),
     is_hr: Boolean(row.is_hr),
+    pending_notice: row.pending_notice,
   };
 }
 
@@ -539,6 +546,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     payroll: payrollRows,
     attendance: attendanceRows,
     employment_status_history: statusHistory,
+    pending_notice: actor.pending_notice || null,
   });
 }
 
@@ -1368,7 +1376,11 @@ Deno.serve(async (req) => {
   try {
     switch (body.action) {
       case "ping":
+        return json({ ok: true, pending_notice: actor.pending_notice || null });
+      case "clear_notice": {
+        await sql!`update public.employee_accounts set pending_notice = null where employee_id = ${actor.employee_id}::uuid`;
         return json({ ok: true });
+      }
       case "boot":
         return await bootAction(actor);
       case "employee_save":

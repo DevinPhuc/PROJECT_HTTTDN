@@ -193,12 +193,32 @@ function generateAccountPassword(
   return `${positionPrefix}${departmentPrefix}@${day}${month}${year}`;
 }
 
+let noticeColumnChecked = false;
+async function ensureNoticeColumn() {
+  if (noticeColumnChecked) return;
+  try {
+    await sql!`alter table public.employee_accounts add column if not exists pending_notice jsonb`;
+    noticeColumnChecked = true;
+  } catch (err) {
+    console.error("ensureNoticeColumn failed", err);
+  }
+}
+
+function getLoginUrlForRole(roleName: string): string {
+  const norm = (roleName || "").trim().toLowerCase();
+  if (norm === "admin") return "../admin/login.html";
+  if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(norm)) {
+    return "../manager/login.html";
+  }
+  return "../staff/staff-login.html";
+}
+
 async function updateAccountPassword(
   tx: postgres.TransactionSql,
   employeeId: string,
   roleId: string,
   passwordOverride = "",
-): Promise<void> {
+): Promise<string> {
   const [details] = await tx`
     select r.role_name,
            coalesce(d.description, '') as department_description,
@@ -208,7 +228,7 @@ async function updateAccountPassword(
     join public.roles r on r.role_id = ${roleId}::uuid
     where e.employee_id = ${employeeId}::uuid
     limit 1`;
-  if (!details) return;
+  if (!details) return "";
 
   const generatedPassword = generateAccountPassword(
     String(details.role_name || ""),
@@ -220,6 +240,7 @@ async function updateAccountPassword(
     update public.employee_accounts
     set password_hash = extensions.crypt(${password}, extensions.gen_salt('bf', 10))
     where employee_id = ${employeeId}::uuid`;
+  return password;
 }
 
 // A missing role falls back to the default "Nhân viên" role.
@@ -475,6 +496,7 @@ async function assignRoleAction(
   body: Record<string, unknown>,
   actor: Actor,
 ): Promise<Response> {
+  await ensureNoticeColumn();
   const employeeId = str(body.employee_id);
   const roleId = str(body.role_id);
   if (!UUID_RE.test(employeeId))
@@ -492,7 +514,7 @@ async function assignRoleAction(
     if (!employee) return { error: "not_found" } as const;
 
     const [currentUr] = await tx`
-      select r.role_name
+      select r.role_id, r.role_name
       from public.user_roles ur
       join public.roles r on r.role_id = ur.role_id
       where ur.employee_id = ${employeeId}::uuid
@@ -517,7 +539,20 @@ async function assignRoleAction(
       update public.employees
       set updated_at = now()
       where employee_id = ${employeeId}::uuid`;
-    await updateAccountPassword(tx, employeeId, roleId);
+    const newPassword = await updateAccountPassword(tx, employeeId, roleId);
+
+    if (currentUr?.role_name !== role.role_name) {
+      await tx`
+        update public.employee_accounts
+        set pending_notice = ${JSON.stringify({
+          type: "role_changed",
+          new_role: role.role_name,
+          new_password: newPassword,
+          redirect_url: getLoginUrlForRole(role.role_name),
+        })}::jsonb
+        where employee_id = ${employeeId}::uuid`;
+    }
+
     return { ok: true } as const;
   });
 
@@ -689,6 +724,7 @@ async function updateAction(
   body: Record<string, unknown>,
   actor: Actor,
 ): Promise<Response> {
+  await ensureNoticeColumn();
   const employeeId = str(body.employee_id);
   if (!UUID_RE.test(employeeId))
     return json({ ok: false, error: "invalid_employee" }, 400);
@@ -702,6 +738,34 @@ async function updateAction(
   const roleId = str(body.role_id);
 
   const result = await sql!.begin(async (tx) => {
+    const [beforeEmp] = await tx`
+      select to_char(e.date_of_birth, 'YYYY-MM-DD') as old_dob,
+             e.current_department_id as old_dept_id,
+             coalesce(d.description, '') as old_dept_desc,
+             coalesce(r.role_id::text, '') as old_role_id,
+             coalesce(r.role_name, 'Nhân viên') as old_role_name
+      from public.employees e
+      left join public.departments d on d.department_id = e.current_department_id
+      left join lateral (
+        select ur.role_id, r.role_name
+        from public.user_roles ur
+        join public.roles r on r.role_id = ur.role_id
+        where ur.employee_id = e.employee_id
+          and ur.valid_from <= ${VN_TODAY}::date
+          and (ur.valid_to is null or ur.valid_to >= ${VN_TODAY}::date)
+        order by ur.valid_from desc, ur.user_role_id desc
+        limit 1
+      ) r on true
+      where e.employee_id = ${employeeId}::uuid
+      limit 1`;
+    if (!beforeEmp) return { error: "not_found" } as const;
+
+    const oldGeneratedPassword = generateAccountPassword(
+      String(beforeEmp.old_role_name || "Nhân viên"),
+      String(beforeEmp.old_dept_desc || ""),
+      String(beforeEmp.old_dob || ""),
+    );
+
     const [employee] = await tx`
       update public.employees
       set employee_code = ${fields.employee_code},
@@ -740,6 +804,9 @@ async function updateAction(
       }
     }
 
+    let roleChanged = false;
+    let newRoleName = String(beforeEmp.old_role_name || "Nhân viên");
+
     // Role is owned by the "Vai trò & Quyền" section; only touch it when supplied.
     if (roleId) {
       const [currentUr] = await tx`
@@ -767,19 +834,25 @@ async function updateAction(
           return { error: "cannot_create_admin" } as const;
         }
         await setActiveRole(tx, employeeId, roleId, actor);
+        if (currentUr?.role_name !== role.role_name) {
+          roleChanged = true;
+          newRoleName = role.role_name;
+        }
       }
     }
 
     const submittedPassword = str(body.generated_password);
+    let finalPassword = "";
 
     if (submittedPassword) {
+      finalPassword = submittedPassword;
       await tx`
         update public.employee_accounts
         set password_hash = extensions.crypt(${submittedPassword}, extensions.gen_salt('bf', 10))
         where employee_id = ${employeeId}::uuid`;
     } else {
       if (roleId) {
-        await updateAccountPassword(tx, employeeId, roleId);
+        finalPassword = await updateAccountPassword(tx, employeeId, roleId);
       } else {
         const [activeRole] = await tx`
           select role_id
@@ -790,13 +863,34 @@ async function updateAction(
           order by valid_from desc, user_role_id desc
           limit 1`;
         if (activeRole) {
-          await updateAccountPassword(
+          finalPassword = await updateAccountPassword(
             tx,
             employeeId,
             String(activeRole.role_id),
           );
         }
       }
+    }
+
+    if (roleChanged) {
+      await tx`
+        update public.employee_accounts
+        set pending_notice = ${JSON.stringify({
+          type: "role_changed",
+          new_role: newRoleName,
+          new_password: finalPassword,
+          redirect_url: getLoginUrlForRole(newRoleName),
+        })}::jsonb
+        where employee_id = ${employeeId}::uuid`;
+    } else if (finalPassword && finalPassword !== oldGeneratedPassword) {
+      await tx`
+        update public.employee_accounts
+        set pending_notice = ${JSON.stringify({
+          type: "admin_password_changed",
+          new_password: finalPassword,
+          redirect_url: getLoginUrlForRole(beforeEmp.old_role_name),
+        })}::jsonb
+        where employee_id = ${employeeId}::uuid`;
     }
 
     return { ok: true } as const;

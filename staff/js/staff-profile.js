@@ -386,7 +386,14 @@ async function saveProfile(event) {
     renderPersonalInfo();
 
     if (result.data?.password_changed && result.data?.new_password) {
-      showPasswordChangedModal(result.data.new_password);
+      if (window.jewelsPortal?.showNoticeModal) {
+        window.jewelsPortal.showNoticeModal({
+          type: "self_password_changed",
+          new_password: result.data.new_password,
+        }, "staff", "staff-portal");
+      } else {
+        showPasswordChangedModal(result.data.new_password);
+      }
       return;
     }
 

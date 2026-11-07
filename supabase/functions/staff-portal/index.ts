@@ -45,7 +45,7 @@ const JWT_KEY = ADMIN_JWT_SECRET ? new TextEncoder().encode(ADMIN_JWT_SECRET) : 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-type Actor = { employee_id: string; username: string; full_name: string };
+type Actor = { employee_id: string; username: string; full_name: string; pending_notice?: unknown };
 
 function str(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -74,7 +74,7 @@ async function getActor(token: string): Promise<Actor | null> {
   if (!UUID_RE.test(employeeId)) return null;
 
   const rows = await sql!`
-    select e.employee_id, a.username, e.full_name
+    select e.employee_id, a.username, e.full_name, a.pending_notice
     from public.employees e
     join public.employee_accounts a on a.employee_id = e.employee_id
     where e.employee_id = ${employeeId}::uuid
@@ -83,10 +83,17 @@ async function getActor(token: string): Promise<Actor | null> {
       and e.employment_status = 'Active'
     limit 1`;
 
-  const row = rows[0] as { employee_id: string; username: string; full_name: string } | undefined;
+  const row = rows[0] as
+    | { employee_id: string; username: string; full_name: string; pending_notice?: unknown }
+    | undefined;
   if (!row) return null;
 
-  return { employee_id: row.employee_id, username: row.username, full_name: row.full_name };
+  return {
+    employee_id: row.employee_id,
+    username: row.username,
+    full_name: row.full_name,
+    pending_notice: row.pending_notice,
+  };
 }
 
 const DB_ERRORS: Record<string, string> = {
@@ -159,6 +166,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     position: position ?? null,
     roleNames: roleRows.map((row) => String(row.role_name)),
     permissionCodes: permissionRows.map((row) => String(row.permission_code).toLowerCase()),
+    pending_notice: actor.pending_notice || null,
   });
 }
 
@@ -842,7 +850,11 @@ Deno.serve(async (req) => {
 
   try {
     switch (body.action) {
-      case "ping": return json({ ok: true });
+      case "ping": return json({ ok: true, pending_notice: actor.pending_notice || null });
+      case "clear_notice": {
+        await sql!`update public.employee_accounts set pending_notice = null where employee_id = ${actor.employee_id}::uuid`;
+        return json({ ok: true });
+      }
       case "boot": return await bootAction(actor);
       case "update_profile": return await updateProfileAction(actor, body);
       case "personal_info": return await personalInfoAction(actor);
