@@ -175,11 +175,12 @@ async function bootAction(actor: Actor): Promise<Response> {
 async function updateProfileAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
   // Slices match the column limits so an oversized payload fails cleanly, not 500.
   const fullName = str(body.full_name).slice(0, 150);
-  const phoneNumber = str(body.phone_number).slice(0, 20);
+  const phoneNumber = str(body.phone_number).trim();
   const address = str(body.address).slice(0, 180);
   const dob = str(body.date_of_birth);
 
   if (!fullName || !isRealDate(dob)) return json({ ok: false, error: "invalid_profile" }, 400);
+  if (!/^\d{10}$/.test(phoneNumber)) return json({ ok: false, error: "invalid_phone" }, 400);
 
   await sql!.begin(async (tx) => {
     await tx`
@@ -553,10 +554,11 @@ async function personalInfoSaveAction(actor: Actor, body: Record<string, unknown
   const idType = str(body.id_type);
   const nationalId = str(body.national_id);
   const nationality = str(body.nationality);
+  const marital = str(body.marital_status);
 
   const result = await sql!.begin(async (tx) => {
     const [existing] = await tx`
-      select id_type, national_id, nationality
+      select id_type, national_id, nationality, marital_status
       from public.employee_personal_info
       where employee_id = ${actor.employee_id}::uuid
       limit 1`;
@@ -565,9 +567,10 @@ async function personalInfoSaveAction(actor: Actor, body: Record<string, unknown
     const finalNationalId = (nationalId || String(existing?.national_id ?? "")).trim();
     // nationality is NOT NULL with default 'Vietnam': invent nothing smarter.
     const finalNationality = (nationality || String(existing?.nationality ?? "") || "Vietnam").trim();
+    const finalMarital = (marital || String(existing?.marital_status ?? "")).trim();
 
     if (!existing) {
-      if (!nationalId && !idType && !nationality) {
+      if (!nationalId && !idType && !nationality && !marital) {
         // Nothing entered and no row: the save is a no-op.
         return { created: false, updated: false };
       }
@@ -581,16 +584,23 @@ async function personalInfoSaveAction(actor: Actor, body: Record<string, unknown
     }
 
     if (existing) {
-      await tx`
-        update public.employee_personal_info
-        set id_type = ${finalType}, national_id = ${finalNationalId}, nationality = ${finalNationality}
-        where employee_id = ${actor.employee_id}::uuid`;
+      if (finalMarital) {
+        await tx`
+          update public.employee_personal_info
+          set id_type = ${finalType}, national_id = ${finalNationalId}, nationality = ${finalNationality}, marital_status = ${finalMarital}
+          where employee_id = ${actor.employee_id}::uuid`;
+      } else {
+        await tx`
+          update public.employee_personal_info
+          set id_type = ${finalType}, national_id = ${finalNationalId}, nationality = ${finalNationality}
+          where employee_id = ${actor.employee_id}::uuid`;
+      }
     } else {
       await tx`
         insert into public.employee_personal_info
-          (employee_id, id_type, national_id, nationality)
+          (employee_id, id_type, national_id, nationality, marital_status)
         values
-          (${actor.employee_id}::uuid, ${finalType}, ${finalNationalId}, ${finalNationality})`;
+          (${actor.employee_id}::uuid, ${finalType}, ${finalNationalId}, ${finalNationality}, ${finalMarital || null})`;
     }
     return { created: !existing, updated: Boolean(existing) };
   });

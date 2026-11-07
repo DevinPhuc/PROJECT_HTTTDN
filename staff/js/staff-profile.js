@@ -40,6 +40,9 @@ function renderBlankFieldErrors(form, names) {
 // Clear a field's blank-error state as soon as the user starts typing again.
 document.getElementById("profileForm").addEventListener("input", (event) => {
   const target = event.target;
+  if (target.name === "phone") {
+    target.value = target.value.replace(/\D/g, "").slice(0, 10);
+  }
   if (!target.classList?.contains("staff-input-blank")) return;
   target.classList.remove("staff-input-blank");
   target.closest("label")?.querySelector(".staff-field-blank")?.remove();
@@ -133,7 +136,7 @@ function renderPersonalInfo() {
   if (protectedInput) protectedInput.value = info.is_disabled ? dateLabel(info.protected_until) : "";
   const maritalSelect = document.querySelector("#profileForm [name='marital_status']");
   if (maritalSelect) {
-    maritalSelect.disabled = !personalInfo;
+    maritalSelect.disabled = false;
     if (document.activeElement !== maritalSelect) maritalSelect.value = maritalLabel(info.marital_status);
   }
 }
@@ -288,6 +291,18 @@ async function saveProfile(event) {
     return;
   }
 
+  const rawPhone = String(formData.get("phone") || "").trim();
+  if (!/^\d{10}$/.test(rawPhone)) {
+    showProfileFeedback("Số điện thoại phải gồm đúng 10 chữ số.", true);
+    showStaffToast("error", "Số điện thoại phải gồm đúng 10 chữ số.");
+    const phoneInput = event.currentTarget.querySelector("[name='phone']");
+    if (phoneInput) {
+      phoneInput.classList.add("staff-input-blank");
+      phoneInput.focus();
+    }
+    return;
+  }
+
   // Row validation first: any partial row stops the save before data moves.
   const qualRows = collectQualRows();
   if (qualRows === null) { showProfileFeedback("Mỗi dòng bằng cấp đã nhập cần có tên bằng cấp.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); return; }
@@ -308,7 +323,7 @@ async function saveProfile(event) {
       marital_status: String(formData.get("marital_status") || "").trim()
     });
     if (!result.ok) {
-      showProfileFeedback(result.error === "invalid_profile" ? "Vui lòng nhập đầy đủ họ tên và ngày sinh." : "Không thể lưu hồ sơ. Vui lòng thử lại.", true);
+      showProfileFeedback(result.error === "invalid_phone" ? "Số điện thoại phải gồm đúng 10 chữ số." : result.error === "invalid_profile" ? "Vui lòng nhập đầy đủ họ tên và ngày sinh." : "Không thể lưu hồ sơ. Vui lòng thử lại.", true);
       showStaffToast("error", "Không thành công. Vui lòng thử lại.");
       return;
     }
@@ -330,7 +345,8 @@ async function saveProfile(event) {
       action: "personal_info_save",
       id_type: String(formData.get("id_type") || "").trim(),
       national_id: String(formData.get("national_id") || "").trim(),
-      nationality: String(formData.get("nationality") || "").trim()
+      nationality: String(formData.get("nationality") || "").trim(),
+      marital_status: String(formData.get("marital_status") || "").trim()
     });
     if (!idSave.ok) {
       showProfileFeedback(
