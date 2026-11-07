@@ -509,6 +509,24 @@ body:has(.admin-page) {
   width: 100%;
 }
 
+.admin-gender-phone-fields {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-gender-phone-fields > label {
+  min-width: 0;
+}
+
+.admin-gender-phone-fields input,
+.admin-gender-phone-fields select {
+  width: 100%;
+  min-width: 0;
+}
+
 .admin-form .account-eyebrow {
   margin: 3px 0 0;
 }
@@ -1199,7 +1217,8 @@ body:has(.admin-page) {
 }
 
 @media (max-width: 420px) {
-  .admin-date-fields {
+  .admin-date-fields,
+  .admin-gender-phone-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 }

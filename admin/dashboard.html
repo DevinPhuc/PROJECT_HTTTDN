@@ -380,13 +380,23 @@
                     >Mã nhân viên <span class="required-mark">*</span
                     ><input name="employee_code" type="text" readonly required
                   /></label>
-                  <label
-                    >Giới tính<select name="gender">
-                      <option value="Male">Nam</option>
-                      <option value="Female">Nữ</option>
-                      <option value="Other">Khác</option>
-                    </select></label
-                  >
+                  <div class="admin-gender-phone-fields">
+                    <label
+                      >Giới tính<select name="gender">
+                        <option value="Male">Nam</option>
+                        <option value="Female">Nữ</option>
+                        <option value="Other">Khác</option>
+                      </select></label
+                    >
+                    <label
+                      >Số điện thoại<input
+                        name="phone_number"
+                        type="tel"
+                        pattern="[0-9]{10}"
+                        maxlength="10"
+                        placeholder="Nhập 10 chữ số"
+                    /></label>
+                  </div>
                   <div class="admin-date-fields">
                     <label
                       >Ngày sinh <span class="required-mark">*</span

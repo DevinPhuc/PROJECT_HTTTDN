@@ -224,6 +224,7 @@ const ACCOUNT_ERRORS = {
   cannot_create_admin: "Chỉ cho phép duy nhất một tài khoản vai trò Admin.",
   role_name_reserved: 'Không thể dùng tên vai trò "Admin".',
   position_department_mismatch: "Vị trí không thuộc phòng ban đã chọn.",
+  invalid_phone: "Số điện thoại phải gồm đúng 10 chữ số.",
   duplicate: "Email hoặc mã nhân viên đã tồn tại.",
   check_violation: "Dữ liệu không hợp lệ.",
   role_overlap: "Không thể đổi vai trò do trùng khoảng thời gian hiệu lực.",
@@ -1304,6 +1305,9 @@ async function openAccountEdit(employeeId) {
   form.elements.full_name.value = account.full_name;
   form.elements.email.value = account.email;
   form.elements.gender.value = account.gender;
+  if (form.elements.phone_number) {
+    form.elements.phone_number.value = account.phone_number || "";
+  }
   form.elements.date_of_birth.value = toDisplayDate(account.date_of_birth);
   form.elements.hire_date.value = toDisplayDate(account.hire_date);
   fillAccountOptions(account);
@@ -1360,6 +1364,7 @@ async function submitAccountForm(event) {
     gender: values.gender,
     date_of_birth: dateOfBirth,
     hire_date: hireDate,
+    phone_number: String(form.elements.phone_number?.value || values.phone_number || "").trim(),
     department_id: values.department_id,
     position_id: form.elements.position_id?.value || values.position_id || "",
     role_id: form.elements.role_id ? form.elements.role_id.value : values.role_id,
@@ -1386,6 +1391,13 @@ async function submitAccountForm(event) {
 
   if (!hireDate) {
     message.textContent = accountErrorMessage("invalid_hire_date");
+    return;
+  }
+
+  const rawPhone = String(form.elements.phone_number?.value || values.phone_number || "").trim();
+  if (rawPhone && !/^\d{10}$/.test(rawPhone)) {
+    message.textContent = accountErrorMessage("invalid_phone");
+    form.elements.phone_number?.focus();
     return;
   }
 
@@ -1894,6 +1906,9 @@ function attachCrudActions() {
     accountForm.elements.role_id.addEventListener("change", () => {
       updateGeneratedEmployeeCode();
       updateGeneratedPassword();
+    });
+    accountForm.elements.phone_number?.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
     });
     accountForm.elements.department_id.addEventListener("change", (event) => {
       renderPositionOptions(

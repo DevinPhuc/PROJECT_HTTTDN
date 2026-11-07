@@ -66,6 +66,7 @@ function readProfile(body: Record<string, unknown>) {
     employee_code: str(body.employee_code),
     full_name: str(body.full_name),
     email: str(body.email).toLowerCase(),
+    phone_number: str(body.phone_number).trim(),
     gender: str(body.gender),
     date_of_birth: str(body.date_of_birth),
     hire_date: str(body.hire_date),
@@ -85,6 +86,9 @@ function readProfile(body: Record<string, unknown>) {
     return { error: "missing_fields" } as const;
 
   if (!EMAIL_RE.test(fields.email)) return { error: "invalid_email" } as const;
+  if (fields.phone_number && !/^\d{10}$/.test(fields.phone_number)) {
+    return { error: "invalid_phone" } as const;
+  }
   if (!isRealDate(fields.date_of_birth))
     return { error: "invalid_date_of_birth" } as const;
   if (!isRealDate(fields.hire_date))
@@ -648,6 +652,12 @@ async function createAction(
          ${fields.department_id}::uuid, 'Active')
       returning employee_id`;
 
+    if (fields.phone_number) {
+      await tx`
+        insert into public.employee_contacts (employee_id, phone_number)
+        values (${employee.employee_id}::uuid, ${fields.phone_number})`;
+    }
+
     await tx`
       insert into public.employee_accounts (employee_id, username, password_hash, is_active)
       values (${employee.employee_id}::uuid, ${username},
@@ -706,6 +716,22 @@ async function updateAction(
       where employee_id = ${employeeId}::uuid
       returning employee_id`;
     if (!account) return { error: "account_not_found" } as const;
+
+    if (body.phone_number !== undefined) {
+      const [existingContact] = await tx`
+        select employee_id from public.employee_contacts
+        where employee_id = ${employeeId}::uuid limit 1`;
+      if (existingContact) {
+        await tx`
+          update public.employee_contacts
+          set phone_number = ${fields.phone_number || null}
+          where employee_id = ${employeeId}::uuid`;
+      } else if (fields.phone_number) {
+        await tx`
+          insert into public.employee_contacts (employee_id, phone_number)
+          values (${employeeId}::uuid, ${fields.phone_number})`;
+      }
+    }
 
     // Role is owned by the "Vai trò & Quyền" section; only touch it when supplied.
     if (roleId) {
