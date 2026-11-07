@@ -1149,7 +1149,41 @@ Deno.serve(async (req) => {
   } catch (err) {
     return dbError(err); // database trouble is not a bad token
   }
-  if (!actor) return json({ ok: false, error: "unauthorized" }, 401);
+  if (!actor) {
+    let redirectUrl = "../manager/login.html";
+    let activeRole = "";
+    if (token) {
+      try {
+        const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
+        const employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
+        if (UUID_RE.test(employeeId)) {
+          const [roleRow] = await sql!`
+            select r.role_name
+            from public.user_roles ur
+            join public.roles r on r.role_id = ur.role_id
+            where ur.employee_id = ${employeeId}::uuid
+              and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+              and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+            order by ur.valid_from desc, ur.user_role_id desc
+            limit 1`;
+          if (roleRow) {
+            activeRole = String(roleRow.role_name);
+            const lower = activeRole.toLowerCase();
+            if (lower === "admin") {
+              redirectUrl = "../admin/login.html";
+            } else if (MANAGER_ROLES.includes(lower)) {
+              redirectUrl = "../manager/login.html";
+            } else {
+              redirectUrl = "../staff/staff-login.html";
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return json({ ok: false, error: "unauthorized", role: activeRole, redirect_url: redirectUrl }, 401);
+  }
 
   let body: Record<string, unknown>;
   try {

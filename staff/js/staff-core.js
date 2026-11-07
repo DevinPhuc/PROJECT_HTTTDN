@@ -368,6 +368,11 @@ async function loadStaffPortal() {
     if (allowedView(view) && VIEW_MODULES[view]?.load) tasks.push(VIEW_MODULES[view].load());
   });
   const results = await Promise.allSettled(tasks); if (results.some((result) => result.status === "rejected")) showPageError("Không tải được dữ liệu. Vui lòng thử lại sau.");
+  setInterval(async () => {
+    if (session && !DEMO_MODE) {
+      await callStaff({ action: "ping" });
+    }
+  }, 5000);
 }
 
 // Toast feedback (section 9): same bottom-right pattern as the manager

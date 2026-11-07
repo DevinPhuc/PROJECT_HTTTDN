@@ -516,7 +516,8 @@ body:has(.admin-page) {
   color: var(--admin-red);
 }
 
-.admin-form input:read-only {
+.admin-form input:read-only,
+.admin-form select:disabled {
   background: #f1f3f1;
   color: #78827c;
   cursor: not-allowed;
@@ -770,6 +771,8 @@ body:has(.admin-page) {
   cursor: not-allowed;
 }
 
+.success-toast,
+.delete-toast,
 .account-success-toast {
   position: fixed;
   right: 24px;
@@ -780,7 +783,6 @@ body:has(.admin-page) {
   gap: 9px;
   padding: 14px 20px;
   border-radius: 8px;
-  background: #278a4b;
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -793,6 +795,7 @@ body:has(.admin-page) {
     visibility 160ms ease;
 }
 
+.toast-icon,
 .account-success-toast .toast-icon {
   width: 18px;
   height: 18px;
@@ -800,14 +803,23 @@ body:has(.admin-page) {
   object-fit: contain;
 }
 
+.success-toast,
+.account-success-toast {
+  background: #278a4b;
+}
+
+.delete-toast,
+.account-delete-toast,
+.account-error-toast {
+  background: var(--admin-red, #b42318);
+}
+
+.success-toast.show,
+.delete-toast.show,
 .account-success-toast.show {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
-}
-
-.account-error-toast {
-  background: var(--admin-red, #b42318);
 }
 
 .account-confirm-modal {
@@ -1323,4 +1335,33 @@ body:has(.admin-page) {
   display: block;
   font-size: 11px;
   color: #abb7b0;
+}
+
+/* Live Activity Animation */
+@keyframes activityHighlight {
+  0% {
+    background-color: rgba(46, 125, 50, 0.22);
+    color: #1b5e20;
+    font-weight: 700;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.overview-activity-cell {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+.overview-activity-cell.activity-pulse {
+  animation: activityHighlight 1.8s ease-out;
+}
+
+.overview-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }

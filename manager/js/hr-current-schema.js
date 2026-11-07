@@ -221,7 +221,13 @@ function employeePosition(employee) {
 }
 
 function positionName(employee) {
-  return employeePosition(employee)?.position_title || "Chưa gán chức vụ";
+  const pos = employeePosition(employee)?.position_title;
+  if (pos) return pos;
+  const currentRoleIds = roleAssignments.get(employee.employee_id) || [];
+  const roleName = currentRoleIds
+    .map((id) => roles.find((r) => r.role_id === id)?.role_name)
+    .filter(Boolean)[0];
+  return roleName || "Chưa gán chức vụ";
 }
 
 function departmentName(employee) {
@@ -336,6 +342,173 @@ function fillSelect(select, options, valueKey, labelFor, selectedValue = "") {
     select.value = selectedValue;
 }
 
+const MANAGER_ROLE_NAMES = [
+  "manager",
+  "hr_manager",
+  "quản lý",
+  "quản lý nhân sự",
+];
+
+function normalizeFilterText(str) {
+  return String(str || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d")
+    .trim();
+}
+
+function isLeaderEmployee(employee) {
+  const currentRoleIds = roleAssignments.get(employee.employee_id) || [];
+  const roleNames = currentRoleIds.map(
+    (id) => roles.find((r) => r.role_id === id)?.role_name || "",
+  );
+  const normRoleNames = roleNames.map(normalizeFilterText);
+
+  const hasLeaderRole = roleNames.some((rawName) => {
+    const lower = rawName.toLowerCase();
+    const norm = normalizeFilterText(rawName);
+    return (
+      norm.includes("truong nhom") ||
+      norm.includes("nhom truong") ||
+      lower.includes("team lead") ||
+      lower.includes("team_lead") ||
+      lower.includes("leader")
+    );
+  });
+
+  const hasStaffRole = normRoleNames.some(
+    (r) => r.includes("nhan vien") || r.includes("staff") || r.includes("employee"),
+  );
+  if (hasStaffRole && !hasLeaderRole) {
+    return false;
+  }
+
+  const rawPos = positionName(employee);
+  const lowerPos = rawPos.toLowerCase();
+  const normPos = normalizeFilterText(rawPos);
+
+  const hasLeaderPosition =
+    normPos.includes("truong nhom") ||
+    normPos.includes("nhom truong") ||
+    lowerPos.includes("team lead") ||
+    lowerPos.includes("team_lead") ||
+    lowerPos.includes("leader") ||
+    (lowerPos.includes("lead") && !lowerPos.includes("leader") && !normPos.includes("quan ly"));
+
+  return hasLeaderRole || hasLeaderPosition;
+}
+
+function isManagerEmployee(employee) {
+  const currentRoleIds = roleAssignments.get(employee.employee_id) || [];
+  const roleNames = currentRoleIds.map(
+    (id) => roles.find((r) => r.role_id === id)?.role_name || "",
+  );
+  const normRoleNames = roleNames.map(normalizeFilterText);
+
+  const hasStaffRole = normRoleNames.some(
+    (r) => r.includes("nhan vien") || r.includes("staff") || r.includes("employee"),
+  );
+
+  const hasManagerRole = roleNames.some((rawName) => {
+    const lower = rawName.toLowerCase();
+    const norm = normalizeFilterText(rawName);
+    return (
+      MANAGER_ROLE_NAMES.includes(lower) ||
+      norm.includes("quan ly") ||
+      lower.includes("manager") ||
+      norm.includes("truong phong") ||
+      norm.includes("giam doc")
+    );
+  });
+
+  if (hasStaffRole && !hasManagerRole) {
+    return false;
+  }
+
+  const rawPos = positionName(employee);
+  const lowerPos = rawPos.toLowerCase();
+  const normPos = normalizeFilterText(rawPos);
+
+  const hasManagerPosition =
+    normPos.includes("quan ly") ||
+    lowerPos.includes("manager") ||
+    normPos.includes("truong phong") ||
+    normPos.includes("giam doc");
+
+  return (hasManagerRole || hasManagerPosition) && !isLeaderEmployee(employee);
+}
+
+function isStaffEmployee(employee) {
+  const currentRoleIds = roleAssignments.get(employee.employee_id) || [];
+  const roleNames = currentRoleIds.map(
+    (id) => roles.find((r) => r.role_id === id)?.role_name || "",
+  );
+  const normRoleNames = roleNames.map(normalizeFilterText);
+
+  const hasStaffRole = normRoleNames.some(
+    (r) => r.includes("nhan vien") || r.includes("staff") || r.includes("employee"),
+  );
+  if (hasStaffRole) {
+    return true;
+  }
+
+  const rawPos = positionName(employee);
+  const normPos = normalizeFilterText(rawPos);
+  const lowerPos = rawPos.toLowerCase();
+  const hasStaffPosition =
+    normPos.includes("nhan vien") ||
+    lowerPos.includes("staff") ||
+    lowerPos.includes("employee");
+  if (hasStaffPosition) {
+    return true;
+  }
+
+  return !isManagerEmployee(employee) && !isLeaderEmployee(employee);
+}
+
+function isCurrentActorEmployee(employee) {
+  if (!employee) return false;
+  if (currentActor?.employee_id && employee.employee_id === currentActor.employee_id) {
+    return true;
+  }
+  const actorEmail = (currentActor?.email || "").trim().toLowerCase();
+  const empEmail = (employee.email || "").trim().toLowerCase();
+  if (actorEmail && empEmail && actorEmail === empEmail) {
+    return true;
+  }
+  const sessionUser = portal?.getSession("manager")?.user;
+  if (sessionUser?.email && empEmail && sessionUser.email.trim().toLowerCase() === empEmail) {
+    return true;
+  }
+  if (
+    sessionUser?.username &&
+    empEmail &&
+    sessionUser.username.trim().toLowerCase() === empEmail
+  ) {
+    return true;
+  }
+  return false;
+}
+
+// Phản chiếu quy tắc của server (hr-portal / employee_delete).
+function canDeleteEmployee(employee) {
+  if (!currentActor) return false;
+  if (isCurrentActorEmployee(employee)) return false;
+  const names = (roleAssignments.get(employee.employee_id) || []).map(
+    (id) => roles.find((r) => r.role_id === id)?.role_name?.toLowerCase() || "",
+  );
+  if (names.includes("admin")) return false;
+  if (names.some((name) => MANAGER_ROLE_NAMES.includes(name))) return false;
+  if (isManagerEmployee(employee)) return false;
+  if (currentActor.is_admin || currentActor.is_hr) return true;
+  return (
+    Boolean(currentActor.department_id) &&
+    employee.department_id === currentActor.department_id
+  );
+}
+
 function renderEmployees() {
   const body = document.getElementById("employeesBody");
   const term = document
@@ -350,8 +523,12 @@ function renderEmployees() {
     if (
       employee.deleted_at ||
       employee.is_active === false ||
-      employee.employment_status !== "Active"
+      normalizedStatus(employee.employment_status) !== "active"
     ) {
+      return false;
+    }
+    // Tài khoản manager đang sử dụng sẽ không hiển thị trong danh sách nhân sự
+    if (isCurrentActorEmployee(employee)) {
       return false;
     }
     const employeeRoles = roleAssignments.get(employee.employee_id) || [];
@@ -362,30 +539,46 @@ function renderEmployees() {
     if (isAdmin) {
       return false;
     }
-    const position = positionName(employee).toLowerCase();
+    const currentRoleIds = roleAssignments.get(employee.employee_id) || [];
+    const roleNamesText = currentRoleIds
+      .map((id) => roles.find((r) => r.role_id === id)?.role_name || "")
+      .join(" ");
+
     const matchesTerm = [
       employee.full_name,
       employee.employee_code,
       employee.email,
       positionName(employee),
       departmentName(employee),
+      roleNamesText,
     ]
       .join(" ")
       .toLowerCase()
       .includes(term);
-    const matchesPosition =
-      positionFilter === "all" ||
-      (positionFilter === "employee" &&
-        (position.includes("nhân viên") || position.includes("employee"))) ||
-      (positionFilter === "manager" &&
-        (position.includes("quản lý") || position.includes("manager")));
+
+    let matchesPosition = true;
+    if (positionFilter === "employee") {
+      matchesPosition = isStaffEmployee(employee);
+    } else if (positionFilter === "leader") {
+      matchesPosition = isLeaderEmployee(employee);
+    } else if (positionFilter === "manager") {
+      matchesPosition = isManagerEmployee(employee);
+    }
+
     return matchesTerm && matchesPosition;
   });
   if (!matches.length) {
     const row = document.createElement("tr");
+    const hasEmployeesInScope = employees.some(
+      (e) =>
+        !e.deleted_at &&
+        e.is_active !== false &&
+        normalizedStatus(e.employment_status) === "active" &&
+        !isCurrentActorEmployee(e),
+    );
     addCell(
       row,
-      employees.length
+      hasEmployeesInScope
         ? "Không có nhân sự phù hợp."
         : "Chưa có nhân sự trong phạm vi của bạn.",
     ).colSpan = 9;
@@ -395,7 +588,7 @@ function renderEmployees() {
   function employeeSortValue(employee, key) {
     if (key === "employee_code") return employee.employee_code || "";
     if (key === "full_name") return employee.full_name || "";
-    if (key === "position") return positionName(employee);
+    if (key === "position" || key === "role") return positionName(employee);
     if (key === "department") return departmentName(employee);
     if (key === "education") return employee.education || "";
     if (key === "hire_date") return employee.hire_date || "";
@@ -426,7 +619,14 @@ function renderEmployees() {
       }) * employeeSort.direction
     );
   });
-  matches.forEach((employee) => {
+
+  const totalMatches = matches.length;
+  const pageCount = Math.max(1, Math.ceil(totalMatches / employeePagination.size));
+  employeePagination.page = Math.min(employeePagination.page, pageCount);
+  const start = (employeePagination.page - 1) * employeePagination.size;
+  const pageMatches = matches.slice(start, start + employeePagination.size);
+
+  pageMatches.forEach((employee) => {
     const row = document.createElement("tr");
     row.dataset.employeeId = employee.employee_id;
     row.classList.add("hr-employee-row");
@@ -463,14 +663,7 @@ function renderEmployees() {
     viewOrRemove.type = "button";
     viewOrRemove.dataset.employeeId = employee.employee_id;
 
-    // Kiểm tra vai trò để hiển thị nút "Xem" hoặc "Xóa"
-    const currentRoleIds = roleAssignments.get(employee.employee_id) || [];
-    const roleNames = currentRoleIds.map(
-      (id) =>
-        roles.find((r) => r.role_id === id)?.role_name?.toLowerCase() || "",
-    );
-    const canDelete =
-      roleNames.includes("nhân viên") || roleNames.includes("trưởng nhóm");
+    const canDelete = canDeleteEmployee(employee);
     if (canDelete) {
       viewOrRemove.className = "mini-btn danger";
       viewOrRemove.dataset.employeeAction = "delete";
@@ -484,7 +677,7 @@ function renderEmployees() {
   });
   renderPagination(
     "employeesPagination",
-    matches.length,
+    totalMatches,
     employeePagination,
     renderEmployees,
   );
@@ -497,9 +690,10 @@ function renderEmployeePositionFilter() {
   select.replaceChildren(
     new Option("Tất cả chức vụ", "all"),
     new Option("Nhân viên", "employee"),
+    new Option("Trưởng nhóm", "leader"),
     new Option("Quản lý", "manager"),
   );
-  select.value = ["all", "employee", "manager"].includes(selected)
+  select.value = ["all", "employee", "leader", "manager"].includes(selected)
     ? selected
     : "all";
 }
@@ -580,10 +774,10 @@ function showEmployeeForm(employee = null) {
       phone: contact?.phone_number || "",
       education: employee.education || "",
       dateOfBirth: employee.date_of_birth
-        ? String(employee.date_of_birth).slice(0, 10)
+        ? String(employee.date_of_birth).trim().slice(0, 10)
         : "",
       hireDate: employee.hire_date
-        ? String(employee.hire_date).slice(0, 10)
+        ? String(employee.hire_date).trim().slice(0, 10)
         : "",
       employmentStatus:
         STATUS_LABELS[normalizedStatus(employee.employment_status)],
@@ -592,13 +786,17 @@ function showEmployeeForm(employee = null) {
       if (form.elements.namedItem(key))
         form.elements.namedItem(key).value = value;
     });
+    const currentRoles = roleAssignments.get(employee.employee_id) || [];
+    if (currentRoles.length > 0) {
+      form.elements.namedItem("roleId").value = currentRoles[0];
+    } else {
+      form.elements.namedItem("roleId").value = "";
+    }
     dateOfBirthInput.required = false;
     passwordInput.required = false;
     passwordInput.readOnly = true;
-    passwordInput.placeholder = "Bỏ trống nếu không đổi mật khẩu";
     passwordGroup.hidden = true;
 
-    // KHÓA FORM VÀ ẨN NÚT LƯU KHI XEM
     Array.from(form.elements).forEach((el) => {
       if (el.name !== "id" && el.id !== "cancelEmployeeBtn") {
         el.disabled = true;
@@ -616,8 +814,9 @@ function showEmployeeForm(employee = null) {
     dateOfBirthInput.required = true;
     passwordInput.required = true;
     passwordInput.readOnly = true;
-    passwordInput.placeholder = "Nhập mật khẩu đăng nhập";
+    passwordInput.placeholder = "Mật khẩu tạo tự động theo vai trò, phòng ban, ngày sinh";
     passwordGroup.hidden = false;
+    updateGeneratedEmployeePassword();
 
     // MỞ KHÓA FORM VÀ HIỆN LẠI NÚT LƯU KHI THÊM MỚI
     Array.from(form.elements).forEach((el) => {
@@ -645,21 +844,93 @@ document
   .getElementById("closeModalBtn")
   .addEventListener("click", closeEmployeeModal);
 
-function generateEmployeePassword(dateOfBirth) {
-  if (!dateOfBirth) return "";
-  const [, month, day] = dateOfBirth.split("-");
-  const suffix = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
-  return `${day}${month}${suffix}`;
+function abbreviatePosition(positionName) {
+  const normalized = String(positionName || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+  const words = normalized.split(/\s+/).filter(Boolean);
+  return words.length > 1
+    ? words
+        .slice(0, 2)
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase()
+    : normalized.slice(0, 2).toUpperCase();
 }
 
-document.getElementById("employeeForm").addEventListener("input", (event) => {
-  const form = event.currentTarget;
-  if (form.elements.namedItem("id").value) return;
-  const dateOfBirth = form.elements.namedItem("dateOfBirth").value;
-  const password = form.elements.namedItem("password");
-  if (dateOfBirth && !password.value)
-    password.value = generateEmployeePassword(dateOfBirth);
-});
+function generateAccountPassword(roleName, departmentDescription, dateOfBirth) {
+  const positionPrefix = abbreviatePosition(roleName);
+  const departmentPrefix = String(departmentDescription || "")
+    .trim()
+    .slice(0, 3)
+    .toLowerCase();
+  const [year, month, day] = String(dateOfBirth || "").split("-");
+
+  if (
+    positionPrefix.length < 2 ||
+    !departmentPrefix ||
+    !/^\d{4}$/.test(year || "") ||
+    !/^\d{2}$/.test(month || "") ||
+    !/^\d{2}$/.test(day || "")
+  ) {
+    return "";
+  }
+
+  return `${positionPrefix}${departmentPrefix}@${day}${month}${year}`;
+}
+
+function updateGeneratedEmployeePassword() {
+  const form = document.getElementById("employeeForm");
+  if (!form || form.elements.namedItem("id")?.value) return;
+
+  const roleSelect = form.elements.namedItem("roleId");
+  const roleOption = roleSelect?.selectedOptions?.[0];
+  const roleName = roleOption?.value ? roleOption.textContent : "";
+
+  const departmentSelect = form.elements.namedItem("departmentId");
+  const departmentId =
+    departmentSelect?.value || currentActor?.department_id || "";
+  const department = departments.find(
+    (d) => String(d.department_id) === String(departmentId),
+  );
+  const departmentDescription =
+    department?.description || department?.department_name || "";
+
+  const dateOfBirth = form.elements.namedItem("dateOfBirth")?.value || "";
+
+  const passwordInput = form.elements.namedItem("password");
+  if (!passwordInput) return;
+
+  passwordInput.value = generateAccountPassword(
+    roleName,
+    departmentDescription,
+    dateOfBirth,
+  );
+}
+
+const employeeForm = document.getElementById("employeeForm");
+if (employeeForm) {
+  const dateInput = employeeForm.elements.namedItem("dateOfBirth");
+  if (dateInput) {
+    dateInput.addEventListener("input", updateGeneratedEmployeePassword);
+    dateInput.addEventListener("change", updateGeneratedEmployeePassword);
+  }
+  const roleInput = employeeForm.elements.namedItem("roleId");
+  if (roleInput) {
+    roleInput.addEventListener("change", updateGeneratedEmployeePassword);
+  }
+  const deptInput = employeeForm.elements.namedItem("departmentId");
+  if (deptInput) {
+    deptInput.addEventListener("change", updateGeneratedEmployeePassword);
+  }
+  const posInput = employeeForm.elements.namedItem("positionId");
+  if (posInput) {
+    posInput.addEventListener("change", updateGeneratedEmployeePassword);
+  }
+}
 
 document
   .getElementById("employeeSearch")
@@ -716,7 +987,7 @@ document
 
       if (
         !window.confirm(
-          `Xóa hồ sơ ${employee.full_name}? Các bản ghi liên quan (tài khoản, đơn nghỉ, lương, chấm công) cũng sẽ bị xóa.`,
+          `Xóa hồ sơ ${employee.full_name}? Tài khoản sẽ bị vô hiệu hóa (xóa mềm) và nhân sự sẽ không còn hiển thị trong danh sách.`,
         )
       ) {
         return;
@@ -727,9 +998,19 @@ document
         id: employee.employee_id,
       });
 
-      if (!result.ok || (result.error && result.error.includes("forbidden"))) {
+      if (!result.ok) {
+        const DELETE_ERRORS = {
+          forbidden_self_delete: "Bạn không thể tự xóa hồ sơ của mình.",
+          forbidden_cannot_delete_admin: "Không thể xóa tài khoản Admin.",
+          forbidden_manager_cannot_delete_manager:
+            "Quản lý không được xóa tài khoản quản lý khác.",
+          forbidden_out_of_scope:
+            "Bạn chỉ được xóa nhân viên thuộc phòng ban của mình.",
+          already_deleted: "Hồ sơ này đã được xóa trước đó.",
+        };
         window.alert(
-          "Không thể xóa hồ sơ. Kiểm tra bản ghi liên quan và quyền của bạn.",
+          DELETE_ERRORS[result.error] ||
+            "Không thể xóa hồ sơ. Kiểm tra bản ghi liên quan và quyền của bạn.",
         );
         return;
       }
@@ -790,80 +1071,234 @@ function showToast(id) {
 }
 
 function renderRequests() {
-  const filter = document.getElementById("requestFilter").value;
+  const filter = document.getElementById("requestFilter")?.value || "all";
+  const searchInput = document.getElementById("requestSearch");
+  const searchTerm = (searchInput?.value || "").trim().toLowerCase();
   const body = document.getElementById("requestsBody");
+  if (!body) return;
   body.replaceChildren();
-  const filtered = requests.filter(
-    (request) =>
-      filter === "all" ||
-      (filter === "pending"
-        ? request.status === "pending"
-        : request.status !== "pending"),
-  );
-  if (!filtered.length) {
-    const row = document.createElement("tr");
-    addCell(row, "Không có đơn trong danh sách.").colSpan = 6;
-    body.append(row);
-  }
-  filtered.forEach((request) => {
-    const employee = employees.find(
-      (item) => item.employee_id === request.employee_id,
-    );
-    const row = document.createElement("tr");
-    const identity = document.createElement("td");
-    const name = document.createElement("strong");
-    name.textContent = employee?.full_name || "Nhân sự đã xóa";
-    const email = document.createElement("small");
-    email.textContent = employee?.email || "";
-    identity.append(name, email);
-    row.append(identity);
-    addCell(row, LEAVE_TYPES[request.leave_type] || "Chưa phân loại");
-    addCell(
-      row,
-      request.leave_type === "resignation"
-        ? `Ngày dự kiến cuối: ${dateLabel(request.start_date)}`
-        : `${dateLabel(request.start_date)} - ${dateLabel(request.end_date)}`,
-    );
-    addCell(row, request.reason);
-    const statusCell = document.createElement("td");
-    const badge = document.createElement("span");
-    badge.className = `hr-status hr-status-${String(request.status || "pending").toLowerCase()}`;
-    badge.textContent = LEAVE_STATUSES[request.status] || request.status;
-    row.append(statusCell);
-    const actions = document.createElement("td");
-    actions.className = "hr-row-actions";
-    if (request.status === "pending")
-      ["approved", "rejected"].forEach((status) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className =
-          status === "approved" ? "mini-btn" : "mini-btn danger";
-        button.dataset.reviewStatus = status;
-        button.dataset.requestId = request.leave_request_id;
-        button.textContent = status === "approved" ? "Duyệt" : "Từ chối";
-        actions.append(button);
-      });
-    actionsCell.append(actions);
-    row.append(actionsCell);
-    body.append(row);
+
+  const filtered = requests.filter((request) => {
+    const status = String(request.status || "").toLowerCase();
+    if (filter === "pending" && status !== "pending") return false;
+    if (filter === "approved" && status !== "approved") return false;
+    if (filter === "rejected" && status !== "rejected") return false;
+    if (filter === "resolved" && status === "pending") return false;
+
+    if (searchTerm) {
+      const employee = employees.find(
+        (item) => item.employee_id === request.employee_id,
+      );
+      const name = (employee?.full_name || "Nhân sự đã xóa").toLowerCase();
+      const email = (employee?.email || "").toLowerCase();
+      const code = (employee?.employee_code || "").toLowerCase();
+      const typeLabel = (LEAVE_TYPES[request.leave_type] || "").toLowerCase();
+      const reason = (request.reason || "").toLowerCase();
+      const statusLabel = (LEAVE_STATUSES[request.status] || "").toLowerCase();
+
+      const matched =
+        name.includes(searchTerm) ||
+        email.includes(searchTerm) ||
+        code.includes(searchTerm) ||
+        typeLabel.includes(searchTerm) ||
+        reason.includes(searchTerm) ||
+        statusLabel.includes(searchTerm);
+      if (!matched) return false;
+    }
+
+    return true;
   });
+
+  // Sort: pending first, then by date descending
+  filtered.sort((a, b) => {
+    const aPending = a.status === "pending" ? 1 : 0;
+    const bPending = b.status === "pending" ? 1 : 0;
+    if (aPending !== bPending) return bPending - aPending;
+    return String(b.start_date || "").localeCompare(String(a.start_date || ""));
+  });
+
+  const totalMatches = filtered.length;
+  const pageCount = Math.max(1, Math.ceil(totalMatches / requestPagination.size));
+  requestPagination.page = Math.min(requestPagination.page, pageCount);
+  const start = (requestPagination.page - 1) * requestPagination.size;
+  const pageRequests = filtered.slice(start, start + requestPagination.size);
+
+  if (!pageRequests.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 6;
+    cell.style.textAlign = "center";
+    cell.style.padding = "36px 14px";
+    cell.style.color = "var(--admin-muted, #747b74)";
+    cell.textContent = searchTerm
+      ? "Không tìm thấy đơn nghỉ phép phù hợp với tìm kiếm."
+      : "Không có đơn trong danh sách.";
+    row.append(cell);
+    body.append(row);
+  } else {
+    pageRequests.forEach((request) => {
+      const employee = employees.find(
+        (item) => item.employee_id === request.employee_id,
+      );
+      const row = document.createElement("tr");
+
+      // 1. Nhân sự
+      const identity = document.createElement("td");
+      const wrap = document.createElement("div");
+      wrap.className = "hr-employee-cell";
+      const name = document.createElement("strong");
+      name.className = "hr-employee-name";
+      name.textContent = employee?.full_name || "Nhân sự đã xóa";
+      wrap.append(name);
+      if (employee?.email) {
+        const email = document.createElement("small");
+        email.className = "hr-employee-email";
+        email.textContent = employee.email;
+        wrap.append(email);
+      }
+      identity.append(wrap);
+      row.append(identity);
+
+      // 2. Loại đơn
+      const typeCell = document.createElement("td");
+      const typeBadge = document.createElement("span");
+      typeBadge.className = `hr-leave-type-badge hr-leave-${request.leave_type || "default"}`;
+      typeBadge.textContent = LEAVE_TYPES[request.leave_type] || "Chưa phân loại";
+      typeCell.append(typeBadge);
+      row.append(typeCell);
+
+      // 3. Thời gian
+      const timeCell = document.createElement("td");
+      const timeWrap = document.createElement("div");
+      timeWrap.className = "hr-time-cell";
+      const timeRange = document.createElement("span");
+      timeRange.className = "hr-time-range";
+
+      if (request.leave_type === "resignation") {
+        timeRange.textContent = `Ngày dự kiến cuối: ${dateLabel(request.start_date)}`;
+        timeWrap.append(timeRange);
+      } else {
+        const startLabel = dateLabel(request.start_date);
+        const endLabel = dateLabel(request.end_date);
+        timeRange.textContent = startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`;
+        timeWrap.append(timeRange);
+
+        if (request.start_date && request.end_date) {
+          const s = new Date(request.start_date);
+          const e = new Date(request.end_date);
+          const diffDays = Math.round(Math.abs(e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          if (!isNaN(diffDays) && diffDays > 0) {
+            const daysSpan = document.createElement("small");
+            daysSpan.className = "hr-time-days";
+            daysSpan.textContent = `(${diffDays} ngày)`;
+            timeWrap.append(daysSpan);
+          }
+        }
+      }
+      timeCell.append(timeWrap);
+      row.append(timeCell);
+
+      // 4. Lý do
+      const reasonCell = document.createElement("td");
+      reasonCell.className = "hr-reason-cell";
+      reasonCell.textContent = request.reason || "—";
+      if (request.reason) {
+        reasonCell.title = request.reason;
+      }
+      row.append(reasonCell);
+
+      // 5. Trạng thái
+      const statusCell = document.createElement("td");
+      statusCell.className = "hr-status-column";
+      const badge = document.createElement("span");
+      const statusKey = String(request.status || "pending").toLowerCase();
+      badge.className = `hr-status hr-status-${statusKey}`;
+      badge.textContent = LEAVE_STATUSES[request.status] || request.status;
+      statusCell.append(badge);
+      row.append(statusCell);
+
+      // 6. Thao tác
+      const actionsCell = document.createElement("td");
+      actionsCell.className = "hr-actions-column";
+      const actions = document.createElement("div");
+      actions.className = "hr-row-actions";
+      if (request.status === "pending") {
+        const approveBtn = document.createElement("button");
+        approveBtn.type = "button";
+        approveBtn.className = "hr-btn-approve";
+        approveBtn.dataset.reviewStatus = "approved";
+        approveBtn.dataset.requestId = request.leave_request_id;
+        approveBtn.textContent = "Duyệt";
+
+        const rejectBtn = document.createElement("button");
+        rejectBtn.type = "button";
+        rejectBtn.className = "hr-btn-reject";
+        rejectBtn.dataset.reviewStatus = "rejected";
+        rejectBtn.dataset.requestId = request.leave_request_id;
+        rejectBtn.textContent = "Từ chối";
+
+        actions.append(approveBtn, rejectBtn);
+      } else {
+        const done = document.createElement("span");
+        done.className = "hr-action-done";
+        done.textContent = "—";
+        actions.append(done);
+      }
+      actionsCell.append(actions);
+      row.append(actionsCell);
+
+      body.append(row);
+    });
+  }
+
+  renderPagination(
+    "requestsPagination",
+    totalMatches,
+    requestPagination,
+    renderRequests,
+  );
 }
 
-document.getElementById("requestFilter").value = "pending";
 document
   .getElementById("requestFilter")
-  .addEventListener("change", renderRequests);
+  ?.addEventListener("change", () => {
+    requestPagination.page = 1;
+    renderRequests();
+  });
+
+document
+  .getElementById("requestSearch")
+  ?.addEventListener("input", () => {
+    requestPagination.page = 1;
+    renderRequests();
+  });
+
 document
   .getElementById("requestsBody")
-  .addEventListener("click", async (event) => {
+  ?.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-review-status]");
-    if (!button) return;
+    if (!button || button.disabled) return;
+    const reviewStatus = button.dataset.reviewStatus;
+    const requestId = button.dataset.requestId;
+    const actionText = reviewStatus === "approved" ? "duyệt" : "từ chối";
+
+    if (!window.confirm(`Bạn có chắc muốn ${actionText} đơn nghỉ này không?`)) {
+      return;
+    }
+
+    button.disabled = true;
+    const prevText = button.textContent;
+    button.textContent = "...";
+
     const result = await callHr({
       action: "leave_review",
-      leave_request_id: button.dataset.requestId,
-      status: button.dataset.reviewStatus,
+      leave_request_id: requestId,
+      status: reviewStatus,
     });
+
     if (!result.ok) {
+      button.disabled = false;
+      button.textContent = prevText;
       const reasons = {
         forbidden:
           "Bạn không có quyền duyệt đơn này (không duyệt đơn của chính mình).",
@@ -876,6 +1311,19 @@ document
       );
       return;
     }
+
+    const reviewToast = document.getElementById("reviewToast");
+    if (reviewToast) {
+      const span = reviewToast.querySelector("span");
+      if (span) {
+        span.textContent =
+          reviewStatus === "approved"
+            ? "Đã duyệt đơn nghỉ thành công!"
+            : "Đã từ chối đơn nghỉ thành công!";
+      }
+      showToast("reviewToast");
+    }
+
     await loadLookups();
     renderAll();
   });
@@ -2114,4 +2562,4 @@ setInterval(async () => {
   if (currentActor) {
     await callHr({ action: "ping" });
   }
-}, 15000);
+}, 5000);

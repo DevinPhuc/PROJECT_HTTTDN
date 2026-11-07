@@ -252,25 +252,19 @@
                         required
                       ></select>
                     </div>
-                    <div class="form-group" id="employeeDepartmentGroup">
-                      <label>Phòng ban</label>
-                      <select
-                        name="departmentId"
-                        id="employeeDepartment"
-                        required
-                      ></select>
-                    </div>
-                    <div class="form-group">
-                      <label>Trạng thái</label>
-                      <select name="employmentStatus">
-                        <option>Đang làm</option>
-                        <option>Đang nghỉ phép</option>
-                        <option>Đã nghỉ việc</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Vai trò hệ thống <span class="req">*</span></label>
-                      <select name="roleId" id="employeeRole" required></select>
+                    <div class="employee-status-role-row">
+                      <div class="form-group">
+                        <label>Trạng thái</label>
+                        <select name="employmentStatus">
+                          <option>Đang làm</option>
+                          <option>Đang nghỉ phép</option>
+                          <option>Đã nghỉ việc</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label>Vai trò hệ thống <span class="req">*</span></label>
+                        <select name="roleId" id="employeeRole" required></select>
+                      </div>
                     </div>
                     <div class="form-group">
                       <label
@@ -283,6 +277,14 @@
                         readonly
                         required
                       />
+                    </div>
+                    <div class="form-group" id="employeeDepartmentGroup">
+                      <label>Phòng ban</label>
+                      <select
+                        name="departmentId"
+                        id="employeeDepartment"
+                        required
+                      ></select>
                     </div>
                   </div>
                   <div class="modal-footer">
@@ -326,6 +328,7 @@
                 >
                   <option value="all">Tất cả chức vụ</option>
                   <option value="employee">Nhân viên</option>
+                  <option value="leader">Trưởng nhóm</option>
                   <option value="manager">Quản lý</option>
                 </select>
                 <button
@@ -370,7 +373,7 @@
                           class="hr-sort-button"
                           data-employee-sort="position"
                         >
-                          Chức vụ
+                          Vai trò
                         </button>
                       </th>
                       <th>
@@ -447,18 +450,21 @@
                 <select id="requestFilter" class="admin-search">
                   <option value="all">Tất cả đơn</option>
                   <option value="pending">Chờ duyệt</option>
+                  <option value="approved">Đã duyệt</option>
+                  <option value="rejected">Từ chối</option>
                   <option value="resolved">Đã xử lý</option>
                 </select>
               </div>
               <div class="hr-table-wrap">
-                <table class="hr-table">
+                <table class="hr-table hr-requests-table">
                   <thead>
                     <tr>
                       <th>Nhân sự</th>
                       <th>Loại đơn</th>
                       <th>Thời gian</th>
                       <th>Lý do</th>
-                      <th>Trạng thái</th>
+                      <th class="hr-status-column">Trạng thái</th>
+                      <th class="hr-actions-column">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody id="requestsBody"></tbody>
@@ -1599,11 +1605,15 @@
       aria-live="polite"
     >
       <img src="../shared/images/check.png" alt="" class="toast-icon" />
-      <span>Thêm nhân sự thành công!</span>
+      <span>Đã thêm nhân sự thành công!</span>
     </div>
     <div id="deleteToast" class="delete-toast" role="status" aria-live="polite">
       <img src="../shared/images/x.png" alt="" class="toast-icon" />
-      <span>Đã xóa nhân viên thành công!</span>
+      <span>Đã xóa nhân sự thành công!</span>
+    </div>
+    <div id="reviewToast" class="success-toast" role="status" aria-live="polite">
+      <img src="../shared/images/check.png" alt="" class="toast-icon" />
+      <span>Đã duyệt đơn nghỉ thành công!</span>
     </div>
 
     <div id="permanentDeleteModal" class="account-confirm-modal" hidden>

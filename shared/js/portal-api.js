@@ -51,8 +51,15 @@
     return session;
   }
 
+  function getLoginUrlForRole(role) {
+    const norm = String(role || "").trim().toLowerCase();
+    if (norm === "admin") return "../admin/login.html";
+    if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(norm)) return "../manager/login.html";
+    return "../staff/staff-login.html";
+  }
+
   // All portal data access goes through one edge function per portal.
-  // A 401 ends the session and sends the user back to the login page.
+  // A 401 ends the session and sends the user back to the login page of their active role.
   async function callPortal(portal, name, body, { loginUrl } = {}) {
     const session = validSession(portal);
     const { data, error } = await window.sbInvoke(name, {
@@ -72,7 +79,12 @@
       }
       if (status === 401) {
         clearSession(portal);
-        if (loginUrl) window.location.replace(loginUrl);
+        let targetUrl = payload?.redirect_url;
+        if (!targetUrl && payload?.role) {
+          targetUrl = getLoginUrlForRole(payload.role);
+        }
+        if (!targetUrl) targetUrl = loginUrl;
+        if (targetUrl) window.location.replace(targetUrl);
       }
       return { ok: false, status, error: payload?.error || "server_error" };
     }
@@ -98,6 +110,20 @@
     }
     if (!payload?.ok) return { error: payload?.error || "server_error" };
     saveSession(portal, { token: payload.token, user: payload.user, portals: payload.portals });
+    try {
+      if (window.sb && typeof window.sb.channel === "function" && payload.user?.employee_id) {
+        const nowFormatted = new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", minute: "2-digit", hour12: false,
+        }).format(new Date()).replace(",", "");
+        window.sb.channel("portal-activities").send({
+          type: "broadcast",
+          event: "activity",
+          payload: { employee_id: payload.user.employee_id, last_login: nowFormatted }
+        });
+      }
+    } catch (e) {}
     return { user: payload.user, portals: payload.portals || [] };
   }
 

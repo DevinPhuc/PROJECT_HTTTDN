@@ -1,3 +1,119 @@
+
+function isCurrentAdminAccount(account) {
+  if (!account) return false;
+  const currentEmpId =
+    currentSession?.user?.employee_id ||
+    decodeToken(currentSession?.token)?.employee_id;
+  if (currentEmpId && String(account.employee_id) === String(currentEmpId)) {
+    return true;
+  }
+  const currentEmail = (currentSession?.user?.email || "").trim().toLowerCase();
+  const currentUsername = (currentSession?.user?.username || "").trim().toLowerCase();
+  const accEmail = (account.email || "").trim().toLowerCase();
+  const accUsername = (account.username || "").trim().toLowerCase();
+  if (currentEmail && accEmail && currentEmail === accEmail) {
+    return true;
+  }
+  if (currentUsername && (accUsername === currentUsername || accEmail === currentUsername)) {
+    return true;
+  }
+  return false;
+}
+
+function formatActivityTime(isoString) {
+  if (!isoString) return "—";
+  try {
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return isoString;
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(d);
+    const map = {};
+    parts.forEach((p) => (map[p.type] = p.value));
+    return `${map.day}/${map.month}/${map.year} ${map.hour}:${map.minute}`;
+  } catch {
+    return isoString;
+  }
+}
+
+function updateAccountActivityTime(employeeId, newLastLogin) {
+  if (!employeeId || !newLastLogin) return;
+
+  // 1. Update in memory state.accounts
+  const account = state.accounts.find(
+    (item) => String(item.employee_id) === String(employeeId),
+  );
+  if (account) {
+    if (account.last_login === newLastLogin) return;
+    account.last_login = newLastLogin;
+  }
+
+  // 2. Direct DOM cell update without reloading the page or list
+  const row = document.querySelector(
+    `#overviewAccounts [data-overview-employee="${CSS.escape(employeeId)}"]`,
+  );
+  if (row) {
+    const cell = row.querySelector(".overview-activity-cell");
+    if (cell && cell.textContent.trim() !== newLastLogin) {
+      cell.textContent = newLastLogin;
+      cell.classList.remove("activity-pulse");
+      void cell.offsetWidth; // trigger reflow
+      cell.classList.add("activity-pulse");
+      window.setTimeout(() => cell.classList.remove("activity-pulse"), 2000);
+    }
+  }
+}
+
+function initRealtimeActivities() {
+  if (window.sb && typeof window.sb.channel === "function") {
+    try {
+      const channel = window.sb.channel("portal-activities");
+      channel
+        .on("broadcast", { event: "activity" }, (data) => {
+          const { employee_id, last_login } = data.payload || {};
+          if (employee_id && last_login) {
+            updateAccountActivityTime(employee_id, last_login);
+          }
+        })
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "employee_accounts" },
+          (payload) => {
+            const newRow = payload.new;
+            if (newRow?.employee_id && newRow?.last_login) {
+              const formatted = formatActivityTime(newRow.last_login);
+              updateAccountActivityTime(newRow.employee_id, formatted);
+            }
+          },
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn("Realtime subscription error:", err);
+    }
+  }
+
+  // Periodic polling every 2.5s: ensures instant update without reload even if socket reconnects
+  setInterval(async () => {
+    if (!currentSession) return;
+    try {
+      const res = await callAdmin({ action: "latest_activities" });
+      if (res.ok && Array.isArray(res.data?.activities)) {
+        for (const act of res.data.activities) {
+          updateAccountActivityTime(act.employee_id, act.last_login);
+        }
+      }
+    } catch (e) {
+      // Ignore network errors
+    }
+  }, 2500);
+}
+
 const ADMIN_TOKEN_KEY = "jewels-admin-token";
 
 function getSession() {
@@ -103,6 +219,9 @@ const ACCOUNT_ERRORS = {
   unknown_department: "Không tìm thấy phòng ban.",
   unknown_role: "Không tìm thấy vai trò.",
   invalid_role: "Vai trò không hợp lệ.",
+  forbidden_self_role_change: "Bạn không thể tự cập nhật vai trò của chính mình.",
+  forbidden_admin_role_change: "Không thể thay đổi vai trò của tài khoản Admin.",
+  cannot_create_admin: "Chỉ cho phép duy nhất một tài khoản vai trò Admin.",
   role_name_reserved: 'Không thể dùng tên vai trò "Admin".',
   position_department_mismatch: "Vị trí không thuộc phòng ban đã chọn.",
   duplicate: "Email hoặc mã nhân viên đã tồn tại.",
@@ -191,15 +310,30 @@ function accountStatusText(account) {
   return account.deleted_at ? "Đã xóa" : accountStatusLabel(account.is_active);
 }
 
+let toastTimeouts = {};
 function showAccountSuccessToast() {
   showAccountToast("accountSuccessToast");
+}
+
+function showAccountUpdateToast() {
+  showAccountToast("accountUpdateToast");
+}
+
+function showAccountDeleteToast() {
+  showAccountToast("accountDeleteToast");
 }
 
 function showAccountToast(id) {
   const toast = document.getElementById(id);
   if (!toast) return;
+  if (toastTimeouts[id]) {
+    clearTimeout(toastTimeouts[id]);
+  }
   toast.classList.add("show");
-  window.setTimeout(() => toast.classList.remove("show"), 5000);
+  toastTimeouts[id] = window.setTimeout(() => {
+    toast.classList.remove("show");
+    delete toastTimeouts[id];
+  }, 5000);
 }
 
 function confirmPermanentAccountDelete() {
@@ -282,7 +416,8 @@ async function callAdmin(body) {
     }
     if (status === 401) {
       clearSession();
-      window.location.replace("login.html");
+      const redirectUrl = payload?.redirect_url || "login.html";
+      window.location.replace(redirectUrl);
     }
     return { ok: false, status, error: payload?.error || "server_error" };
   }
@@ -369,7 +504,7 @@ async function loadOptions() {
 function renderOverviewBlocks() {
   const overviewAccounts = document.getElementById("overviewAccounts");
   const activeAccounts = state.accounts.filter(
-    (item) => !item.deleted_at && item.is_active,
+    (item) => !item.deleted_at && item.is_active && !isCurrentAdminAccount(item),
   );
   if (overviewAccounts) {
     const totalPages = Math.max(
@@ -516,6 +651,7 @@ function renderAccountsTable() {
   const role = document.getElementById("accountRoleFilter")?.value || "";
   const term = (search?.value || "").trim().toLowerCase();
   const filteredRows = state.accounts.filter((item) => {
+    if (isCurrentAdminAccount(item)) return false;
     const searchable = [
       item.employee_code,
       item.full_name,
@@ -703,14 +839,17 @@ function renderAccountPagination(total, first, last, totalPages) {
 }
 
 function roleSelectHtml(account) {
-  if (account.role_name === "Admin") {
-    return '<select class="role-select" disabled><option value="">Admin</option></select>';
+  const isSelf = String(account.employee_id) === String(currentSession?.user?.employee_id);
+  if (account.role_name === "Admin" || isSelf) {
+    return `<select class="role-select" disabled><option value="">${escapeHtml(account.role_name || "Admin")}</option></select>`;
   }
   const options = ['<option value="">— Chọn vai trò —</option>'].concat(
-    state.roles.map(
-      (role) =>
-        `<option value="${escapeHtml(role.role_id)}" ${String(role.role_id) === String(account.role_id) ? "selected" : ""}>${escapeHtml(role.role_name)}</option>`,
-    ),
+    state.roles
+      .filter((role) => String(role.role_name).toLowerCase() !== "admin")
+      .map(
+        (role) =>
+          `<option value="${escapeHtml(role.role_id)}" ${String(role.role_id) === String(account.role_id) ? "selected" : ""}>${escapeHtml(role.role_name)}</option>`,
+      ),
   );
   return `<select class="role-select" data-employee="${escapeHtml(account.employee_id)}">${options.join("")}</select>`;
 }
@@ -733,7 +872,7 @@ function renderStaffTable() {
   const search = document.getElementById("staffSearch");
   const term = (search?.value || "").trim().toLowerCase();
   const filteredRows = state.accounts.filter((item) =>
-    [item.full_name, item.email].join(" ").toLowerCase().includes(term),
+    !isCurrentAdminAccount(item) && [item.full_name, item.email].join(" ").toLowerCase().includes(term),
   );
   const totalPages = Math.max(
     1,
@@ -762,7 +901,7 @@ function renderStaffTable() {
       <span>${escapeHtml(item.email)}</span>
       <span>${roleSelectHtml(item)}</span>
       <span class="table-actions">
-        <button type="button" class="mini-btn" data-assign-role="${escapeHtml(item.employee_id)}" ${item.role_name === "Admin" ? "disabled" : ""}>Lưu</button>
+        <button type="button" class="mini-btn" data-assign-role="${escapeHtml(item.employee_id)}" ${item.role_name === "Admin" || String(item.employee_id) === String(currentSession?.user?.employee_id) ? "disabled" : ""}>Lưu</button>
       </span>
     </div>
   `,
@@ -1008,6 +1147,7 @@ function abbreviatePosition(positionName) {
   const role = String(positionName || "")
     .trim()
     .toLowerCase();
+  if (role === "admin") return "AD";
   if (role === "nhân viên") return "NV";
   if (role === "quản lý") return "QL";
   if (role === "trưởng nhóm") return "TN";
@@ -1079,6 +1219,7 @@ function employeeCodePrefix(roleName) {
   const normalized = String(roleName || "")
     .trim()
     .toLowerCase();
+  if (normalized === "admin") return "AD";
   if (normalized === "quản lý") return "QL";
   if (normalized === "trưởng nhóm") return "TN";
   return "NV";
@@ -1098,12 +1239,12 @@ function updateGeneratedEmployeeCode() {
   form.elements.employee_code.value = `${prefix}${String(highest + 1).padStart(3, "0")}`;
 }
 
-function fillRoleOptions(selectedRoleId = "") {
+function fillRoleOptions(selectedRoleId = "", excludeAdmin = false) {
   const select = document.querySelector("#accountForm select[name='role_id']");
   if (!select) return;
   select.replaceChildren(new Option("Chọn vai trò", ""));
   (state.roles || [])
-    .filter((role) => String(role.role_name).toLowerCase() !== "admin")
+    .filter((role) => !excludeAdmin || String(role.role_name).toLowerCase() !== "admin")
     .forEach((role) => {
       select.append(new Option(role.role_name, role.role_id));
     });
@@ -1114,6 +1255,8 @@ function hideAccountForm() {
   const form = document.getElementById("accountForm");
   if (!form) return;
   form.hidden = true;
+  if (form.elements.is_active) form.elements.is_active.disabled = false;
+  if (form.elements.role_id) form.elements.role_id.disabled = false;
   resetForm("accountForm");
   const message = document.getElementById("accountFormMessage");
   if (message) message.textContent = "";
@@ -1126,11 +1269,15 @@ async function openAccountAdd() {
   updateAccountDateLimits();
   const options = await loadOptions();
   if (!options) return;
+  if (!state.roles.length) await loadRoles();
   fillAccountOptions(null);
   fillRoleOptions(
     state.roles.find((role) => role.role_name === "Nhân viên")?.role_id || "",
+    true,
   );
+  form.elements.role_id.disabled = false;
   form.elements.is_active.value = "true";
+  form.elements.is_active.disabled = true;
   form.querySelector(".admin-form-header h3").textContent = "Thêm nhân sự mới";
   form.querySelector('button[type="submit"]').textContent = "Thêm nhân sự";
   form.querySelector("#generatedPasswordGroup").hidden = false;
@@ -1149,6 +1296,7 @@ async function openAccountEdit(employeeId) {
 
   const options = await loadOptions();
   if (!options) return;
+  if (!state.roles.length) await loadRoles();
 
   const form = document.getElementById("accountForm");
   if (!form) return;
@@ -1162,7 +1310,11 @@ async function openAccountEdit(employeeId) {
   form.elements.date_of_birth.value = toDisplayDate(account.date_of_birth);
   form.elements.hire_date.value = toDisplayDate(account.hire_date);
   fillAccountOptions(account);
-  fillRoleOptions(account.role_id || "");
+  const isSelf = String(account.employee_id) === String(currentSession?.user?.employee_id);
+  const isAdminAccount = String(account.role_name).toLowerCase() === "admin";
+  fillRoleOptions(account.role_id || "", !isAdminAccount);
+  form.elements.role_id.disabled = isSelf || isAdminAccount;
+  form.elements.is_active.disabled = false;
   form.elements.is_active.value = account.is_active ? "true" : "false";
   form.elements.employee_code.readOnly = true;
   form.querySelector(".admin-form-header h3").textContent =
@@ -1205,16 +1357,16 @@ async function submitAccountForm(event) {
     : values.generated_password;
 
   const payload = {
-    employee_code: values.employee_code,
+    employee_code: form.elements.employee_code?.value || values.employee_code,
     full_name: values.full_name,
     email: values.email,
     gender: values.gender,
     date_of_birth: dateOfBirth,
     hire_date: hireDate,
     department_id: values.department_id,
-    position_id: values.position_id,
-    role_id: values.role_id,
-    is_active: values.is_active === "true",
+    position_id: form.elements.position_id?.value || values.position_id || "",
+    role_id: form.elements.role_id ? form.elements.role_id.value : values.role_id,
+    is_active: form.elements.is_active ? form.elements.is_active.value === "true" : true,
     generated_password: currentPassword,
   };
 
@@ -1224,8 +1376,7 @@ async function submitAccountForm(event) {
     !payload.email ||
     !values.date_of_birth ||
     !values.hire_date ||
-    !payload.department_id ||
-    !payload.position_id
+    !payload.department_id
   ) {
     message.textContent = accountErrorMessage("missing_fields");
     return;
@@ -1272,7 +1423,11 @@ async function submitAccountForm(event) {
   const wasCreated = !values.employee_id;
   hideAccountForm();
   await loadAccounts();
-  if (wasCreated) showAccountSuccessToast();
+  if (wasCreated) {
+    showAccountSuccessToast();
+  } else {
+    showAccountUpdateToast();
+  }
 }
 
 async function setAccountActive(employeeId, button) {
@@ -1357,6 +1512,7 @@ async function removeAccount(employeeId, button) {
   account.is_active = false;
   state.accountsError = "";
   renderTables();
+  showAccountDeleteToast();
 }
 
 async function permanentlyDeleteAccount(employeeId, button) {
@@ -1393,8 +1549,11 @@ async function permanentlyDeleteAccount(employeeId, button) {
   state.accounts = state.accounts.filter(
     (item) => String(item.employee_id) !== String(employeeId),
   );
+  state.staff = state.staff.filter(
+    (item) => String(item.employee_id) !== String(employeeId),
+  );
   renderTables();
-  showAccountToast("accountPermanentDeleteToast");
+  showAccountDeleteToast();
 }
 
 async function loadRoles() {
@@ -1455,6 +1614,11 @@ function renderRoleCards() {
             .join("")
         : '<p class="panel-note">Chưa có quyền hạn nào.</p>';
 
+      const isSystemRole = role.role_name.toLowerCase() === "admin";
+      const actionBtn = isSystemRole
+        ? '<span class="status-badge" style="font-size:0.75rem; color:#888;">Hệ thống</span>'
+        : `<button type="button" class="mini-btn" data-edit-role="${escapeHtml(role.role_id)}">Sửa</button>`;
+
       return `
       <article class="role-card">
         <div class="role-card-head">
@@ -1462,7 +1626,7 @@ function renderRoleCards() {
             <strong>${escapeHtml(role.role_name)}</strong>
             ${role.description ? `<span>${escapeHtml(role.description)}</span>` : ""}
           </div>
-          <button type="button" class="mini-btn" data-edit-role="${escapeHtml(role.role_id)}">Sửa</button>
+          ${actionBtn}
         </div>
         <div class="role-card-body">${body}</div>
       </article>`;
@@ -1624,6 +1788,7 @@ async function saveEmployeeRole(employeeId, button) {
   }
 
   await loadAccounts();
+  showAccountUpdateToast();
 }
 
 function attachCrudActions() {
@@ -1645,11 +1810,13 @@ function attachCrudActions() {
   });
 
   document.getElementById("addRoleBtn")?.addEventListener("click", openRoleAdd);
-  document
-    .getElementById("accountRefreshBtn")
-    ?.addEventListener("click", (event) => {
-      refreshAccountData(event.currentTarget);
-    });
+  ["accountRefreshBtn", "overviewAccountRefreshBtn"].forEach((btnId) => {
+    document
+      .getElementById(btnId)
+      ?.addEventListener("click", (event) => {
+        refreshAccountData(event.currentTarget);
+      });
+  });
 
   document.addEventListener("click", (event) => {
     const sortButton = event.target.closest("[data-account-sort]");
@@ -1800,6 +1967,7 @@ renderTables();
 
 if (currentSession) {
   loadInitialData();
+  initRealtimeActivities();
 }
 
 const hash = window.location.hash.replace("#", "");
@@ -1812,7 +1980,7 @@ setInterval(async () => {
   if (currentSession) {
     await callAdmin({ action: "ping" });
   }
-}, 15000);
+}, 5000);
 const profileToggle = document.getElementById("adminProfileToggle");
 const profileMenu = document.getElementById("adminProfileMenu");
 const profileCard = document.querySelector(".admin-profile-card");
