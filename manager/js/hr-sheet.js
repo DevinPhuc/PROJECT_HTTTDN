@@ -6,8 +6,6 @@
 (function () {
   const CODES = {
     X: { n: "Đi làm cả ngày", lv: 1, hl: 1, kl: 0, bg: "#dcfce7", c: "#15803d" },
-    N: { n: "Làm nửa ngày", lv: 0.5, hl: 0.5, kl: 0.5, bg: "#ccfbf1", c: "#0f766e" },
-    CT: { n: "Đi công tác", lv: 1, hl: 1, kl: 0, bg: "#e0f2fe", c: "#0369a1" },
     P: { n: "Nghỉ phép năm", lv: 0, hl: 1, kl: 0, bg: "#dbeafe", c: "#1d4ed8" },
     L: { n: "Nghỉ lễ, Tết", lv: 0, hl: 1, kl: 0, bg: "#ede9fe", c: "#6d28d9" },
     O: { n: "Nghỉ ốm (BHXH trả)", lv: 0, hl: 0, kl: 1, bg: "#fef3c7", c: "#b45309" },
@@ -27,7 +25,7 @@
   let painting = false;
   let dirty = false;
   let saving = 0;
-  let pg = { page: 0, size: 20 };
+  let pg = { page: 0, size: 10 };
   // In-memory painted overlay: Map employee_id → Map dayNumber → code | "" (clear).
   let overlay = null;
 
@@ -51,15 +49,6 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
   const ymNow = () => isoNow().slice(0, 7);
-  const ymAdd = (ym, n) => {
-    let [y, m] = ym.split("-").map(Number);
-    m += n;
-    while (m > 12) { m -= 12; y++; }
-    while (m < 1) { m += 12; y--; }
-    return `${y}-${pad(m)}`;
-  };
-  // Payroll cycle: payroll day >= 25 belongs to the following month's sheet.
-  const defaultMonth = () => (+isoNow().slice(8) >= 25 ? ymNow() : ymAdd(ymNow(), -1));
   const isOff = (ym, d) => dow(ym, d) === 0; // Sunday only
   const departmentNameOf = (employee) =>
     departments.find((d) => d.department_id === employee.department_id)?.department_name || "-";
@@ -250,7 +239,7 @@
     for (const [eid, perEmp] of overlay) {
       if (!inScope.has(eid)) continue; // only the filtered department(s)
       for (const [day, code] of [...perEmp]) {
-        if (code) perEmp.set(day, ""); // clear cell = day_code NULL, row survives
+        if (code) perEmp.set(day, ""); // clear cell = delete the row (bug fix)
       }
       if (!perEmp.size) overlay.delete(eid);
     }
@@ -617,7 +606,7 @@
 
   /* ---------- Lifecycle ---------- */
   const load = () => {
-    month = month || defaultMonth();
+    month = month || ymNow(); // default: current system month
     rebuildOverlay();
     render();
   };

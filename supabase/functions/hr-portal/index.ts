@@ -67,7 +67,6 @@ const ATTENDANCE_STATUS: Record<string, string> = {
   present: "Present",
   absent: "Absent",
   late: "Late",
-  halfday: "HalfDay",
   on_leave: "OnLeave",
 };
 
@@ -75,12 +74,16 @@ const ATTENDANCE_STATUS: Record<string, string> = {
 const DAY_CODE_STATUS: Record<string, { status: string }> = {
   X: { status: "present" },
   CT: { status: "present" },
-  N: { status: "halfday" },
   P: { status: "on_leave" },
   L: { status: "on_leave" },
   O: { status: "absent" },
   KP: { status: "absent" },
 };
+
+// "Worked all day" (X) means 07:00–17:00 so the Time-Clock list sums to 8h.
+// Real clock timestamps win: coalesce only fills the gaps.
+const FULL_DAY_IN = "07:00:00";
+const FULL_DAY_OUT = "17:00:00";
 
 type Actor = {
   employee_id: string;
@@ -1055,8 +1058,18 @@ async function attendanceSaveAction(
   const statusInputForDb = hasDayCode && dayCode
     ? DAY_CODE_STATUS[dayCode].status
     : statusInput;
-  // Fragment trick: empty fragment = untouched; value may be null (= clear).
-  const dayCodeFrag = hasDayCode ? sql!`day_code = ${dayCode},` : sql!``;
+  // Clearing ("") removes the day entirely: a deleted entry must not linger
+  // in the Time-Clock list (bug fix 2026-11-07).
+  if (hasDayCode && !dayCode) {
+    try {
+      await sql!`
+        delete from public.attendance_records
+        where employee_id = ${employeeId}::uuid and work_date = ${workDate}::date`;
+    } catch (err) {
+      return dbError(err);
+    }
+    return json({ ok: true });
+  }
 
   try {
     await sql!.begin(async (tx) => {
@@ -1072,7 +1085,7 @@ async function attendanceSaveAction(
       if (existing) {
         await tx`
           update public.attendance_records
-          set ${dayCodeFrag}
+          set day_code = ${dayCode},
               status = ${ATTENDANCE_STATUS[statusInputForDb]},
               overtime_hours = ${overtimeHours},
               overtime_type = ${overtimeType},
@@ -1086,8 +1099,15 @@ async function attendanceSaveAction(
              overtime_type, ot_consent, notes)
           values (${employeeId}::uuid, ${workDate}::date,
                   ${ATTENDANCE_STATUS[statusInputForDb]},
-                  ${hasDayCode ? dayCode : null}, ${overtimeHours}, 0,
+                  ${dayCode}, ${overtimeHours}, 0,
                   ${overtimeType}, ${overtimeConsent}, ${notes})`;
+      }
+      if (dayCode === "X") {
+        await tx`
+          update public.attendance_records
+          set check_in_time = coalesce(check_in_time, ${FULL_DAY_IN}::time),
+              check_out_time = coalesce(check_out_time, ${FULL_DAY_OUT}::time)
+          where employee_id = ${employeeId}::uuid and work_date = ${workDate}::date`;
       }
     });
   } catch (err) {
@@ -1135,27 +1155,40 @@ async function attendanceBulkSaveAction(
           where employee_id = ${it.employeeId}::uuid and work_date = ${it.workDate}::date
           limit 1`;
         if (existing) {
-          // Paint sets code + mapped status only; clear resets the code and keeps
-          // the row (clock timestamps untouched).
           if (it.dayCode) {
-            await tx`
-              update public.attendance_records
-              set day_code = ${it.dayCode},
-                  status = ${ATTENDANCE_STATUS[DAY_CODE_STATUS[it.dayCode].status]}
-              where attendance_id = ${existing.attendance_id}`;
+            // Paint sets code + mapped status. X also fills 07:00–17:00 clock
+            // times when the row has none (real timestamps win).
+            if (it.dayCode === "X") {
+              await tx`
+                update public.attendance_records
+                set day_code = ${it.dayCode},
+                    status = ${ATTENDANCE_STATUS[DAY_CODE_STATUS[it.dayCode].status]},
+                    check_in_time = coalesce(check_in_time, ${FULL_DAY_IN}::time),
+                    check_out_time = coalesce(check_out_time, ${FULL_DAY_OUT}::time)
+                where attendance_id = ${existing.attendance_id}`;
+            } else {
+              await tx`
+                update public.attendance_records
+                set day_code = ${it.dayCode},
+                    status = ${ATTENDANCE_STATUS[DAY_CODE_STATUS[it.dayCode].status]}
+                where attendance_id = ${existing.attendance_id}`;
+            }
           } else {
+            // Clear erases the day: delete the row so the entry disappears
+            // from the Time-Clock list (bug fix 2026-11-07).
             await tx`
-              update public.attendance_records
-              set day_code = null
-              where attendance_id = ${existing.attendance_id}`;
+              delete from public.attendance_records
+              where employee_id = ${it.employeeId}::uuid and work_date = ${it.workDate}::date`;
           }
         } else if (it.dayCode) {
           // Fresh painted day: overtime_hours/night_hours default to 0.
           await tx`
             insert into public.attendance_records
-              (employee_id, work_date, status, day_code)
+              (employee_id, work_date, status, day_code, check_in_time, check_out_time)
             values (${it.employeeId}::uuid, ${it.workDate}::date,
-                    ${ATTENDANCE_STATUS[DAY_CODE_STATUS[it.dayCode].status]}, ${it.dayCode})`;
+                    ${ATTENDANCE_STATUS[DAY_CODE_STATUS[it.dayCode].status]}, ${it.dayCode},
+                    ${it.dayCode === "X" ? FULL_DAY_IN : null}::time,
+                    ${it.dayCode === "X" ? FULL_DAY_OUT : null}::time)`;
         }
       }
     });
@@ -1224,11 +1257,13 @@ async function payrollSaveAction(
         where employee_id = ${employeeId}::uuid and pay_year = ${year} and pay_month = ${month}
         limit 1`;
       if (existing) {
+        // night_pay is NOT NULL without a default in the live schema; every
+        // save must set it or new-month inserts fail (bug fix 2026-11-07).
         await tx`
           update public.payroll
           set base_salary = ${baseSalary}, total_allowance = ${allowance},
               total_deduction = ${totalDeductions}, bonus = ${allowance},
-              overtime_pay = ${overtimePay},
+              overtime_pay = ${overtimePay}, night_pay = 0,
               work_days = ${workDays}, standard_days = ${standardDays},
               insurance_amount = ${insuranceAmount},
               personal_income_tax = ${tax},
@@ -1238,10 +1273,10 @@ async function payrollSaveAction(
         await tx`
           insert into public.payroll
             (employee_id, pay_year, pay_month, base_salary, total_allowance,
-             total_deduction, bonus, overtime_pay, work_days, standard_days,
+             total_deduction, bonus, overtime_pay, night_pay, work_days, standard_days,
              insurance_amount, personal_income_tax, gross_salary, net_salary)
           values (${employeeId}::uuid, ${year}, ${month}, ${baseSalary}, ${allowance},
-                  ${totalDeductions}, ${allowance}, ${overtimePay},
+                  ${totalDeductions}, ${allowance}, ${overtimePay}, 0,
                   ${workDays}, ${standardDays},
                   ${insuranceAmount}, ${tax}, ${grossSalary}, ${netSalary})`;
       }

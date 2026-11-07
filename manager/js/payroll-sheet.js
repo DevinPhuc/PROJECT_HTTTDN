@@ -48,11 +48,10 @@
     }).formatToParts(new Date()).map(({ type, value }) => [type, value]));
     return `${p.year}-${p.month}-${p.day}`;
   }
-  // Từ ngày 25 trở đi chọn tháng hiện tại, trước đó chọn tháng trước (giống bản mẫu).
+  // Luôn mặc định là tháng hiện tại theo hệ thống (múi giờ Việt Nam).
   function defaultMonth() {
-    const t = vnToday(); let y = +t.slice(0, 4), m = +t.slice(5, 7);
-    if (+t.slice(8) < 25) { m -= 1; if (m < 1) { m = 12; y -= 1; } }
-    return `${y}-${String(m).padStart(2, "0")}`;
+    const t = vnToday();
+    return t.slice(0, 7);
   }
 
   function docSo(n) {
@@ -112,7 +111,7 @@
     return { ym, y, m, recs, leaves, pay, sums };
   }
 
-  // present/late = 1 công; halfday = 0,5 công + 0,5 nghỉ KL; absent = nghỉ KL;
+  // present/late = 1 công; absent = nghỉ KL;
   // on_leave = công hưởng lương nếu nằm trong đơn phép năm đã duyệt, ngược lại nghỉ KL.
   function summarize(ctx, id) {
     if (ctx.sums.has(id)) return ctx.sums.get(id);
@@ -123,7 +122,6 @@
       const day = d10(r.work_date);
       switch (String(r.status).toLowerCase()) {
         case "present": case "late": o.lv += 1; o.hl += 1; break;
-        case "halfday": o.lv += .5; o.hl += .5; o.kl += .5; break;
         case "absent": o.kl += 1; break;
         case "on_leave":
           if (leaves.some(([a, b]) => a <= day && day <= b)) { o.hl += 1; o.phep += 1; } else o.kl += 1;
@@ -146,7 +144,8 @@
     const tienOT = round(luongGio * a.ot * CFG.heSoOT);
     const otMien = round(luongGio * a.ot * Math.max(0, CFG.heSoOT - 1));
     const gross = luongCong + pc + tienOT;
-    const noBH = a.kl >= 14 || !luongCB;
+    // Dưới 14 ngày công hưởng lương trong tháng (nghỉ KL ≥14 hoặc giữa kỳ chưa đủ công) → tháng này không đóng BH.
+    const noBH = !luongCB || a.kl >= 14 || a.hl < 14;
     const b = noBH ? { bhxh: 0, bhyt: 0, bhtn: 0 } : bhOf(luongCB, true);
     const bd = noBH ? { bhxh: 0, bhyt: 0, bhtn: 0, kpcd: 0 } : bhOf(luongCB, false);
     const bhNLD = b.bhxh + b.bhyt + b.bhtn, bhDN = bd.bhxh + bd.bhyt + bd.bhtn + bd.kpcd;
@@ -164,7 +163,7 @@
   }
 
   /* ---------- Trạng thái ---------- */
-  const st = { ym: "", dept: "", q: "", page: 0, size: 20, bound: false, chain: Promise.resolve() };
+  const st = { ym: "", dept: "", q: "", page: 0, size: 10, bound: false, chain: Promise.resolve() };
 
   function allRows(ctx) {
     const end = ctx.ym + "-31";
@@ -187,20 +186,17 @@
     { k: "cong", l: "Công hưởng lương", t: "num", g: "Thu nhập" },
     { k: "luongCong", l: "Lương theo công", t: "money", g: "Thu nhập" },
     { k: "pc", l: "Phụ cấp", t: "money", g: "Thu nhập", input: 1 },
-    { k: "ot", l: "Giờ OT", t: "num", g: "Thu nhập" },
-    { k: "tienOT", l: "Tiền OT", t: "money", g: "Thu nhập" },
     { k: "gross", l: "Tổng thu nhập", t: "money", g: "Thu nhập", b: 1 },
     { k: "luongBH", l: "Lương đóng BH", t: "money", g: "Bảo hiểm NLĐ" },
     { k: "bhxh", l: "BHXH", t: "money", g: "Bảo hiểm NLĐ" },
     { k: "bhyt", l: "BHYT", t: "money", g: "Bảo hiểm NLĐ" },
     { k: "bhtn", l: "BHTN", t: "money", g: "Bảo hiểm NLĐ" },
     { k: "tnChiuThue", l: "TN chịu thuế", t: "money", g: "Thuế TNCN" },
-    { k: "giamTru", l: "Giảm trừ bản thân", t: "money", g: "Thuế TNCN" },
     { k: "tnTinhThue", l: "TN tính thuế", t: "money", g: "Thuế TNCN" },
     { k: "thue", l: "Thuế TNCN", t: "money", g: "Thuế TNCN", b: 1 },
     { k: "thucLinh", l: "THỰC LĨNH", t: "money", b: 1 },
   ];
-  const isSumCol = (c) => (c.t === "money" && !["luongCB", "luongBH"].includes(c.k)) || ["cong", "ot"].includes(c.k);
+  const isSumCol = (c) => (c.t === "money" && !["luongCB", "luongBH"].includes(c.k)) || c.k === "cong";
 
   const ICON_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
   const ICON_RECEIPT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>';
@@ -251,7 +247,7 @@
 
     const body = V.map((x, ri) => `<tr><td${sk(0, "c")}>${off + ri + 1}</td>${COLS.map((c, i) => (c.input
       ? `<td class="in"><input data-k="${c.k}" data-e="${esc(x.id)}" value="${x[c.k] ? fmt(x[c.k]) : ""}" data-money inputmode="numeric" placeholder="0" aria-label="${c.l}: ${esc(x.ten)}"></td>`
-      : `<td${sk(i + 1, al(c) + (c.k === "thucLinh" ? " net" : ""))}>${c.k === "ten" ? `<b>${esc(x.ten)}</b>` : c.b ? `<b>${fmtv(c, x[c.k])}</b>` : fmtv(c, x[c.k])}${c.k === "luongBH" && x.noBH && x.luongBH ? ' <span class="pl-badge" title="Nghỉ không lương từ 14 ngày trở lên: tháng này không đóng BH">!</span>' : ""}</td>`)).join("")}<td class="act"><button type="button" class="pl-ibtn" data-act="slip" data-id="${esc(x.id)}" title="In phiếu lương" aria-label="In phiếu lương ${esc(x.ten)}">${ICON_RECEIPT}</button></td></tr>`).join("")
+      : `<td${sk(i + 1, al(c) + (c.k === "thucLinh" ? " net" : ""))}>${c.k === "ten" ? `<b>${esc(x.ten)}</b>` : c.b ? `<b>${fmtv(c, x[c.k])}</b>` : fmtv(c, x[c.k])}${c.k === "luongBH" && x.noBH && x.luongBH ? ' <span class="pl-badge" title="Dưới 14 ngày công hưởng lương trong tháng: tháng này không đóng BH">!</span>' : ""}</td>`)).join("")}<td class="act"><button type="button" class="pl-ibtn" data-act="slip" data-id="${esc(x.id)}" title="In phiếu lương" aria-label="In phiếu lương ${esc(x.ten)}">${ICON_RECEIPT}</button></td></tr>`).join("")
       || '<tr><td colspan="30"><div class="pl-empty">Không có nhân viên trong kỳ này</div></td></tr>';
 
     const foot = L.length
@@ -290,7 +286,7 @@
         <div class="pl-search">${ICON_SEARCH}<input class="pl-inp" id="plQ" type="search" placeholder="Tìm nhân viên..." value="${esc(st.q)}"></div>
         <select class="pl-inp" id="plDept" aria-label="Lọc phòng ban">${deptOptions}</select>
         <span class="pl-grow"></span>
-        <span class="pl-small">Giảm trừ bản thân ${short(CFG.gtBanThan)} · biểu thuế ${CFG.bac.length} bậc · ô vàng nhập trực tiếp</span>
+        <span class="pl-small">Biểu thuế ${CFG.bac.length} bậc · ô vàng nhập trực tiếp</span>
       </div>
       <div class="pl-wrap" id="plW"></div>
       <div class="pl-pager" id="plP"></div>
@@ -408,7 +404,7 @@
     const kv = (l, v) => `<div><span>${l}</span><b>${v}</b></div>`;
     const row = (stt, label, dg, v) => `<tr><td class="c">${stt}</td><td>${label}</td><td class="dg">${dg || ""}</td><td class="r">${mn(v)}</td></tr>`;
     const ded = x.bhNLD + x.thue;
-    const bhNote = (p, cap) => (x.noBH ? "Tháng này không đóng (nghỉ KL từ 14 ngày)" : `${p}% × ${fmt(Math.min(x.luongBH, cap))}`);
+    const bhNote = (p, cap) => (x.noBH ? "Tháng này không đóng (dưới 14 ngày công hưởng lương)" : `${p}% × ${fmt(Math.min(x.luongBH, cap))}`);
     const phone = (contacts.get(x.id) || {}).phone_number || "-";
     const att = [["Công chuẩn", x.cc], ["Công làm thực tế", num(x.lv)], ["Nghỉ phép có lương", num(x.phep)], ["Nghỉ không lương", num(x.kl)], ["Giờ làm thêm", num(x.ot)], ["Công hưởng lương", num(x.cong), 1]]
       .map(([l, v, hl]) => `<div class="${hl ? "hl" : ""}"><b>${v}</b><span>${l}</span></div>`).join("");
