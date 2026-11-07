@@ -224,6 +224,7 @@ const ACCOUNT_ERRORS = {
   cannot_create_admin: "Chỉ cho phép duy nhất một tài khoản vai trò Admin.",
   role_name_reserved: 'Không thể dùng tên vai trò "Admin".',
   position_department_mismatch: "Vị trí không thuộc phòng ban đã chọn.",
+  invalid_phone: "Số điện thoại phải gồm đúng 10 chữ số.",
   duplicate: "Email hoặc mã nhân viên đã tồn tại.",
   check_violation: "Dữ liệu không hợp lệ.",
   role_overlap: "Không thể đổi vai trò do trùng khoảng thời gian hiệu lực.",
@@ -478,11 +479,22 @@ async function loadInitialData() {
 
 async function refreshAccountData(button) {
   if (state.accountsLoading) return;
-  button.disabled = true;
-  button.classList.add("is-loading");
-  await loadInitialData();
-  button.classList.remove("is-loading");
-  button.disabled = false;
+  const btn = button || document.getElementById("accountRefreshBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add("is-loading");
+  }
+  try {
+    await loadInitialData();
+    showAccountToast("refreshToast");
+  } catch (err) {
+    console.error("Refresh failed", err);
+  } finally {
+    if (btn) {
+      btn.classList.remove("is-loading");
+      btn.disabled = false;
+    }
+  }
 }
 
 async function loadOptions() {
@@ -1089,15 +1101,7 @@ function renderPositionOptions(departmentId, selectedPositionId) {
 function renderDepartmentOptions(positionId, selectedDepartmentId) {
   const form = document.getElementById("accountForm");
   if (!form) return;
-  const selectedPosition = (state.options?.positions || []).find(
-    (item) => String(item.position_id) === String(positionId),
-  );
-  const departmentIds = new Set(
-    (selectedPosition?.department_ids || []).map((id) => String(id)),
-  );
-  const departments = (state.options?.departments || []).filter(
-    (item) => !positionId || departmentIds.has(String(item.department_id)),
-  );
+  const departments = state.options?.departments || [];
   fillSelectOptions(
     form.elements.department_id,
     departments,
@@ -1105,11 +1109,20 @@ function renderDepartmentOptions(positionId, selectedDepartmentId) {
     "department_name",
     "Chọn phòng ban",
   );
-  form.elements.department_id.value = departments.some(
-    (item) => String(item.department_id) === String(selectedDepartmentId),
-  )
-    ? selectedDepartmentId
-    : "";
+  if (
+    selectedDepartmentId &&
+    departments.some((item) => String(item.department_id) === String(selectedDepartmentId))
+  ) {
+    form.elements.department_id.value = selectedDepartmentId;
+  } else if (positionId) {
+    const selectedPosition = (state.options?.positions || []).find(
+      (item) => String(item.position_id) === String(positionId),
+    );
+    const departmentIds = (selectedPosition?.department_ids || []).map((id) => String(id));
+    if (departmentIds.length > 0 && !departmentIds.includes(String(form.elements.department_id.value))) {
+      form.elements.department_id.value = departmentIds[0];
+    }
+  }
 }
 
 // The role is assigned separately in the "Vai trò & Quyền" section.
@@ -1128,10 +1141,6 @@ function fillAccountOptions(account) {
   renderPositionOptions(
     account?.department_id || "",
     account?.position_id || "",
-  );
-  renderDepartmentOptions(
-    account?.position_id || "",
-    account?.department_id || "",
   );
 }
 
@@ -1307,6 +1316,9 @@ async function openAccountEdit(employeeId) {
   form.elements.full_name.value = account.full_name;
   form.elements.email.value = account.email;
   form.elements.gender.value = account.gender;
+  if (form.elements.phone_number) {
+    form.elements.phone_number.value = account.phone_number || "";
+  }
   form.elements.date_of_birth.value = toDisplayDate(account.date_of_birth);
   form.elements.hire_date.value = toDisplayDate(account.hire_date);
   fillAccountOptions(account);
@@ -1363,6 +1375,7 @@ async function submitAccountForm(event) {
     gender: values.gender,
     date_of_birth: dateOfBirth,
     hire_date: hireDate,
+    phone_number: String(form.elements.phone_number?.value || values.phone_number || "").trim(),
     department_id: values.department_id,
     position_id: form.elements.position_id?.value || values.position_id || "",
     role_id: form.elements.role_id ? form.elements.role_id.value : values.role_id,
@@ -1389,6 +1402,13 @@ async function submitAccountForm(event) {
 
   if (!hireDate) {
     message.textContent = accountErrorMessage("invalid_hire_date");
+    return;
+  }
+
+  const rawPhone = String(form.elements.phone_number?.value || values.phone_number || "").trim();
+  if (rawPhone && !/^\d{10}$/.test(rawPhone)) {
+    message.textContent = accountErrorMessage("invalid_phone");
+    form.elements.phone_number?.focus();
     return;
   }
 
@@ -1897,6 +1917,9 @@ function attachCrudActions() {
     accountForm.elements.role_id.addEventListener("change", () => {
       updateGeneratedEmployeeCode();
       updateGeneratedPassword();
+    });
+    accountForm.elements.phone_number?.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
     });
     accountForm.elements.department_id.addEventListener("change", (event) => {
       renderPositionOptions(

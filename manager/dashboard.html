@@ -257,6 +257,7 @@
                   <p class="account-eyebrow">THÔNG TIN NHÂN VIÊN</p>
                   <div class="form-grid-2">
                     <input type="hidden" name="id" />
+                    <input type="hidden" name="education" />
                     <div class="form-group">
                       <label>Họ và tên <span class="req">*</span></label>
                       <input name="name" type="text" required maxlength="100" />
@@ -265,64 +266,46 @@
                       <label>Email <span class="req">*</span></label>
                       <input name="email" type="email" required />
                     </div>
-                    <div class="employee-contact-date-row">
-                      <div class="form-group">
-                        <label>Số điện thoại</label>
-                        <input name="phone" type="tel" />
-                      </div>
-                      <div class="form-group">
-                        <label>Ngày sinh <span class="req">*</span></label>
-                        <input name="dateOfBirth" type="date" required />
-                      </div>
-                      <div class="form-group">
-                        <label>Ngày vào làm <span class="req">*</span></label>
-                        <input name="hireDate" type="date" required />
-                      </div>
-                    </div>
                     <div class="form-group">
-                      <label>Trình độ</label>
-                      <select name="education">
-                        <option value="">Chưa cập nhật</option>
-                        <option>Trung học phổ thông</option>
-                        <option>Trung cấp</option>
-                        <option>Cao đẳng</option>
-                        <option>Đại học</option>
-                        <option>Sau đại học</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Chức vụ <span class="req">*</span></label>
-                      <select
-                        name="positionId"
-                        id="employeePosition"
-                        required
-                      ></select>
-                    </div>
-                    <div class="employee-status-role-row">
-                      <div class="form-group">
-                        <label>Trạng thái</label>
-                        <select name="employmentStatus">
-                          <option>Đang làm</option>
-                          <option>Đang nghỉ phép</option>
-                          <option>Đã nghỉ việc</option>
-                        </select>
-                      </div>
-                      <div class="form-group">
-                        <label>Vai trò hệ thống <span class="req">*</span></label>
-                        <select name="roleId" id="employeeRole" required></select>
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label
-                        >Mật khẩu đăng nhập <span class="req">*</span></label
-                      >
+                      <label>Mã nhân viên <span class="req">*</span></label>
                       <input
-                        name="password"
-                        id="employeePassword"
+                        name="employeeCode"
+                        id="employeeCode"
                         type="text"
                         readonly
                         required
                       />
+                    </div>
+                    <div class="form-subgrid-2">
+                      <div class="form-group">
+                        <label>Giới tính</label>
+                        <select name="gender" id="employeeGender">
+                          <option value="Male">Nam</option>
+                          <option value="Female">Nữ</option>
+                          <option value="Other">Khác</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label>Số điện thoại</label>
+                        <input
+                          name="phone"
+                          id="employeePhone"
+                          type="tel"
+                          pattern="[0-9]{10}"
+                          maxlength="10"
+                          placeholder="Nhập 10 chữ số"
+                        />
+                      </div>
+                    </div>
+                    <div class="form-subgrid-2">
+                      <div class="form-group">
+                        <label>Ngày sinh <span class="req">*</span></label>
+                        <input name="dateOfBirth" id="employeeDob" type="date" required />
+                      </div>
+                      <div class="form-group">
+                        <label>Ngày vào làm <span class="req">*</span></label>
+                        <input name="hireDate" id="employeeHireDate" type="date" required />
+                      </div>
                     </div>
                     <div class="form-group" id="employeeDepartmentGroup">
                       <label>Phòng ban</label>
@@ -332,8 +315,49 @@
                         required
                       ></select>
                     </div>
+                    <div class="form-group">
+                      <label>Vị trí <span class="req">*</span></label>
+                      <select
+                        name="positionId"
+                        id="employeePosition"
+                        required
+                      ></select>
+                    </div>
+                    <div class="form-group">
+                      <label>Trạng thái</label>
+                      <select name="employmentStatus" id="employeeStatus" disabled>
+                        <option selected>Đang làm</option>
+                        <option>Đang nghỉ phép</option>
+                        <option>Đã nghỉ việc</option>
+                      </select>
+                    </div>
+                    <div class="form-group" id="employeeRoleGroup">
+                      <label>Vai trò hệ thống <span class="req">*</span></label>
+                      <select name="roleId" id="employeeRole" required></select>
+                    </div>
+                    <div class="form-group employee-password-group">
+                      <label
+                        >Mật khẩu đăng nhập <span class="req">*</span></label
+                      >
+                      <input
+                        name="password"
+                        id="employeePassword"
+                        type="text"
+                        readonly
+                        required
+                        placeholder="Mật khẩu tự động tạo theo vai trò, phòng ban, ngày sinh"
+                      />
+                    </div>
                   </div>
+                  <p id="employeeFeedback" role="status" aria-live="polite"></p>
                   <div class="modal-footer">
+                    <button
+                      type="submit"
+                      class="admin-primary-btn"
+                      id="saveEmployeeBtn"
+                    >
+                      Thêm nhân sự
+                    </button>
                     <button
                       type="button"
                       class="admin-secondary-btn"
@@ -341,20 +365,7 @@
                     >
                       Hủy
                     </button>
-                    <button
-                      type="submit"
-                      class="admin-primary-btn"
-                      id="saveEmployeeBtn"
-                    >
-                      <img
-                        src="../shared/images/user-add.png"
-                        alt=""
-                        class="button-icon"
-                      />
-                      Thêm nhân sự
-                    </button>
                   </div>
-                  <p id="employeeFeedback" role="status" aria-live="polite"></p>
                 </form>
               </div>
             </div>
@@ -377,19 +388,6 @@
                   <option value="leader">Trưởng nhóm</option>
                   <option value="manager">Quản lý</option>
                 </select>
-                <button
-                  type="button"
-                  class="admin-secondary-btn employee-refresh-btn"
-                  id="employeeRefreshBtn"
-                  aria-label="Làm mới dữ liệu"
-                  title="Làm mới dữ liệu"
-                >
-                  <img
-                    src="../shared/images/reset.png"
-                    alt=""
-                    aria-hidden="true"
-                  />
-                </button>
               </div>
               <div class="hr-table-wrap">
                 <table class="hr-table">
@@ -507,6 +505,7 @@
                     <tr>
                       <th>Nhân sự</th>
                       <th>Loại đơn</th>
+                      <th>Ngày gửi</th>
                       <th>Thời gian</th>
                       <th>Lý do</th>
                       <th class="hr-status-column">Trạng thái</th>
@@ -844,6 +843,32 @@
         </div>
       </div>
     </div>
+
+    <div
+      class="logout-modal"
+      id="passwordChangedModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="passwordChangedTitle"
+      hidden
+    >
+      <div class="logout-modal-content" style="width: min(100%, 460px); max-width: 460px;">
+        <h2 id="passwordChangedTitle" style="font-size: 23px; line-height: 1.4; margin: 0 0 24px; font-weight: 500;">
+          Mật khẩu bạn đã bị thay đổi,<br />
+          Sau đây là mật khẩu mới của bạn: <span id="passwordChangedValue" style="color: #278a4b; font-weight: 600;"></span>
+        </h2>
+        <div class="logout-modal-actions" style="display: flex; justify-content: center;">
+          <button
+            type="button"
+            class="admin-secondary-btn"
+            id="confirmPasswordChangeBtn"
+            style="min-width: 100px; padding: 8px 24px;"
+          >
+            Đồng ý
+          </button>
+        </div>
+      </div>
+    </div>
     <div
       id="successToast"
       class="success-toast"
@@ -869,6 +894,15 @@
     >
       <img src="../shared/images/check.png" alt="" class="toast-icon" />
       <span>Dữ liệu đã được làm mới!</span>
+    </div>
+    <div
+      id="payrollToast"
+      class="success-toast"
+      role="status"
+      aria-live="polite"
+    >
+      <img src="../shared/images/check.png" alt="" class="toast-icon" />
+      <span>Đã lưu lương thành công!</span>
     </div>
 
     <div id="permanentDeleteModal" class="account-confirm-modal" hidden>

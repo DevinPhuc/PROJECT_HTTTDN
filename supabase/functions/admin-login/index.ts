@@ -111,6 +111,10 @@ Deno.serve(async (req) => {
       .setExpirationTime("8h")
       .sign(JWT_KEY);
 
+    try {
+      await sql`update public.employee_accounts set pending_notice = null where employee_id = ${portalResult.employee_id}::uuid`;
+    } catch (_) {}
+
     return json({
       ok: true,
       token,
@@ -147,6 +151,10 @@ Deno.serve(async (req) => {
     .setIssuedAt()
     .setExpirationTime("8h")
     .sign(JWT_KEY);
+
+  try {
+    await sql`update public.employee_accounts set pending_notice = null where employee_id = ${result.employee_id}::uuid`;
+  } catch (_) {}
 
   return json({
     ok: true,

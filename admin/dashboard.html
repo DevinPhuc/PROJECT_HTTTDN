@@ -52,6 +52,7 @@
         overflow-y: auto;
         background: #fff;
         box-shadow: 0 24px 60px rgb(21 32 27 / 30%);
+        border-radius: 8px;
       }
     </style>
   </head>
@@ -379,13 +380,23 @@
                     >Mã nhân viên <span class="required-mark">*</span
                     ><input name="employee_code" type="text" readonly required
                   /></label>
-                  <label
-                    >Giới tính<select name="gender">
-                      <option value="Male">Nam</option>
-                      <option value="Female">Nữ</option>
-                      <option value="Other">Khác</option>
-                    </select></label
-                  >
+                  <div class="admin-gender-phone-fields">
+                    <label
+                      >Giới tính<select name="gender">
+                        <option value="Male">Nam</option>
+                        <option value="Female">Nữ</option>
+                        <option value="Other">Khác</option>
+                      </select></label
+                    >
+                    <label
+                      >Số điện thoại<input
+                        name="phone_number"
+                        type="tel"
+                        pattern="[0-9]{10}"
+                        maxlength="10"
+                        placeholder="Nhập 10 chữ số"
+                    /></label>
+                  </div>
                   <div class="admin-date-fields">
                     <label
                       >Ngày sinh <span class="required-mark">*</span
@@ -534,7 +545,7 @@
     <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
     <script src="../shared/js/supabase-client.js"></script>
-    <script src="js/admin.js?v=20261105-account-success-toast-v4"></script>
+    <script src="js/admin.js?v=20261107-refresh-toast-v1"></script>
     <div id="permanentDeleteModal" class="account-confirm-modal" hidden>
       <div
         class="account-confirm-card"
@@ -564,6 +575,15 @@
           </button>
         </div>
       </div>
+    </div>
+    <div
+      id="refreshToast"
+      class="success-toast"
+      role="status"
+      aria-live="polite"
+    >
+      <img src="../shared/images/check.png" alt="" class="toast-icon" />
+      <span>Dữ liệu đã được làm mới!</span>
     </div>
     <div
       id="accountSuccessToast"

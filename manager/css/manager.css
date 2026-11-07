@@ -1274,12 +1274,12 @@ body:has(.admin-page) {
 }
 
 .modal-content {
-  width: min(750px, 95vw);
-  max-height: 90vh;
+  width: min(750px, calc(100vw - 32px));
+  max-height: min(86vh, 760px);
   overflow-y: auto;
   border-radius: 8px;
   background: var(--admin-paper);
-  box-shadow: 0 4px 20px rgb(0 0 0 / 20%);
+  box-shadow: 0 24px 60px rgb(21 32 27 / 30%);
 }
 
 .modal-header {
@@ -1326,6 +1326,7 @@ body:has(.admin-page) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .form-group label {
@@ -1341,6 +1342,7 @@ body:has(.admin-page) {
 .form-group input,
 .form-group select {
   width: 100%;
+  min-width: 0;
   min-height: 38px;
   padding: 8px 10px;
   border: 1px solid #dce1da;
@@ -1365,25 +1367,56 @@ body:has(.admin-page) {
   cursor: not-allowed;
 }
 
+/* Keep native select dropdown indicator on disabled selects */
 #employeeForm select:disabled {
-  appearance: none;
-  background-image: none;
+  appearance: auto;
+  -webkit-appearance: auto;
 }
 
-.employee-contact-date-row {
+.form-subgrid-2 {
   display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.employee-password-group {
+  min-width: 0;
+}
+
+#employeeForm input[name="employeeCode"]:read-only {
+  background: #e9f1eb;
+  color: var(--admin-green-dark);
+  font-weight: 500;
 }
 
 .modal-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 24px;
-  padding-top: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
   border-top: 1px solid #edf0eb;
+}
+
+.modal-footer .admin-primary-btn,
+.modal-footer .admin-secondary-btn {
+  min-height: 38px;
+  padding: 8px 18px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#employeeFeedback {
+  margin: 0;
+  font-size: 12px;
+  color: var(--admin-red);
+}
+
+#employeeFeedback:empty {
+  display: none;
 }
 
 .success-toast,
@@ -1446,9 +1479,13 @@ body:has(.admin-page) {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .employee-contact-date-row {
-    grid-column: auto;
+  .form-subgrid-2 {
     grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .employee-password-group {
+    grid-column: auto;
   }
 
   [data-hr-panel="approvals"] .panel-heading > .admin-search {
@@ -2205,7 +2242,13 @@ body.manager-ready .manager-loading {
 
 /* Requests approval table styles */
 .hr-requests-table {
-  min-width: 860px;
+  min-width: 960px;
+}
+
+.hr-requests-table td.hr-sent-date-cell {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--admin-ink, #1e261f);
 }
 
 .hr-requests-table th.hr-actions-column,

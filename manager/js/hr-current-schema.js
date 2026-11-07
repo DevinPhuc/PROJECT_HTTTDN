@@ -32,6 +32,7 @@ const LEAVE_STATUSES = {
   rejected: "Từ chối",
 };
 let employees = [];
+let allEmployeeCodes = [];
 let currentActor = null;
 let contacts = new Map();
 let positions = [];
@@ -728,40 +729,70 @@ function fillRoleSelect(select, selectedValue = "", roleOptions = roles) {
   select.value = selectedRole ? selectedRole.role_id : "";
 }
 
+function renderManagerPositionOptions(departmentId, selectedPositionId) {
+  const positionSelect = document.getElementById("employeePosition");
+  if (!positionSelect) return;
+  const filtered = positions.filter((item) => {
+    if (!departmentId) return true;
+    if (selectedPositionId && String(item.position_id) === String(selectedPositionId)) return true;
+    const deptIds = item.department_ids || [];
+    return deptIds.some((id) => String(id) === String(departmentId));
+  });
+  const listToRender = filtered.length > 0 ? filtered : positions;
+  fillSelect(
+    positionSelect,
+    listToRender,
+    "position_id",
+    (position) => position.position_title,
+    selectedPositionId || "",
+  );
+  if (selectedPositionId) {
+    positionSelect.value = selectedPositionId;
+  }
+}
+
+function employeeCodePrefix(roleName) {
+  const normalized = String(roleName || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "admin") return "AD";
+  if (normalized === "quản lý" || normalized === "quan ly" || normalized === "manager") return "QL";
+  if (normalized === "trưởng nhóm" || normalized === "truong nhom" || normalized === "leader") return "TN";
+  return "NV";
+}
+
+function updateGeneratedEmployeeCode() {
+  const form = document.getElementById("employeeForm");
+  if (!form || form.elements.namedItem("id")?.value) return;
+  const roleSelect = form.elements.namedItem("roleId");
+  const roleName =
+    roleSelect?.selectedOptions?.[0]?.textContent || "Nhân viên";
+  const prefix = employeeCodePrefix(roleName);
+  const pattern = new RegExp("^" + prefix + "(\\d+)$", "i");
+  const pool = (allEmployeeCodes && allEmployeeCodes.length ? allEmployeeCodes : employees.map((e) => e.employee_code)).filter(Boolean);
+  const highest = pool.reduce((max, code) => {
+    const match = pattern.exec(String(code || ""));
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  const codeInput = form.elements.namedItem("employeeCode");
+  if (codeInput) {
+    codeInput.value = prefix + String(highest + 1).padStart(3, "0");
+  }
+}
+
 function showEmployeeForm(employee = null) {
   const form = document.getElementById("employeeForm");
   form.reset();
   form.elements.namedItem("id").value = employee?.employee_id || "";
 
   const saveButton = document.getElementById("saveEmployeeBtn");
-  saveButton.innerHTML = "";
-  const saveIcon = document.createElement("img");
-  saveIcon.src = employee
-    ? "../shared/images/save.png"
-    : "../shared/images/user-add.png";
-  saveIcon.alt = "";
-  saveIcon.className = "button-icon";
-  saveButton.append(
-    saveIcon,
-    document.createTextNode(employee ? "Lưu thông tin" : "Thêm nhân sự"),
-  );
+  if (saveButton) {
+    saveButton.textContent = employee ? "Lưu thông tin" : "Thêm nhân sự";
+  }
 
   const departmentSelect = document.getElementById("employeeDepartment");
   const departmentGroup = document.getElementById("employeeDepartmentGroup");
-  fillSelect(
-    departmentSelect,
-    departments,
-    "department_id",
-    (department) => department.department_name,
-    employee?.department_id || "",
-  );
-  const canChooseDepartment = Boolean(
-    currentActor?.is_admin || currentActor?.is_hr,
-  );
-  if (!canChooseDepartment) {
-    departmentSelect.value = currentActor?.department_id || "";
-  }
-  departmentGroup.hidden = !canChooseDepartment;
+  const positionSelect = document.getElementById("employeePosition");
   const dateOfBirthInput = form.elements.namedItem("dateOfBirth");
   const passwordInput = form.elements.namedItem("password");
   const passwordGroup = passwordInput.closest(".form-group");
@@ -773,11 +804,35 @@ function showEmployeeForm(employee = null) {
     .toISOString()
     .slice(0, 10);
 
+  const canChooseDepartment = Boolean(
+    currentActor?.is_admin || currentActor?.is_hr,
+  );
+
   if (employee) {
     const contact = contacts.get(employee.employee_id);
+    const targetDeptId = employee.department_id || "";
+    const targetPosId = employee.position_id || employee.current_position_id || "";
+
+    fillSelect(
+      departmentSelect,
+      departments,
+      "department_id",
+      (department) => department.department_name,
+      targetDeptId,
+    );
+    departmentSelect.value = targetDeptId;
+    departmentGroup.hidden = false;
+
+    renderManagerPositionOptions(targetDeptId, targetPosId);
+    if (targetPosId) {
+      positionSelect.value = targetPosId;
+    }
+
     const values = {
+      employeeCode: employee.employee_code || "",
       name: employee.full_name,
       email: employee.email,
+      gender: employee.gender || "Male",
       phone: contact?.phone_number || "",
       education: employee.education || "",
       dateOfBirth: employee.date_of_birth
@@ -788,11 +843,16 @@ function showEmployeeForm(employee = null) {
         : "",
       employmentStatus:
         STATUS_LABELS[normalizedStatus(employee.employment_status)],
+      positionId: targetPosId,
+      departmentId: targetDeptId,
     };
     Object.entries(values).forEach(([key, value]) => {
       if (form.elements.namedItem(key))
         form.elements.namedItem(key).value = value;
     });
+    if (targetPosId) {
+      positionSelect.value = targetPosId;
+    }
     const currentRoles = roleAssignments.get(employee.employee_id) || [];
     if (currentRoles.length > 0) {
       form.elements.namedItem("roleId").value = currentRoles[0];
@@ -823,15 +883,60 @@ function showEmployeeForm(employee = null) {
     passwordInput.readOnly = true;
     passwordInput.placeholder = "Mật khẩu tạo tự động theo vai trò, phòng ban, ngày sinh";
     passwordGroup.hidden = false;
+
+    fillSelect(
+      departmentSelect,
+      departments,
+      "department_id",
+      (department) => department.department_name,
+      canChooseDepartment ? "" : (currentActor?.department_id || ""),
+    );
+    if (!canChooseDepartment) {
+      departmentSelect.value = currentActor?.department_id || "";
+    }
+    departmentGroup.hidden = false;
+
+    const defaultDeptId = departmentSelect.value || currentActor?.department_id || "";
+    renderManagerPositionOptions(defaultDeptId, "");
+
+    if (form.elements.namedItem("gender")) {
+      form.elements.namedItem("gender").value = "Male";
+    }
+    if (form.elements.namedItem("phone")) {
+      form.elements.namedItem("phone").value = "";
+    }
+
+    const roleSelect = form.elements.namedItem("roleId");
+    if (roleSelect && !roleSelect.value) {
+      const defaultRole = roles.find((r) => r.role_name.toLowerCase() === "nhân viên");
+      if (defaultRole) {
+        roleSelect.value = defaultRole.role_id;
+      }
+    }
+
+    updateGeneratedEmployeeCode();
     updateGeneratedEmployeePassword();
 
     // MỞ KHÓA FORM VÀ HIỆN LẠI NÚT LƯU KHI THÊM MỚI
     Array.from(form.elements).forEach((el) => {
       el.disabled = false;
     });
+    if (form.elements.namedItem("employeeCode")) {
+      form.elements.namedItem("employeeCode").readOnly = true;
+    }
+    const statusSelect = form.elements.namedItem("employmentStatus");
+    if (statusSelect) {
+      statusSelect.value = "Đang làm";
+      statusSelect.disabled = true;
+    }
+    if (!canChooseDepartment) {
+      departmentSelect.disabled = true;
+    }
     if (saveButton) {
       saveButton.style.display = "inline-flex";
     }
+    document.getElementById("employeeFormTitle").textContent =
+      "Thêm nhân sự mới";
   }
 
   document.getElementById("addEmployeeModal").classList.remove("hidden");
@@ -927,11 +1032,24 @@ if (employeeForm) {
   }
   const roleInput = employeeForm.elements.namedItem("roleId");
   if (roleInput) {
-    roleInput.addEventListener("change", updateGeneratedEmployeePassword);
+    roleInput.addEventListener("change", () => {
+      updateGeneratedEmployeeCode();
+      updateGeneratedEmployeePassword();
+    });
+  }
+  const phoneInput = employeeForm.elements.namedItem("phone");
+  if (phoneInput) {
+    phoneInput.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    });
   }
   const deptInput = employeeForm.elements.namedItem("departmentId");
   if (deptInput) {
-    deptInput.addEventListener("change", updateGeneratedEmployeePassword);
+    deptInput.addEventListener("change", () => {
+      const posSelect = employeeForm.elements.namedItem("positionId");
+      renderManagerPositionOptions(deptInput.value, posSelect?.value || "");
+      updateGeneratedEmployeePassword();
+    });
   }
   const posInput = employeeForm.elements.namedItem("positionId");
   if (posInput) {
@@ -951,7 +1069,6 @@ document
 async function refreshAllManagerData() {
   const buttons = [
     document.getElementById("managerGlobalRefreshBtn"),
-    document.getElementById("employeeRefreshBtn"),
   ].filter(Boolean);
 
   buttons.forEach((btn) => {
@@ -982,11 +1099,6 @@ document
     refreshAllManagerData();
   });
 
-document
-  .getElementById("employeeRefreshBtn")
-  ?.addEventListener("click", () => {
-    refreshAllManagerData();
-  });
 document.querySelectorAll("[data-employee-sort]").forEach((button) => {
   button.addEventListener("click", () => {
     const key = button.dataset.employeeSort;
@@ -1064,18 +1176,28 @@ document
     event.preventDefault();
     const form = event.currentTarget;
     const values = Object.fromEntries(new FormData(form).entries());
+    const rawPhone = String(values.phone || "").trim();
+    if (rawPhone && !/^\d{10}$/.test(rawPhone)) {
+      feedback("employeeFeedback", "Số điện thoại phải gồm đúng 10 chữ số.", true);
+      document.getElementById("employeePhone")?.focus();
+      return;
+    }
+    const statusSelect = form.elements.namedItem("employmentStatus");
+    const currentStatus = (statusSelect?.value || values.employmentStatus || "Đang làm").trim();
     const result = await callHr({
       action: "employee_save",
       id: values.id || undefined,
+      employee_code: values.employeeCode || document.getElementById("employeeCode")?.value || undefined,
+      gender: values.gender || "Male",
+      phone_number: rawPhone,
       full_name: String(values.name).trim(),
       email: String(values.email).trim().toLowerCase(),
-      position_id: values.positionId,
-      department_id: values.departmentId || undefined,
+      position_id: values.positionId || document.getElementById("employeePosition")?.value,
+      department_id: values.departmentId || document.getElementById("employeeDepartment")?.value || currentActor?.department_id || undefined,
       date_of_birth: values.dateOfBirth || null,
       education: String(values.education || "").trim(),
       hire_date: values.hireDate,
-      employment_status: STATUS_TO_DB[values.employmentStatus] || "active",
-      phone_number: String(values.phone || "").trim(),
+      employment_status: STATUS_TO_DB[currentStatus] || "active",
       role_id: values.roleId || undefined,
       password: String(values.password || "").trim(),
     });
@@ -1107,6 +1229,12 @@ function renderRequests() {
   body.replaceChildren();
 
   const filtered = requests.filter((request) => {
+    const employee = employees.find(
+      (item) => item.employee_id === request.employee_id,
+    );
+    // Xóa ra khỏi danh sách nếu nhân sự đã bị xóa (không còn trong danh sách active)
+    if (!employee) return false;
+
     const status = String(request.status || "").toLowerCase();
     if (filter === "pending" && status !== "pending") return false;
     if (filter === "approved" && status !== "approved") return false;
@@ -1114,12 +1242,9 @@ function renderRequests() {
     if (filter === "resolved" && status === "pending") return false;
 
     if (searchTerm) {
-      const employee = employees.find(
-        (item) => item.employee_id === request.employee_id,
-      );
-      const name = (employee?.full_name || "Nhân sự đã xóa").toLowerCase();
-      const email = (employee?.email || "").toLowerCase();
-      const code = (employee?.employee_code || "").toLowerCase();
+      const name = (employee.full_name || "").toLowerCase();
+      const email = (employee.email || "").toLowerCase();
+      const code = (employee.employee_code || "").toLowerCase();
       const typeLabel = (LEAVE_TYPES[request.leave_type] || "").toLowerCase();
       const reason = (request.reason || "").toLowerCase();
       const statusLabel = (LEAVE_STATUSES[request.status] || "").toLowerCase();
@@ -1137,12 +1262,20 @@ function renderRequests() {
     return true;
   });
 
-  // Sort: pending first, then by date descending
+  // Sort: pending first (ngày gửi cũ nhất lên trước), rồi đến đã duyệt (ngày gửi mới nhất lên trước)
   filtered.sort((a, b) => {
     const aPending = a.status === "pending" ? 1 : 0;
     const bPending = b.status === "pending" ? 1 : 0;
     if (aPending !== bPending) return bPending - aPending;
-    return String(b.start_date || "").localeCompare(String(a.start_date || ""));
+
+    const aTime = a.requested_at || a.start_date || "";
+    const bTime = b.requested_at || b.start_date || "";
+    if (aPending && bPending) {
+      // Đơn chưa duyệt: ngày gửi cũ nhất lên trước (ascending)
+      return aTime.localeCompare(bTime);
+    }
+    // Đơn đã duyệt / đã xử lý: ngày gửi mới nhất lên trước (descending)
+    return bTime.localeCompare(aTime);
   });
 
   const totalMatches = filtered.length;
@@ -1154,7 +1287,7 @@ function renderRequests() {
   if (!pageRequests.length) {
     const row = document.createElement("tr");
     const cell = document.createElement("td");
-    cell.colSpan = 6;
+    cell.colSpan = 7;
     cell.style.textAlign = "center";
     cell.style.padding = "36px 14px";
     cell.style.color = "var(--admin-muted, #747b74)";
@@ -1195,7 +1328,13 @@ function renderRequests() {
       typeCell.append(typeBadge);
       row.append(typeCell);
 
-      // 3. Thời gian
+      // 3. Ngày gửi (nằm giữa Loại đơn và Thời gian)
+      const sentDateCell = document.createElement("td");
+      sentDateCell.className = "hr-sent-date-cell";
+      sentDateCell.textContent = dateLabel(request.requested_at || request.start_date);
+      row.append(sentDateCell);
+
+      // 4. Thời gian
       const timeCell = document.createElement("td");
       const timeWrap = document.createElement("div");
       timeWrap.className = "hr-time-cell";
@@ -1920,12 +2059,7 @@ function renderEmployeeSelects() {
     assignableRoleOptions(),
   );
   fillRoleSelect(document.getElementById("employeeRole"));
-  fillSelect(
-    document.getElementById("employeePosition"),
-    positions,
-    "position_id",
-    (position) => position.position_title,
-  );
+  renderManagerPositionOptions("", "");
   renderPermissions();
 }
 
@@ -2181,12 +2315,7 @@ async function initHrPortal() {
     showError("Không tải được dữ liệu. Vui lòng thử lại sau.");
     return;
   }
-  fillSelect(
-    document.getElementById("employeePosition"),
-    positions,
-    "position_id",
-    (position) => position.position_title,
-  );
+  renderManagerPositionOptions("", "");
   fillRoleSelect(document.getElementById("employeeRole"));
   // document.getElementById("payrollForm").elements.namedItem("workDays").value = 0;
   await renderAll();

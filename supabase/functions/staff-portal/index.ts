@@ -45,7 +45,7 @@ const JWT_KEY = ADMIN_JWT_SECRET ? new TextEncoder().encode(ADMIN_JWT_SECRET) : 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-type Actor = { employee_id: string; username: string; full_name: string };
+type Actor = { employee_id: string; username: string; full_name: string; pending_notice?: unknown };
 
 function str(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -55,6 +55,32 @@ function isRealDate(value: string): boolean {
   if (!DATE_RE.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function parseNotice(notice: unknown): Record<string, unknown> | null {
+  if (!notice) return null;
+  let current: unknown = notice;
+  while (typeof current === "string") {
+    try {
+      current = JSON.parse(current);
+    } catch {
+      break;
+    }
+  }
+  return current && typeof current === "object"
+    ? (current as Record<string, unknown>)
+    : null;
+}
+
+let noticeColumnChecked = false;
+async function ensureNoticeColumn() {
+  if (noticeColumnChecked) return;
+  try {
+    await sql!`alter table public.employee_accounts add column if not exists pending_notice jsonb`;
+    noticeColumnChecked = true;
+  } catch (err) {
+    console.error("staff-portal: ensureNoticeColumn failed", err);
+  }
 }
 
 async function getActor(token: string): Promise<Actor | null> {
@@ -73,30 +99,45 @@ async function getActor(token: string): Promise<Actor | null> {
   }
   if (!UUID_RE.test(employeeId)) return null;
 
-  const rows = await sql!`
-    select e.employee_id, a.username, e.full_name, e.updated_at
-    from public.employees e
-    join public.employee_accounts a on a.employee_id = e.employee_id
-    where e.employee_id = ${employeeId}::uuid
-      and a.is_active is true
-      and a.deleted_at is null
-      and e.employment_status = 'Active'
-    limit 1`;
-
-  const row = rows[0] as { employee_id: string; username: string; full_name: string; updated_at?: string | Date | null } | undefined;
-  if (!row) return null;
-
-  if (row.updated_at && iat > 0) {
-    const updateTime = new Date(row.updated_at).getTime();
-    if (!Number.isNaN(updateTime)) {
-      const lastUpdated = Math.floor(updateTime / 1000);
-      if (iat < lastUpdated - 5) {
-        return null;
-      }
+  let rows;
+  try {
+    rows = await sql!`
+      select e.employee_id, a.username, e.full_name, a.pending_notice
+      from public.employees e
+      join public.employee_accounts a on a.employee_id = e.employee_id
+      where e.employee_id = ${employeeId}::uuid
+        and a.is_active is true
+        and a.deleted_at is null
+        and e.employment_status = 'Active'
+      limit 1`;
+  } catch (err) {
+    const code = (err as { code?: string })?.code ?? "";
+    if (code === "42703") {
+      rows = await sql!`
+        select e.employee_id, a.username, e.full_name, null as pending_notice
+        from public.employees e
+        join public.employee_accounts a on a.employee_id = e.employee_id
+        where e.employee_id = ${employeeId}::uuid
+          and a.is_active is true
+          and a.deleted_at is null
+          and e.employment_status = 'Active'
+        limit 1`;
+    } else {
+      throw err;
     }
   }
 
-  return { employee_id: row.employee_id, username: row.username, full_name: row.full_name };
+  const row = rows[0] as
+    | { employee_id: string; username: string; full_name: string; pending_notice?: unknown }
+    | undefined;
+  if (!row) return null;
+
+  return {
+    employee_id: row.employee_id,
+    username: row.username,
+    full_name: row.full_name,
+    pending_notice: parseNotice(row.pending_notice),
+  };
 }
 
 const DB_ERRORS: Record<string, string> = {
@@ -169,17 +210,76 @@ async function bootAction(actor: Actor): Promise<Response> {
     position: position ?? null,
     roleNames: roleRows.map((row) => String(row.role_name)),
     permissionCodes: permissionRows.map((row) => String(row.permission_code).toLowerCase()),
+    pending_notice: actor.pending_notice || null,
   });
+}
+
+function abbreviatePosition(positionName: string): string {
+  const normalized = positionName.trim().toLowerCase();
+  if (normalized.includes("admin")) return "AD";
+  if (normalized.includes("quản lý") || normalized.includes("manager")) return "QL";
+  if (normalized.includes("nhân viên") || normalized.includes("staff")) return "NV";
+  return (
+    normalized
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join("") || "NV"
+  ).toUpperCase();
+}
+
+function generateAccountPassword(
+  roleName: string,
+  departmentDescription: string,
+  dateOfBirth: string,
+): string {
+  const positionPrefix = abbreviatePosition(roleName);
+  const departmentPrefix = (departmentDescription || "")
+    .trim()
+    .slice(0, 3)
+    .toLowerCase();
+  const [year, month, day] = dateOfBirth.split("-");
+  return `${positionPrefix}${departmentPrefix}@${day}${month}${year}`;
 }
 
 async function updateProfileAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
   // Slices match the column limits so an oversized payload fails cleanly, not 500.
   const fullName = str(body.full_name).slice(0, 150);
-  const phoneNumber = str(body.phone_number).slice(0, 20);
+  const phoneNumber = str(body.phone_number).trim();
   const address = str(body.address).slice(0, 180);
   const dob = str(body.date_of_birth);
 
   if (!fullName || !isRealDate(dob)) return json({ ok: false, error: "invalid_profile" }, 400);
+  if (phoneNumber && !/^\d{10}$/.test(phoneNumber)) return json({ ok: false, error: "invalid_phone" }, 400);
+
+  const [currentEmp] = await sql!`
+    select to_char(e.date_of_birth, 'YYYY-MM-DD') as old_dob,
+           coalesce(r.role_name, 'Nhân viên') as role_name,
+           coalesce(d.description, d.department_name, '') as department_description
+    from public.employees e
+    left join public.departments d on d.department_id = e.current_department_id
+    left join lateral (
+      select r.role_name
+      from public.user_roles ur
+      join public.roles r on r.role_id = ur.role_id
+      where ur.employee_id = e.employee_id
+        and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+        and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+      order by ur.valid_from desc, ur.user_role_id desc
+      limit 1
+    ) r on true
+    where e.employee_id = ${actor.employee_id}::uuid
+    limit 1`;
+
+  const dobChanged = Boolean(currentEmp?.old_dob && currentEmp.old_dob !== dob);
+  const newPassword = dobChanged
+    ? generateAccountPassword(
+        String(currentEmp?.role_name || "Nhân viên"),
+        String(currentEmp?.department_description || ""),
+        dob,
+      )
+    : "";
 
   await sql!.begin(async (tx) => {
     await tx`
@@ -189,17 +289,24 @@ async function updateProfileAction(actor: Actor, body: Record<string, unknown>):
           updated_at = now()
       where employee_id = ${actor.employee_id}::uuid`;
 
+    if (dobChanged && newPassword) {
+      await tx`
+        update public.employee_accounts
+        set password_hash = extensions.crypt(${newPassword}, extensions.gen_salt('bf', 10))
+        where employee_id = ${actor.employee_id}::uuid`;
+    }
+
     const existing = await ownContact(tx, actor.employee_id);
     if (existing) {
       await tx`
         update public.employee_contacts
-        set phone_number = ${phoneNumber},
-            address = ${address}
+        set phone_number = ${phoneNumber || null},
+            address = ${address || null}
         where employee_id = ${actor.employee_id}::uuid`;
-    } else {
+    } else if (phoneNumber || address) {
       await tx`
         insert into public.employee_contacts (employee_id, phone_number, address)
-        values (${actor.employee_id}::uuid, ${phoneNumber}, ${address})`;
+        values (${actor.employee_id}::uuid, ${phoneNumber || null}, ${address || null})`;
     }
     // Marital status is the only identity field the employee may self-edit;
     // no insert — the row is HR-seeded (national_id is NOT NULL).
@@ -217,7 +324,13 @@ async function updateProfileAction(actor: Actor, body: Record<string, unknown>):
     ownContact(sql, actor.employee_id),
   ]);
 
-  return json({ ok: true, employee, contact: contact ?? null });
+  return json({
+    ok: true,
+    employee,
+    contact: contact ?? null,
+    password_changed: dobChanged,
+    new_password: dobChanged ? newPassword : null,
+  });
 }
 
 // Own identity + qualification + status-history payload for the profile menu.
@@ -235,9 +348,24 @@ async function personalInfoAction(actor: Actor): Promise<Response> {
     where employee_id = ${actor.employee_id}::uuid
     order by graduation_year desc nulls last`;
   const history = await sql!`
-    select status, to_char(effective_date, 'YYYY-MM-DD') as effective_date, reason
-    from public.employee_status_history
-    where employee_id = ${actor.employee_id}::uuid
+    select status, effective_date, end_date, reason
+    from (
+      select 'OnLeave' as status,
+             to_char(start_date, 'YYYY-MM-DD') as effective_date,
+             to_char(end_date, 'YYYY-MM-DD') as end_date,
+             coalesce(reason, 'Nghỉ phép') as reason
+      from public.leave_requests
+      where employee_id = ${actor.employee_id}::uuid
+        and lower(status::text) = 'approved'
+      union
+      select 'OnLeave' as status,
+             to_char(effective_date, 'YYYY-MM-DD') as effective_date,
+             null as end_date,
+             reason
+      from public.employee_status_history
+      where employee_id = ${actor.employee_id}::uuid
+        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
+    ) s
     order by effective_date desc`;
   return json({
     ok: true,
@@ -553,10 +681,11 @@ async function personalInfoSaveAction(actor: Actor, body: Record<string, unknown
   const idType = str(body.id_type);
   const nationalId = str(body.national_id);
   const nationality = str(body.nationality);
+  const marital = str(body.marital_status);
 
   const result = await sql!.begin(async (tx) => {
     const [existing] = await tx`
-      select id_type, national_id, nationality
+      select id_type, national_id, nationality, marital_status
       from public.employee_personal_info
       where employee_id = ${actor.employee_id}::uuid
       limit 1`;
@@ -565,32 +694,44 @@ async function personalInfoSaveAction(actor: Actor, body: Record<string, unknown
     const finalNationalId = (nationalId || String(existing?.national_id ?? "")).trim();
     // nationality is NOT NULL with default 'Vietnam': invent nothing smarter.
     const finalNationality = (nationality || String(existing?.nationality ?? "") || "Vietnam").trim();
+    const finalMarital = (marital || String(existing?.marital_status ?? "")).trim();
 
-    if (!existing) {
-      if (!nationalId && !idType && !nationality) {
-        // Nothing entered and no row: the save is a no-op.
+    if (!nationalId && !idType) {
+      if (existing) {
+        if (finalMarital) {
+          await tx`
+            update public.employee_personal_info
+            set marital_status = ${finalMarital}
+            where employee_id = ${actor.employee_id}::uuid`;
+          return { created: false, updated: true };
+        }
         return { created: false, updated: false };
       }
-      if (!nationalId || !idType) {
-        // Started filling identity data but left a required field blank.
-        return null;
-      }
+      return { created: false, updated: false };
     }
+
     if (!["CCCD", "CMND", "Passport"].includes(finalType) || !finalNationalId) {
       return null;
     }
 
     if (existing) {
-      await tx`
-        update public.employee_personal_info
-        set id_type = ${finalType}, national_id = ${finalNationalId}, nationality = ${finalNationality}
-        where employee_id = ${actor.employee_id}::uuid`;
+      if (finalMarital) {
+        await tx`
+          update public.employee_personal_info
+          set id_type = ${finalType}, national_id = ${finalNationalId}, nationality = ${finalNationality}, marital_status = ${finalMarital}
+          where employee_id = ${actor.employee_id}::uuid`;
+      } else {
+        await tx`
+          update public.employee_personal_info
+          set id_type = ${finalType}, national_id = ${finalNationalId}, nationality = ${finalNationality}
+          where employee_id = ${actor.employee_id}::uuid`;
+      }
     } else {
       await tx`
         insert into public.employee_personal_info
-          (employee_id, id_type, national_id, nationality)
+          (employee_id, id_type, national_id, nationality, marital_status)
         values
-          (${actor.employee_id}::uuid, ${finalType}, ${finalNationalId}, ${finalNationality})`;
+          (${actor.employee_id}::uuid, ${finalType}, ${finalNationalId}, ${finalNationality}, ${finalMarital || null})`;
     }
     return { created: !existing, updated: Boolean(existing) };
   });
@@ -651,42 +792,26 @@ async function qualificationsSaveAction(actor: Actor, body: Record<string, unkno
   return json({ ok: true, rows: saved });
 }
 
-async function statusHistorySaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
-  const rows = Array.isArray(body.rows) ? body.rows : null;
-  if (!rows) return json({ ok: false, error: "bad_request" }, 400);
-
-  // Status values must satisfy the DB check constraint.
-  const allowedStatus = ["Active", "OnLeave", "Resigned"];
-  const mapped = rows.map((raw) => {
-    const row = raw as Record<string, unknown>;
-    return {
-      status: str(row.status),
-      effective_date: str(row.effective_date),
-      reason: str(row.reason),
-    };
-  });
-  if (mapped.some(
-    (row) => (Boolean(row.reason) && (!row.status || !isRealDate(row.effective_date))) ||
-      (row.status && (!allowedStatus.includes(row.status) || !isRealDate(row.effective_date))),
-  )) return json({ ok: false, error: "invalid_history" }, 400);
-  const kept = mapped.filter((row) => row.status && isRealDate(row.effective_date));
-
-  await sql!.begin(async (tx) => {
-    await tx`delete from public.employee_status_history where employee_id = ${actor.employee_id}::uuid`;
-    for (const row of kept) {
-      await tx`
-        insert into public.employee_status_history
-          (employee_id, status, effective_date, reason, recorded_by)
-        values
-          (${actor.employee_id}::uuid, ${row.status}, ${row.effective_date}::date,
-           ${row.reason}, ${actor.employee_id}::uuid)`;
-    }
-  });
-
+async function statusHistorySaveAction(actor: Actor, _body: Record<string, unknown>): Promise<Response> {
   const saved = await sql!`
-    select status, to_char(effective_date, 'YYYY-MM-DD') as effective_date, reason
-    from public.employee_status_history
-    where employee_id = ${actor.employee_id}::uuid
+    select status, effective_date, end_date, reason
+    from (
+      select 'OnLeave' as status,
+             to_char(start_date, 'YYYY-MM-DD') as effective_date,
+             to_char(end_date, 'YYYY-MM-DD') as end_date,
+             coalesce(reason, 'Nghỉ phép') as reason
+      from public.leave_requests
+      where employee_id = ${actor.employee_id}::uuid
+        and lower(status::text) = 'approved'
+      union
+      select 'OnLeave' as status,
+             to_char(effective_date, 'YYYY-MM-DD') as effective_date,
+             null as end_date,
+             reason
+      from public.employee_status_history
+      where employee_id = ${actor.employee_id}::uuid
+        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
+    ) s
     order by effective_date desc`;
   return json({ ok: true, rows: saved });
 }
@@ -715,6 +840,8 @@ Deno.serve(async (req) => {
     console.error("staff-portal: SUPABASE_DB_URL or ADMIN_JWT_SECRET is not set");
     return json({ ok: false, error: "server_not_configured" }, 500);
   }
+
+  await ensureNoticeColumn();
 
   const token = req.headers.get("x-admin-token") ?? "";
 
@@ -769,7 +896,11 @@ Deno.serve(async (req) => {
 
   try {
     switch (body.action) {
-      case "ping": return json({ ok: true });
+      case "ping": return json({ ok: true, pending_notice: actor.pending_notice || null });
+      case "clear_notice": {
+        await sql!`update public.employee_accounts set pending_notice = null where employee_id = ${actor.employee_id}::uuid`;
+        return json({ ok: true });
+      }
       case "boot": return await bootAction(actor);
       case "update_profile": return await updateProfileAction(actor, body);
       case "personal_info": return await personalInfoAction(actor);

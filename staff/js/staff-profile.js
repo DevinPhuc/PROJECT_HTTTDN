@@ -13,8 +13,7 @@ function isoYearsAgo(years) {
 }
 
 // Fields that may not be left blank when saving (personal / identity / tax).
-const REQUIRED_PROFILE_FIELDS = ["name", "birthDate", "phone", "address", "marital_status",
-  "id_type", "national_id", "nationality", "tax_code", "social_insurance_no", "health_insurance_no"];
+const REQUIRED_PROFILE_FIELDS = ["name", "birthDate"];
 
 function renderBlankFieldErrors(form, names) {
   form.querySelectorAll(".staff-field-blank").forEach((el) => el.remove());
@@ -40,6 +39,9 @@ function renderBlankFieldErrors(form, names) {
 // Clear a field's blank-error state as soon as the user starts typing again.
 document.getElementById("profileForm").addEventListener("input", (event) => {
   const target = event.target;
+  if (target.name === "phone") {
+    target.value = target.value.replace(/\D/g, "").slice(0, 10);
+  }
   if (!target.classList?.contains("staff-input-blank")) return;
   target.classList.remove("staff-input-blank");
   target.closest("label")?.querySelector(".staff-field-blank")?.remove();
@@ -133,7 +135,7 @@ function renderPersonalInfo() {
   if (protectedInput) protectedInput.value = info.is_disabled ? dateLabel(info.protected_until) : "";
   const maritalSelect = document.querySelector("#profileForm [name='marital_status']");
   if (maritalSelect) {
-    maritalSelect.disabled = !personalInfo;
+    maritalSelect.disabled = false;
     if (document.activeElement !== maritalSelect) maritalSelect.value = maritalLabel(info.marital_status);
   }
 }
@@ -191,19 +193,23 @@ function qualificationRow(q = {}) {
 
 function statusRow(row = {}) {
   const tr = document.createElement("tr");
+  const dateTd = document.createElement("td");
+  dateTd.textContent = dateLabel(row.effective_date) || "—";
+
+  const endDateTd = document.createElement("td");
+  endDateTd.textContent = dateLabel(row.end_date) || "—";
+
+  const statusTd = document.createElement("td");
+  const statusBadge = document.createElement("span");
+  const label = STATUS_LABELS[row.status] || row.status || "Đang nghỉ phép";
+  statusBadge.className = "staff-status-badge staff-status-onleave";
+  statusBadge.textContent = label;
+  statusTd.append(statusBadge);
+
   const reasonTd = document.createElement("td");
-  const reasonInput = document.createElement("input");
-  reasonInput.className = "s-reason";
-  reasonInput.type = "text";
-  reasonInput.value = row.reason ?? "";
-  reasonTd.append(reasonInput);
-  // No future-dated effective rows beyond the current system year.
-  tr.append(
-    cellInput("s-date", "date", null, row.effective_date, { max: `${CURRENT_YEAR}-12-31` }),
-    cellSelect("s-status", STATUS_LABELS[row.status] ? row.status : ""),
-    reasonTd,
-    deleteCell()
-  );
+  reasonTd.textContent = row.reason || "—";
+
+  tr.append(dateTd, endDateTd, statusTd, reasonTd);
   return tr;
 }
 
@@ -249,6 +255,22 @@ function addRowHandlers() {
 function renderRowTable(tbodyId, rows, build) {
   const tbody = document.getElementById(tbodyId);
   tbody.replaceChildren();
+  if (tbodyId === "statusRows") {
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 4;
+      td.style.textAlign = "center";
+      td.style.padding = "24px 12px";
+      td.style.color = "var(--admin-muted, #747b74)";
+      td.textContent = "Chưa có lịch sử trạng thái nghỉ phép.";
+      tr.append(td);
+      tbody.append(tr);
+    } else {
+      rows.forEach((row) => tbody.append(build(row)));
+    }
+    return;
+  }
   rows.forEach((row) => tbody.append(build(row)));
   // One empty row keeps the editable table usable when there is no data yet.
   if (!rows.length) tbody.append(build({}));
@@ -284,15 +306,25 @@ async function saveProfile(event) {
   // Section 8: required personal/identity/tax fields may not be blank.
   if (renderBlankFieldErrors(event.currentTarget, REQUIRED_PROFILE_FIELDS)) {
     showProfileFeedback("Vui lòng điền các trường còn trống.", true);
-    showStaffToast("error", "Không thành công. Vui lòng thử lại.");
+    showStaffToast("error", "Vui lòng điền các trường còn trống.");
+    return;
+  }
+
+  const rawPhone = String(formData.get("phone") || "").trim();
+  if (rawPhone && !/^\d{10}$/.test(rawPhone)) {
+    showProfileFeedback("Số điện thoại phải gồm đúng 10 chữ số.", true);
+    showStaffToast("error", "Số điện thoại phải gồm đúng 10 chữ số.");
+    const phoneInput = event.currentTarget.querySelector("[name='phone']");
+    if (phoneInput) {
+      phoneInput.classList.add("staff-input-blank");
+      phoneInput.focus();
+    }
     return;
   }
 
   // Row validation first: any partial row stops the save before data moves.
   const qualRows = collectQualRows();
   if (qualRows === null) { showProfileFeedback("Mỗi dòng bằng cấp đã nhập cần có tên bằng cấp.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); return; }
-  const historyRows = collectStatusRows();
-  if (historyRows === null) { showProfileFeedback("Mỗi dòng lịch sử cần có cả ngày hiệu lực và trạng thái.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); return; }
 
   const submitBtn = document.querySelector("#profileForm button[type='submit']");
   submitBtn.disabled = true;
@@ -308,7 +340,7 @@ async function saveProfile(event) {
       marital_status: String(formData.get("marital_status") || "").trim()
     });
     if (!result.ok) {
-      showProfileFeedback(result.error === "invalid_profile" ? "Vui lòng nhập đầy đủ họ tên và ngày sinh." : "Không thể lưu hồ sơ. Vui lòng thử lại.", true);
+      showProfileFeedback(result.error === "invalid_phone" ? "Số điện thoại phải gồm đúng 10 chữ số." : result.error === "invalid_profile" ? "Vui lòng nhập đầy đủ họ tên và ngày sinh." : "Không thể lưu hồ sơ. Vui lòng thử lại.", true);
       showStaffToast("error", "Không thành công. Vui lòng thử lại.");
       return;
     }
@@ -330,7 +362,8 @@ async function saveProfile(event) {
       action: "personal_info_save",
       id_type: String(formData.get("id_type") || "").trim(),
       national_id: String(formData.get("national_id") || "").trim(),
-      nationality: String(formData.get("nationality") || "").trim()
+      nationality: String(formData.get("nationality") || "").trim(),
+      marital_status: String(formData.get("marital_status") || "").trim()
     });
     if (!idSave.ok) {
       showProfileFeedback(
@@ -346,23 +379,46 @@ async function saveProfile(event) {
     const qualSave = await callStaff({ action: "qualifications_save", rows: qualRows });
     if (!qualSave.ok) { showProfileFeedback("Đã lưu hồ sơ nhưng không thể lưu bằng cấp & trình độ.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); return; }
 
-    const histSave = await callStaff({ action: "status_history_save", rows: historyRows });
-    if (!histSave.ok) { showProfileFeedback("Đã lưu hồ sơ nhưng không thể lưu lịch sử trạng thái.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); return; }
-
-    // Rebuild both tables from the saved replies so normalized values (e.g. a
-    // blanked graduation year) show what is actually stored.
     renderRowTable("qualificationRows", qualSave.data.rows || [], qualificationRow);
-    renderRowTable("statusRows", histSave.data.rows || [], statusRow);
+    await loadPersonalInfo();
     populateProfile();
     renderPayrollInfo();
     renderPersonalInfo();
+
+    if (result.data?.password_changed && result.data?.new_password) {
+      if (window.jewelsPortal?.showNoticeModal) {
+        window.jewelsPortal.showNoticeModal({
+          type: "self_password_changed",
+          new_password: result.data.new_password,
+        }, "staff", "staff-portal");
+      } else {
+        showPasswordChangedModal(result.data.new_password);
+      }
+      return;
+    }
+
     showProfileFeedback("Đã lưu hồ sơ.", true);
-    showStaffToast("success", "Lưu thay đổi thành công!");
+    showStaffToast("success", "Lưu thay đổi thành công");
     saveProfile._timer = setTimeout(() => { document.getElementById("profileFeedback").textContent = ""; }, 5000);
   } finally {
     updateProfileSubmitButton();
   }
 }
+
+function showPasswordChangedModal(newPassword) {
+  const modal = document.getElementById("passwordChangedModal");
+  if (!modal) return;
+  const valueEl = document.getElementById("passwordChangedValue");
+  if (valueEl) valueEl.textContent = newPassword;
+  modal.hidden = false;
+}
+
+document.getElementById("confirmPasswordChangeBtn")?.addEventListener("click", () => {
+  if (typeof DEMO_MODE !== "undefined" && !DEMO_MODE) {
+    window.jewelsPortal?.clearSession("staff");
+  }
+  window.location.replace("staff-login.html");
+});
 
 document.getElementById("profileForm").addEventListener("submit", (event) => saveProfile(event).catch(() => { showProfileFeedback("Không thể lưu hồ sơ.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); }));
 
@@ -383,3 +439,5 @@ async function loadProfile() {
 }
 
 VIEW_MODULES.profile = { load: loadProfile };
+
+window.loadPersonalInfo = loadPersonalInfo;

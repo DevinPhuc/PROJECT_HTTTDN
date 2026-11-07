@@ -92,6 +92,7 @@ type Actor = {
   department_id: string | null;
   is_admin: boolean;
   is_hr: boolean;
+  pending_notice?: unknown;
 };
 
 function makeError(code: string): Error {
@@ -177,6 +178,32 @@ function isRealDate(value: string): boolean {
   );
 }
 
+function parseNotice(notice: unknown): Record<string, unknown> | null {
+  if (!notice) return null;
+  let current: unknown = notice;
+  while (typeof current === "string") {
+    try {
+      current = JSON.parse(current);
+    } catch {
+      break;
+    }
+  }
+  return current && typeof current === "object"
+    ? (current as Record<string, unknown>)
+    : null;
+}
+
+let noticeColumnChecked = false;
+async function ensureNoticeColumn() {
+  if (noticeColumnChecked) return;
+  try {
+    await sql!`alter table public.employee_accounts add column if not exists pending_notice jsonb`;
+    noticeColumnChecked = true;
+  } catch (err) {
+    console.error("hr-portal: ensureNoticeColumn failed", err);
+  }
+}
+
 async function getActor(token: string): Promise<Actor | null> {
   let employeeId = "";
   let iat = 0;
@@ -192,17 +219,39 @@ async function getActor(token: string): Promise<Actor | null> {
   }
   if (!UUID_RE.test(employeeId)) return null;
 
-  const rows = await sql!`
-    select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
-           lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr
-    from public.employees e
-    join public.employee_accounts a on a.employee_id = e.employee_id
-    left join public.departments d on d.department_id = e.current_department_id
-    where e.employee_id = ${employeeId}::uuid
-      and a.is_active is true
-      and a.deleted_at is null
-      and e.employment_status = 'Active'
-    limit 1`;
+  let rows;
+  try {
+    rows = await sql!`
+      select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
+             lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr,
+             a.pending_notice
+      from public.employees e
+      join public.employee_accounts a on a.employee_id = e.employee_id
+      left join public.departments d on d.department_id = e.current_department_id
+      where e.employee_id = ${employeeId}::uuid
+        and a.is_active is true
+        and a.deleted_at is null
+        and e.employment_status = 'Active'
+      limit 1`;
+  } catch (err) {
+    const code = (err as { code?: string })?.code ?? "";
+    if (code === "42703") {
+      rows = await sql!`
+        select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
+               lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr,
+               null as pending_notice
+        from public.employees e
+        join public.employee_accounts a on a.employee_id = e.employee_id
+        left join public.departments d on d.department_id = e.current_department_id
+        where e.employee_id = ${employeeId}::uuid
+          and a.is_active is true
+          and a.deleted_at is null
+          and e.employment_status = 'Active'
+        limit 1`;
+    } else {
+      throw err;
+    }
+  }
 
   const row = rows[0] as
     | undefined
@@ -213,18 +262,9 @@ async function getActor(token: string): Promise<Actor | null> {
         current_department_id: string | null;
         is_hr: boolean;
         updated_at: string | Date | null;
+        pending_notice?: unknown;
       };
   if (!row) return null;
-
-  if (row.updated_at && iat > 0) {
-    const updateTime = new Date(row.updated_at).getTime();
-    if (!Number.isNaN(updateTime)) {
-      const lastUpdated = Math.floor(updateTime / 1000);
-      if (iat < lastUpdated - 5) {
-        return null;
-      }
-    }
-  }
 
   // Ngày hiệu lực được đối chiếu theo múi giờ Asia/Ho_Chi_Minh.
   const [adminCheck] = await sql!`
@@ -254,7 +294,20 @@ async function getActor(token: string): Promise<Actor | null> {
         and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
         and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date))`;
 
-  if (!adminCheck && !managerCheck) return null;
+  if (!adminCheck && !managerCheck) {
+    if (row.pending_notice) {
+      return {
+        employee_id: row.employee_id,
+        full_name: row.full_name,
+        email: row.email,
+        department_id: row.current_department_id ?? null,
+        is_admin: false,
+        is_hr: false,
+        pending_notice: parseNotice(row.pending_notice),
+      };
+    }
+    return null;
+  }
 
   return {
     employee_id: row.employee_id,
@@ -263,6 +316,7 @@ async function getActor(token: string): Promise<Actor | null> {
     department_id: row.current_department_id ?? null,
     is_admin: Boolean(adminCheck),
     is_hr: Boolean(row.is_hr),
+    pending_notice: parseNotice(row.pending_notice),
   };
 }
 
@@ -404,9 +458,13 @@ async function bootAction(actor: Actor): Promise<Response> {
     payrollRows,
     attendanceRows,
     statusHistory,
+    allCodeRows,
   ] = await Promise.all([
     sql!`
-      select e.employee_id, e.employee_code, e.full_name, e.email, e.hire_date,
+      select e.employee_id, e.employee_code, e.full_name, e.email,
+             to_char(e.hire_date, 'YYYY-MM-DD') as hire_date,
+             to_char(e.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
+             e.gender,
              e.employment_status, e.current_position_id as position_id,
              e.current_department_id as department_id, e.education,
              a.deleted_at, a.is_active
@@ -421,33 +479,12 @@ async function bootAction(actor: Actor): Promise<Response> {
       select c.employee_id, c.phone_number, c.address
       from public.employee_contacts c
       where c.employee_id = any(${sql.array(ids)}::uuid[])`,
-    actor.is_admin || actor.is_hr
-      ? sql!`
-          select p.position_id, p.position_title, p.description,
-                 coalesce((select json_agg(dp.department_id) from public.department_positions dp
-                           where dp.position_id = p.position_id), '[]'::json) as department_ids
-          from public.positions p
-          order by p.position_title`
-      : actor.department_id === null
-        ? sql!`
-          select p.position_id, p.position_title, p.description,
-                 coalesce((select json_agg(dp.department_id) from public.department_positions dp
-                           where dp.position_id = p.position_id), '[]'::json) as department_ids
-          from public.positions p
-          join public.employees e on e.current_position_id = p.position_id
-          where e.employee_id = ${actor.employee_id}::uuid
-          order by p.position_title`
-        : sql!`
-          select p.position_id, p.position_title, p.description,
-                 coalesce((select json_agg(dpm.department_id) from public.department_positions dpm
-                           where dpm.position_id = p.position_id), '[]'::json) as department_ids
-          from public.positions p
-          where exists (
-            select 1 from public.department_positions dp
-            where dp.position_id = p.position_id
-              and dp.department_id = ${actor.department_id}::uuid
-          )
-          order by p.position_title`,
+    sql!`
+      select p.position_id, p.position_title, p.description,
+             coalesce((select json_agg(dp.department_id) from public.department_positions dp
+                       where dp.position_id = p.position_id), '[]'::json) as department_ids
+      from public.positions p
+      order by p.position_title`,
     sql!`select department_id, department_name, description from public.departments order by department_name`,
     actor.is_admin
       ? sql!`select role_id, role_name, description, true as assignable from public.roles order by role_name`
@@ -484,6 +521,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     sql!`
       select lr.leave_request_id, lr.employee_id, lr.start_date, lr.end_date,
              lr.reason, lower(lr.status::text) as status,
+             to_char(lr.requested_at, 'YYYY-MM-DD"T"HH24:MI:SS') as requested_at,
              case lt.type_name
                when 'Nghỉ phép' then 'annual'
                when 'Nghỉ ốm đau' then 'sick'
@@ -518,6 +556,11 @@ async function bootAction(actor: Actor): Promise<Response> {
       order by employee_id, effective_from`,
       [],
     ),
+    optionalBootQuery(
+      "all_employee_codes",
+      sql!`select employee_code from public.employees where employee_code is not null`,
+      [],
+    ),
   ]);
 
   for (const row of attendanceRows) {
@@ -542,6 +585,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     departments,
     roles,
     permissions,
+    all_employee_codes: (allCodeRows as Array<{ employee_code: string }>).map((r) => String(r.employee_code)).filter(Boolean),
     user_roles: assignments,
     role_permissions: rolePerms,
     role_history: roleHistory,
@@ -549,6 +593,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     payroll: payrollRows,
     attendance: attendanceRows,
     employment_status_history: statusHistory,
+    pending_notice: actor.pending_notice || null,
   });
 }
 
@@ -683,9 +728,15 @@ async function employeeSaveAction(
   const statusInput = str(body.employment_status).toLowerCase();
   const roleId = str(body.role_id);
   const requestedDepartmentId = str(body.department_id);
-  const phone = str(body.phone_number);
+  const requestedEmployeeCode = str(body.employee_code).trim();
+  const gender = str(body.gender).trim() || "Male";
+  const phone = str(body.phone_number).trim();
   const education = str(body.education);
   let preserveExistingRole = false;
+
+  if (phone && !/^\d{10}$/.test(phone)) {
+    return json({ ok: false, error: "invalid_phone" }, 400);
+  }
 
   if (
     !fullName ||
@@ -764,17 +815,26 @@ async function employeeSaveAction(
       let employeeId = id;
 
       if (!employeeId) {
-        const code = `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+        const code = requestedEmployeeCode || `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
         const [created] = await tx`
           insert into public.employees
             (employee_code, full_name, email, hire_date, current_position_id,
-             current_department_id, employment_status, education, date_of_birth)
+             current_department_id, employment_status, education, date_of_birth, gender)
           values
             (${code}, ${fullName}, ${email}, ${hireDate}::date, ${positionId}::uuid,
              ${departmentId}::uuid, ${employmentStatus}, ${education || null},
-             ${dateOfBirth || null}::date)
+             ${dateOfBirth || null}::date, ${gender})
           returning employee_id`;
         employeeId = String(created.employee_id);
+
+        const submittedPassword = str(body.password).trim();
+        await tx`
+          insert into public.employee_accounts
+            (employee_id, username, password_hash, is_active)
+          values
+            (${employeeId}::uuid, ${email},
+             extensions.crypt(${submittedPassword || '123456'}, extensions.gen_salt('bf', 10)),
+             true)`;
       } else {
         await tx`
           update public.employees
@@ -785,7 +845,8 @@ async function employeeSaveAction(
               current_position_id = ${positionId}::uuid,
               current_department_id = ${departmentId}::uuid,
               education = ${education || null},
-              date_of_birth = ${dateOfBirth || null}::date
+              date_of_birth = ${dateOfBirth || null}::date,
+              gender = coalesce(${gender ? gender : null}, gender)
           where employee_id = ${employeeId}::uuid`;
       }
 
@@ -999,7 +1060,7 @@ async function leaveReviewAction(
 
   try {
     const [leave] = await sql`
-      select employee_id, lower(status::text) as status from public.leave_requests
+      select employee_id, lower(status::text) as status, start_date, reason from public.leave_requests
       where leave_request_id = ${requestId}::uuid
       limit 1`;
     if (!leave) return json({ ok: false, error: "invalid_reference" }, 400);
@@ -1020,6 +1081,15 @@ async function leaveReviewAction(
           approved_by = ${actor.employee_id}::uuid,
           decided_at = now()
       where leave_request_id = ${requestId}::uuid`;
+
+    if (statusInput === "approved") {
+      await sql`
+        insert into public.employee_status_history
+          (employee_id, status, effective_date, reason, recorded_by)
+        values
+          (${leave.employee_id}::uuid, 'OnLeave', ${leave.start_date}::date,
+           ${leave.reason || 'Nghỉ phép'}, ${actor.employee_id}::uuid)`;
+    }
   } catch (err) {
     return dbError(err);
   }
@@ -1299,6 +1369,8 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "server_not_configured" }, 500);
   }
 
+  await ensureNoticeColumn();
+
   const token = req.headers.get("x-admin-token") ?? "";
 
   let actor: Actor | null;
@@ -1353,7 +1425,11 @@ Deno.serve(async (req) => {
   try {
     switch (body.action) {
       case "ping":
+        return json({ ok: true, pending_notice: actor.pending_notice || null });
+      case "clear_notice": {
+        await sql!`update public.employee_accounts set pending_notice = null where employee_id = ${actor.employee_id}::uuid`;
         return json({ ok: true });
+      }
       case "boot":
         return await bootAction(actor);
       case "employee_save":
