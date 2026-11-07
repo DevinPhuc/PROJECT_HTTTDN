@@ -74,7 +74,7 @@ async function getActor(token: string): Promise<Actor | null> {
   if (!UUID_RE.test(employeeId)) return null;
 
   const rows = await sql!`
-    select e.employee_id, a.username, e.full_name, e.updated_at
+    select e.employee_id, a.username, e.full_name
     from public.employees e
     join public.employee_accounts a on a.employee_id = e.employee_id
     where e.employee_id = ${employeeId}::uuid
@@ -83,18 +83,8 @@ async function getActor(token: string): Promise<Actor | null> {
       and e.employment_status = 'Active'
     limit 1`;
 
-  const row = rows[0] as { employee_id: string; username: string; full_name: string; updated_at?: string | Date | null } | undefined;
+  const row = rows[0] as { employee_id: string; username: string; full_name: string } | undefined;
   if (!row) return null;
-
-  if (row.updated_at && iat > 0) {
-    const updateTime = new Date(row.updated_at).getTime();
-    if (!Number.isNaN(updateTime)) {
-      const lastUpdated = Math.floor(updateTime / 1000);
-      if (iat < lastUpdated - 5) {
-        return null;
-      }
-    }
-  }
 
   return { employee_id: row.employee_id, username: row.username, full_name: row.full_name };
 }
