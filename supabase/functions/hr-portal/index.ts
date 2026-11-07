@@ -401,9 +401,13 @@ async function bootAction(actor: Actor): Promise<Response> {
     payrollRows,
     attendanceRows,
     statusHistory,
+    allCodeRows,
   ] = await Promise.all([
     sql!`
-      select e.employee_id, e.employee_code, e.full_name, e.email, e.hire_date,
+      select e.employee_id, e.employee_code, e.full_name, e.email,
+             to_char(e.hire_date, 'YYYY-MM-DD') as hire_date,
+             to_char(e.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
+             e.gender,
              e.employment_status, e.current_position_id as position_id,
              e.current_department_id as department_id, e.education,
              a.deleted_at, a.is_active
@@ -494,6 +498,11 @@ async function bootAction(actor: Actor): Promise<Response> {
       order by employee_id, effective_from`,
       [],
     ),
+    optionalBootQuery(
+      "all_employee_codes",
+      sql!`select employee_code from public.employees where employee_code is not null`,
+      [],
+    ),
   ]);
 
   for (const row of attendanceRows) {
@@ -518,6 +527,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     departments,
     roles,
     permissions,
+    all_employee_codes: (allCodeRows as Array<{ employee_code: string }>).map((r) => String(r.employee_code)).filter(Boolean),
     user_roles: assignments,
     role_permissions: rolePerms,
     role_history: roleHistory,
@@ -659,9 +669,15 @@ async function employeeSaveAction(
   const statusInput = str(body.employment_status).toLowerCase();
   const roleId = str(body.role_id);
   const requestedDepartmentId = str(body.department_id);
-  const phone = str(body.phone_number);
+  const requestedEmployeeCode = str(body.employee_code).trim();
+  const gender = str(body.gender).trim() || "Male";
+  const phone = str(body.phone_number).trim();
   const education = str(body.education);
   let preserveExistingRole = false;
+
+  if (phone && !/^\d{10}$/.test(phone)) {
+    return json({ ok: false, error: "invalid_phone" }, 400);
+  }
 
   if (
     !fullName ||
@@ -740,17 +756,26 @@ async function employeeSaveAction(
       let employeeId = id;
 
       if (!employeeId) {
-        const code = `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+        const code = requestedEmployeeCode || `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
         const [created] = await tx`
           insert into public.employees
             (employee_code, full_name, email, hire_date, current_position_id,
-             current_department_id, employment_status, education, date_of_birth)
+             current_department_id, employment_status, education, date_of_birth, gender)
           values
             (${code}, ${fullName}, ${email}, ${hireDate}::date, ${positionId}::uuid,
              ${departmentId}::uuid, ${employmentStatus}, ${education || null},
-             ${dateOfBirth || null}::date)
+             ${dateOfBirth || null}::date, ${gender})
           returning employee_id`;
         employeeId = String(created.employee_id);
+
+        const submittedPassword = str(body.password).trim();
+        await tx`
+          insert into public.employee_accounts
+            (employee_id, username, password_hash, is_active)
+          values
+            (${employeeId}::uuid, ${email},
+             extensions.crypt(${submittedPassword || '123456'}, extensions.gen_salt('bf', 10)),
+             true)`;
       } else {
         await tx`
           update public.employees
@@ -761,7 +786,8 @@ async function employeeSaveAction(
               current_position_id = ${positionId}::uuid,
               current_department_id = ${departmentId}::uuid,
               education = ${education || null},
-              date_of_birth = ${dateOfBirth || null}::date
+              date_of_birth = ${dateOfBirth || null}::date,
+              gender = coalesce(${gender ? gender : null}, gender)
           where employee_id = ${employeeId}::uuid`;
       }
 

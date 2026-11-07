@@ -1380,7 +1380,13 @@ body:has(.admin-page) {
 }
 
 .employee-password-group {
-  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+#employeeForm input[name="employeeCode"]:read-only {
+  background: #e9f1eb;
+  color: var(--admin-green-dark);
+  font-weight: 500;
 }
 
 .modal-footer {

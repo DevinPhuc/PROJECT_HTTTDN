@@ -257,6 +257,7 @@
                   <p class="account-eyebrow">THÔNG TIN NHÂN VIÊN</p>
                   <div class="form-grid-2">
                     <input type="hidden" name="id" />
+                    <input type="hidden" name="education" />
                     <div class="form-group">
                       <label>Họ và tên <span class="req">*</span></label>
                       <input name="name" type="text" required maxlength="100" />
@@ -266,37 +267,53 @@
                       <input name="email" type="email" required />
                     </div>
                     <div class="form-group">
-                      <label>Số điện thoại</label>
-                      <input name="phone" type="tel" />
+                      <label>Mã nhân viên <span class="req">*</span></label>
+                      <input
+                        name="employeeCode"
+                        id="employeeCode"
+                        type="text"
+                        readonly
+                        required
+                      />
+                    </div>
+                    <div class="form-subgrid-2">
+                      <div class="form-group">
+                        <label>Giới tính</label>
+                        <select name="gender" id="employeeGender">
+                          <option value="Male">Nam</option>
+                          <option value="Female">Nữ</option>
+                          <option value="Other">Khác</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label>Số điện thoại</label>
+                        <input
+                          name="phone"
+                          id="employeePhone"
+                          type="tel"
+                          pattern="[0-9]{10}"
+                          maxlength="10"
+                          placeholder="Nhập 10 chữ số"
+                        />
+                      </div>
                     </div>
                     <div class="form-subgrid-2">
                       <div class="form-group">
                         <label>Ngày sinh <span class="req">*</span></label>
-                        <input name="dateOfBirth" type="date" required />
+                        <input name="dateOfBirth" id="employeeDob" type="date" required />
                       </div>
                       <div class="form-group">
                         <label>Ngày vào làm <span class="req">*</span></label>
-                        <input name="hireDate" type="date" required />
+                        <input name="hireDate" id="employeeHireDate" type="date" required />
                       </div>
                     </div>
-                    <div class="form-group">
-                      <label>Trình độ</label>
-                      <select name="education">
-                        <option value="">Chưa cập nhật</option>
-                        <option>Trung học phổ thông</option>
-                        <option>Trung cấp</option>
-                        <option>Cao đẳng</option>
-                        <option>Đại học</option>
-                        <option>Sau đại học</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Trạng thái</label>
-                      <select name="employmentStatus">
-                        <option>Đang làm</option>
-                        <option>Đang nghỉ phép</option>
-                        <option>Đã nghỉ việc</option>
-                      </select>
+                    <div class="form-group" id="employeeDepartmentGroup">
+                      <label>Phòng ban</label>
+                      <select
+                        name="departmentId"
+                        id="employeeDepartment"
+                        required
+                      ></select>
                     </div>
                     <div class="form-group">
                       <label>Vị trí <span class="req">*</span></label>
@@ -306,19 +323,17 @@
                         required
                       ></select>
                     </div>
-                    <div class="form-subgrid-2">
-                      <div class="form-group" id="employeeDepartmentGroup">
-                        <label>Phòng ban</label>
-                        <select
-                          name="departmentId"
-                          id="employeeDepartment"
-                          required
-                        ></select>
-                      </div>
-                      <div class="form-group" id="employeeRoleGroup">
-                        <label>Vai trò hệ thống <span class="req">*</span></label>
-                        <select name="roleId" id="employeeRole" required></select>
-                      </div>
+                    <div class="form-group">
+                      <label>Trạng thái</label>
+                      <select name="employmentStatus">
+                        <option>Đang làm</option>
+                        <option>Đang nghỉ phép</option>
+                        <option>Đã nghỉ việc</option>
+                      </select>
+                    </div>
+                    <div class="form-group" id="employeeRoleGroup">
+                      <label>Vai trò hệ thống <span class="req">*</span></label>
+                      <select name="roleId" id="employeeRole" required></select>
                     </div>
                     <div class="form-group employee-password-group">
                       <label
@@ -330,6 +345,7 @@
                         type="text"
                         readonly
                         required
+                        placeholder="Mật khẩu tự động tạo theo vai trò, phòng ban, ngày sinh"
                       />
                     </div>
                   </div>

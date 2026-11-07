@@ -32,6 +32,7 @@ const LEAVE_STATUSES = {
   rejected: "Từ chối",
 };
 let employees = [];
+let allEmployeeCodes = [];
 let currentActor = null;
 let contacts = new Map();
 let positions = [];
@@ -750,6 +751,35 @@ function renderManagerPositionOptions(departmentId, selectedPositionId) {
   }
 }
 
+function employeeCodePrefix(roleName) {
+  const normalized = String(roleName || "")
+    .trim()
+    .toLowerCase();
+  if (normalized === "admin") return "AD";
+  if (normalized === "quản lý" || normalized === "quan ly" || normalized === "manager") return "QL";
+  if (normalized === "trưởng nhóm" || normalized === "truong nhom" || normalized === "leader") return "TN";
+  return "NV";
+}
+
+function updateGeneratedEmployeeCode() {
+  const form = document.getElementById("employeeForm");
+  if (!form || form.elements.namedItem("id")?.value) return;
+  const roleSelect = form.elements.namedItem("roleId");
+  const roleName =
+    roleSelect?.selectedOptions?.[0]?.textContent || "Nhân viên";
+  const prefix = employeeCodePrefix(roleName);
+  const pattern = new RegExp("^" + prefix + "(\\d+)$", "i");
+  const pool = (allEmployeeCodes && allEmployeeCodes.length ? allEmployeeCodes : employees.map((e) => e.employee_code)).filter(Boolean);
+  const highest = pool.reduce((max, code) => {
+    const match = pattern.exec(String(code || ""));
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  const codeInput = form.elements.namedItem("employeeCode");
+  if (codeInput) {
+    codeInput.value = prefix + String(highest + 1).padStart(3, "0");
+  }
+}
+
 function showEmployeeForm(employee = null) {
   const form = document.getElementById("employeeForm");
   form.reset();
@@ -807,8 +837,10 @@ function showEmployeeForm(employee = null) {
     }
 
     const values = {
+      employeeCode: employee.employee_code || "",
       name: employee.full_name,
       email: employee.email,
+      gender: employee.gender || "Male",
       phone: contact?.phone_number || "",
       education: employee.education || "",
       dateOfBirth: employee.date_of_birth
@@ -875,12 +907,31 @@ function showEmployeeForm(employee = null) {
     const defaultDeptId = departmentSelect.value || currentActor?.department_id || "";
     renderManagerPositionOptions(defaultDeptId, "");
 
+    if (form.elements.namedItem("gender")) {
+      form.elements.namedItem("gender").value = "Male";
+    }
+    if (form.elements.namedItem("phone")) {
+      form.elements.namedItem("phone").value = "";
+    }
+
+    const roleSelect = form.elements.namedItem("roleId");
+    if (roleSelect && !roleSelect.value) {
+      const defaultRole = roles.find((r) => r.role_name.toLowerCase() === "nhân viên");
+      if (defaultRole) {
+        roleSelect.value = defaultRole.role_id;
+      }
+    }
+
+    updateGeneratedEmployeeCode();
     updateGeneratedEmployeePassword();
 
     // MỞ KHÓA FORM VÀ HIỆN LẠI NÚT LƯU KHI THÊM MỚI
     Array.from(form.elements).forEach((el) => {
       el.disabled = false;
     });
+    if (form.elements.namedItem("employeeCode")) {
+      form.elements.namedItem("employeeCode").readOnly = true;
+    }
     if (!canChooseDepartment) {
       departmentSelect.disabled = true;
     }
@@ -984,7 +1035,16 @@ if (employeeForm) {
   }
   const roleInput = employeeForm.elements.namedItem("roleId");
   if (roleInput) {
-    roleInput.addEventListener("change", updateGeneratedEmployeePassword);
+    roleInput.addEventListener("change", () => {
+      updateGeneratedEmployeeCode();
+      updateGeneratedEmployeePassword();
+    });
+  }
+  const phoneInput = employeeForm.elements.namedItem("phone");
+  if (phoneInput) {
+    phoneInput.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    });
   }
   const deptInput = employeeForm.elements.namedItem("departmentId");
   if (deptInput) {
@@ -1119,9 +1179,18 @@ document
     event.preventDefault();
     const form = event.currentTarget;
     const values = Object.fromEntries(new FormData(form).entries());
+    const rawPhone = String(values.phone || "").trim();
+    if (rawPhone && !/^\d{10}$/.test(rawPhone)) {
+      feedback("employeeFeedback", "Số điện thoại phải gồm đúng 10 chữ số.", true);
+      document.getElementById("employeePhone")?.focus();
+      return;
+    }
     const result = await callHr({
       action: "employee_save",
       id: values.id || undefined,
+      employee_code: values.employeeCode || document.getElementById("employeeCode")?.value || undefined,
+      gender: values.gender || "Male",
+      phone_number: rawPhone,
       full_name: String(values.name).trim(),
       email: String(values.email).trim().toLowerCase(),
       position_id: values.positionId || document.getElementById("employeePosition")?.value,
@@ -1130,7 +1199,6 @@ document
       education: String(values.education || "").trim(),
       hire_date: values.hireDate,
       employment_status: STATUS_TO_DB[values.employmentStatus] || "active",
-      phone_number: String(values.phone || "").trim(),
       role_id: values.roleId || undefined,
       password: String(values.password || "").trim(),
     });
