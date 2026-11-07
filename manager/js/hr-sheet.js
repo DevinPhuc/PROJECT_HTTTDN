@@ -171,19 +171,29 @@
     if (!items.length) return;
 
     saving++;
+    let savedCount = 0;
     try {
-      const result = await callHr({ action: "attendance_bulk", ym: month, items });
-      if (!result.ok) {
-        feedback("mgrCcFeedback", result.error === "forbidden"
+      // Server rejects payloads over ~1200 items; send the diff in safe batches.
+      let lastError = "";
+      for (let i = 0; i < items.length; i += 1000) {
+        const chunk = items.slice(i, i + 1000);
+        const result = await callHr({ action: "attendance_bulk", ym: month, items: chunk });
+        if (!result.ok) {
+          lastError = result.error;
+          break;
+        }
+        applyToCache(chunk); // success: apply the diff so future diffs stay empty
+        savedCount += chunk.length;
+      }
+      if (lastError) {
+        feedback("mgrCcFeedback", lastError === "forbidden"
           ? "Bạn không có quyền chấm công cho một số nhân sự trong danh sách."
           : "Không lưu được bảng chấm công. Kiểm tra kết nối rồi thử lại.", true);
         rebuildOverlay();
         render();
         return;
       }
-      // Apply the diff to the boot cache so future diffs stay empty.
-      applyToCache(items);
-      feedback("mgrCcFeedback", `Đã lưu ${items.length} ngày chấm công.`);
+      feedback("mgrCcFeedback", `Đã lưu ${savedCount} ngày chấm công.`);
     } catch {
       feedback("mgrCcFeedback", "Không lưu được bảng chấm công.", true);
       rebuildOverlay();
@@ -223,7 +233,7 @@
       if (!perEmp) overlay.set(employee.employee_id, (perEmp = new Map()));
       for (let d = 1; d <= daysIn(month); d++) {
         if (isOff(month, d) || perEmp.get(d)) continue;
-        if (`${month}-${pad(d)}` > today && month <= ymNow()) continue; // not there yet
+        if (`${month}-${pad(d)}` > today) continue; // not there yet (covers future months)
         perEmp.set(d, "X");
         count++;
       }
@@ -330,6 +340,7 @@
     const body = document.getElementById("mgrCcBody");
     body.innerHTML = emps.map((e) => {
       const eid = e.employee_id;
+      const ot = rowOvertime(eid);
       return `<tr><td class="cc-nm"><b>${esc(e.full_name)}</b><br><small class="cc-muted">${esc(e.employee_code || "")} · ${esc(departmentNameOf(e))}</small></td>`
         + days.map((d) => {
           const k = overlayCode(eid, d);
@@ -337,7 +348,7 @@
           return `<td class="cc-d ${isOff(ym, d) ? "we" : ""}" data-e="${eid}" data-d="${d}" style="${c ? `background:${c.bg};color:${c.c}` : ""}">${k}</td>`;
         }).join("")
         + sumsHTML(eid)
-        + `<td class="cc-ot">${rowOvertime(eid) ? numFmt(rowOvertime(eid)) : ""}</td></tr>`;
+        + `<td class="cc-ot">${ot ? numFmt(ot) : ""}</td></tr>`;
     }).join("") || `<tr><td class="cc-nm">Chưa có nhân viên</td></tr>`;
 
     const head = document.getElementById("mgrCcHead");

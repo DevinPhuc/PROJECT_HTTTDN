@@ -223,11 +223,7 @@ async function getActor(token: string): Promise<Actor | null> {
     }
   }
 
-<<<<<<< HEAD
-  // THAY ĐỔI: Dùng (now() at time zone 'Asia/Ho_Chi_Minh')::date thay vì biến VN_TODAY
-=======
   // Ngày hiệu lực được đối chiếu theo múi giờ Asia/Ho_Chi_Minh.
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
   const [adminCheck] = await sql!`
     select true as is_admin
     where exists (
@@ -330,11 +326,7 @@ async function employeeInScope(
     select 1 from public.employees e
     left join public.department_positions dp on dp.position_id = e.current_position_id
     where e.employee_id = ${employeeId}::uuid
-<<<<<<< HEAD
       and (e.current_department_id = ${actor.department_id}::uuid
-=======
-      and (e.current_department_id = ${actor.department_id}::uuid 
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
            or dp.department_id = ${actor.department_id}::uuid
            or e.employee_id = ${actor.employee_id}::uuid)
     limit 1`;
@@ -418,13 +410,8 @@ async function bootAction(actor: Actor): Promise<Response> {
       from public.employees e
       left join public.employee_accounts a on a.employee_id = e.employee_id
       where e.employee_id = any(${sql.array(ids)}::uuid[])
-<<<<<<< HEAD
         and a.deleted_at is null
         and a.is_active = true
-=======
-        and a.deleted_at is null 
-        and a.is_active = true 
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
         and e.employment_status = 'Active'
       order by e.full_name`,
     sql!`
@@ -840,7 +827,6 @@ async function employeeDeleteAction(
 
   if (!UUID_RE.test(id)) {
     return json({ ok: false, error: "invalid_employee" }, 400);
-<<<<<<< HEAD
   }
 
   if (!actor.is_admin && id === actor.employee_id) {
@@ -870,8 +856,6 @@ async function employeeDeleteAction(
         403,
       );
     }
-=======
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
   }
 
   // 1. Không cho phép ai tự xóa chính tài khoản của mình
@@ -896,40 +880,26 @@ async function employeeDeleteAction(
 
   try {
     await sql!.begin(async (tx) => {
-<<<<<<< HEAD
-=======
       // THỰC HIỆN XÓA MỀM (Dành cho cả Manager và Admin khi gọi qua hr-portal)
 
       // Đánh dấu tài khoản đã xóa, khóa tài khoản
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
       await tx`
         update public.employee_accounts
         set deleted_at = now(), is_active = false
         where employee_id = ${id}::uuid
           and deleted_at is null`;
 
-<<<<<<< HEAD
-=======
       // Cập nhật trạng thái nhân viên thành đã nghỉ việc
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
       await tx`
         update public.employees
         set employment_status = 'Resigned'
         where employee_id = ${id}::uuid`;
-<<<<<<< HEAD
-      const today = sql!`(now() at time zone 'Asia/Ho_Chi_Minh')::date`;
-      await tx`
-        insert into public.hr_employment_status_history
-          (employee_id, employment_status, effective_from, changed_by, reason)
-        values (${id}::uuid, 'Resigned', ${today},
-=======
 
       // Ghi log trạng thái nghỉ việc
       await tx`
         insert into public.hr_employment_status_history
           (employee_id, employment_status, effective_from, changed_by, reason)
         values (${id}::uuid, 'Resigned', (now() at time zone 'Asia/Ho_Chi_Minh')::date,
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
                 ${actor.employee_id}::uuid, 'Quản lý xóa hồ sơ (Nghỉ việc)')`;
     });
   } catch (err) {
@@ -1127,10 +1097,6 @@ async function attendanceSaveAction(
   return json({ ok: true });
 }
 
-async function payrollSaveAction(
-  actor: Actor,
-  body: Record<string, unknown>,
-): Promise<Response> {
 // Code sheet drag-paint: one transaction for a whole batch of painted cells.
 async function attendanceBulkSaveAction(
   actor: Actor,
@@ -1317,19 +1283,6 @@ Deno.serve(async (req) => {
 
   try {
     switch (body.action) {
-<<<<<<< HEAD
-      case "ping": return json({ ok: true });
-      case "boot": return await bootAction(actor);
-      case "employee_save": return await employeeSaveAction(actor, body);
-      case "employee_delete": return await employeeDeleteAction(actor, body);
-      case "role_assign": return await roleAssignAction(actor, body);
-      case "permissions_save": return await permissionsSaveAction(actor, body);
-      case "leave_review": return await leaveReviewAction(actor, body);
-      case "attendance_save": return await attendanceSaveAction(actor, body);
-      case "attendance_bulk": return await attendanceBulkSaveAction(actor, body);
-      case "payroll_save": return await payrollSaveAction(actor, body);
-      default: return json({ ok: false, error: "unknown_action" }, 400);
-=======
       case "ping":
         return json({ ok: true });
       case "boot":
@@ -1352,7 +1305,6 @@ Deno.serve(async (req) => {
         return await payrollSaveAction(actor, body);
       default:
         return json({ ok: false, error: "unknown_action" }, 400);
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
     }
   } catch (err) {
     return dbError(err);

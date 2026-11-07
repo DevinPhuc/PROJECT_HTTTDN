@@ -25,7 +25,6 @@
   let attendanceState = { today: "", records: [] };
   let attendanceClockTimer = 0;
   let attendanceFeedbackTimer = 0;
-  let refreshPending = null;
 
   const callStaff = (body) => portal.callPortal("manager", "staff-portal", body, { loginUrl: "login.html" });
 
@@ -310,7 +309,7 @@
       return;
     }
     startAttendanceClock();
-    refreshPending = renderAttendancePanel().catch(() => {
+    renderAttendancePanel().catch(() => {
       refreshAttendanceUI();
       setAttendanceFeedback("Không thể tải dữ liệu chấm công. Vui lòng thử lại sau.");
     });
@@ -320,7 +319,7 @@
   // (initHrPortal hashes to #attendance-clock and calls setView synchronously).
   if (document.querySelector('[data-hr-panel="attendance-clock"].active')) {
     startAttendanceClock();
-    refreshPending = renderAttendancePanel().catch(() => {
+    renderAttendancePanel().catch(() => {
       refreshAttendanceUI();
       setAttendanceFeedback("Không thể tải dữ liệu chấm công. Vui lòng thử lại sau.");
     });

@@ -440,7 +440,7 @@ async function attendanceListAction(actor: Actor): Promise<Response> {
     from public.attendance_records
     where employee_id = ${actor.employee_id}::uuid
     order by work_date desc
-    limit 30`;
+    limit 400`; // month/week pickers span a year+; 400 rows ≈ that history
   return json({ ok: true, today: todayRow.today, records: rows });
 }
 
