@@ -178,6 +178,21 @@ function isRealDate(value: string): boolean {
   );
 }
 
+function parseNotice(notice: unknown): Record<string, unknown> | null {
+  if (!notice) return null;
+  let current: unknown = notice;
+  while (typeof current === "string") {
+    try {
+      current = JSON.parse(current);
+    } catch {
+      break;
+    }
+  }
+  return current && typeof current === "object"
+    ? (current as Record<string, unknown>)
+    : null;
+}
+
 let noticeColumnChecked = false;
 async function ensureNoticeColumn() {
   if (noticeColumnChecked) return;
@@ -288,7 +303,7 @@ async function getActor(token: string): Promise<Actor | null> {
         department_id: row.current_department_id ?? null,
         is_admin: false,
         is_hr: false,
-        pending_notice: row.pending_notice,
+        pending_notice: parseNotice(row.pending_notice),
       };
     }
     return null;
@@ -301,7 +316,7 @@ async function getActor(token: string): Promise<Actor | null> {
     department_id: row.current_department_id ?? null,
     is_admin: Boolean(adminCheck),
     is_hr: Boolean(row.is_hr),
-    pending_notice: row.pending_notice,
+    pending_notice: parseNotice(row.pending_notice),
   };
 }
 

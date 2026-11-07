@@ -841,36 +841,18 @@ async function updateAction(
       }
     }
 
+    const computedNewPassword = generateAccountPassword(
+      newRoleName,
+      resolved.departmentDescription,
+      fields.date_of_birth,
+    );
     const submittedPassword = str(body.generated_password);
-    let finalPassword = "";
+    const finalPassword = submittedPassword || computedNewPassword;
 
-    if (submittedPassword) {
-      finalPassword = submittedPassword;
-      await tx`
-        update public.employee_accounts
-        set password_hash = extensions.crypt(${submittedPassword}, extensions.gen_salt('bf', 10))
-        where employee_id = ${employeeId}::uuid`;
-    } else {
-      if (roleId) {
-        finalPassword = await updateAccountPassword(tx, employeeId, roleId);
-      } else {
-        const [activeRole] = await tx`
-          select role_id
-          from public.user_roles
-          where employee_id = ${employeeId}::uuid
-            and valid_from <= ${VN_TODAY}::date
-            and (valid_to is null or valid_to >= ${VN_TODAY}::date)
-          order by valid_from desc, user_role_id desc
-          limit 1`;
-        if (activeRole) {
-          finalPassword = await updateAccountPassword(
-            tx,
-            employeeId,
-            String(activeRole.role_id),
-          );
-        }
-      }
-    }
+    await tx`
+      update public.employee_accounts
+      set password_hash = extensions.crypt(${finalPassword}, extensions.gen_salt('bf', 10))
+      where employee_id = ${employeeId}::uuid`;
 
     if (roleChanged) {
       await tx`

@@ -57,6 +57,21 @@ function isRealDate(value: string): boolean {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+function parseNotice(notice: unknown): Record<string, unknown> | null {
+  if (!notice) return null;
+  let current: unknown = notice;
+  while (typeof current === "string") {
+    try {
+      current = JSON.parse(current);
+    } catch {
+      break;
+    }
+  }
+  return current && typeof current === "object"
+    ? (current as Record<string, unknown>)
+    : null;
+}
+
 let noticeColumnChecked = false;
 async function ensureNoticeColumn() {
   if (noticeColumnChecked) return;
@@ -121,7 +136,7 @@ async function getActor(token: string): Promise<Actor | null> {
     employee_id: row.employee_id,
     username: row.username,
     full_name: row.full_name,
-    pending_notice: row.pending_notice,
+    pending_notice: parseNotice(row.pending_notice),
   };
 }
 

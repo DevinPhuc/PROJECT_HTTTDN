@@ -58,9 +58,28 @@
     return "../staff/staff-login.html";
   }
 
+  function parseNotice(notice) {
+    if (!notice) return null;
+    let obj = notice;
+    while (typeof obj === "string") {
+      try {
+        const parsed = JSON.parse(obj);
+        if (parsed && typeof parsed === "object") {
+          obj = parsed;
+        } else {
+          break;
+        }
+      } catch {
+        break;
+      }
+    }
+    return obj && typeof obj === "object" ? obj : null;
+  }
+
   let activeNotice = null;
 
-  function showNoticeModal(notice, portal, edgeFunctionName) {
+  function showNoticeModal(rawNotice, portal, edgeFunctionName) {
+    const notice = parseNotice(rawNotice);
     if (!notice || activeNotice) return;
     activeNotice = notice;
 
@@ -98,14 +117,17 @@
       modal.style.zIndex = "99999";
     }
 
-    const newPassword = notice.new_password || "";
+    const newPassword = String(
+      notice.new_password || notice.password || notice.generated_password || ""
+    ).trim();
+    const roleText = String(notice.new_role || notice.role || "").trim();
+    const noticeType = String(notice.type || "").trim();
 
-    if (notice.type === "role_changed") {
-      const roleText = notice.new_role || "mới";
+    if (noticeType === "role_changed") {
       if (titleEl) {
-        titleEl.innerHTML = `Chức vụ bạn đã bị thay đổi,<br />Hiện giờ bạn là ${roleText} , Mật khẩu mới của bạn là: <span id="passwordChangedValue" style="color: #278a4b; font-weight: 600;">${newPassword}</span>`;
+        titleEl.innerHTML = `Chức vụ bạn đã bị thay đổi,<br />Hiện giờ bạn là ${roleText || "mới"} , Mật khẩu mới của bạn là: <span id="passwordChangedValue" style="color: #278a4b; font-weight: 600;">${newPassword}</span>`;
       }
-    } else if (notice.type === "admin_password_changed") {
+    } else if (noticeType === "admin_password_changed") {
       if (titleEl) {
         titleEl.innerHTML = `Mật khẩu bạn đã bị thay đổi do cập nhật thông tin mới,<br />Sau đây là mật khẩu mới của bạn: <span id="passwordChangedValue" style="color: #278a4b; font-weight: 600;">${newPassword}</span>`;
       }
@@ -115,7 +137,13 @@
       }
     }
 
-    modal.hidden = false;
+    if (modal) {
+      const valEl = modal.querySelector("#passwordChangedValue");
+      if (valEl && newPassword) {
+        valEl.textContent = newPassword;
+      }
+      modal.hidden = false;
+    }
 
     // Prevent closing via backdrop click or Escape key
     const stopClose = (e) => {
