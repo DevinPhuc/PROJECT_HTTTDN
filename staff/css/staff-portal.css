@@ -1122,31 +1122,52 @@ button.staff-kpi-action:focus-visible {
   color: var(--admin-muted);
 }
 
-/* Refresh button matching admin style */
-.account-refresh-btn {
-  width: 40px;
-  height: 40px;
-  padding: 8px;
+/* Global refresh button in staff topbar */
+.staff-global-refresh-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #d7ddd7;
+  border-radius: 4px;
   background: #ffffff;
-  border: 1px solid var(--admin-border, #e2e8e0);
-  border-radius: 8px;
+  color: var(--admin-ink, #252b27);
+  font-family: var(--body-font, "Sofia Sans", sans-serif);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
-.account-refresh-btn:hover {
-  background: var(--admin-surface, #f8faf8);
-  border-color: var(--admin-primary, #1b4d3e);
+
+.staff-global-refresh-btn:hover:not(:disabled) {
+  background: #f8faf7;
+  border-color: #aebbb1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
-.account-refresh-btn img {
+
+.staff-global-refresh-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.staff-global-refresh-btn .button-icon {
   width: 16px;
   height: 16px;
+  margin-right: 0;
+  flex: 0 0 auto;
   object-fit: contain;
 }
-.account-refresh-btn.is-loading img {
+
+.staff-global-refresh-btn.is-loading .button-icon,
+.staff-global-refresh-btn.is-loading img {
   animation: account-refresh-spin 800ms linear infinite;
+}
+
+.staff-global-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 @keyframes account-refresh-spin {
   to {
