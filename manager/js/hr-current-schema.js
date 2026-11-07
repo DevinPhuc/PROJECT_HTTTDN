@@ -948,23 +948,44 @@ document
     employeePagination.page = 1;
     renderEmployees();
   });
+async function refreshAllManagerData() {
+  const buttons = [
+    document.getElementById("managerGlobalRefreshBtn"),
+    document.getElementById("employeeRefreshBtn"),
+  ].filter(Boolean);
+
+  buttons.forEach((btn) => {
+    btn.disabled = true;
+    btn.classList.add("is-loading");
+  });
+
+  try {
+    await loadLookups();
+    employeePagination.page = 1;
+    await renderAll();
+    document.dispatchEvent(new CustomEvent("hr:refresh"));
+    showToast("refreshToast");
+  } catch (error) {
+    console.error("refresh failed", error);
+    showError("Không thể làm mới dữ liệu. Vui lòng thử lại sau.");
+  } finally {
+    buttons.forEach((btn) => {
+      btn.disabled = false;
+      btn.classList.remove("is-loading");
+    });
+  }
+}
+
+document
+  .getElementById("managerGlobalRefreshBtn")
+  ?.addEventListener("click", () => {
+    refreshAllManagerData();
+  });
+
 document
   .getElementById("employeeRefreshBtn")
-  .addEventListener("click", async (event) => {
-    const button = event.currentTarget;
-    button.disabled = true;
-    button.classList.add("is-loading");
-    try {
-      await loadLookups();
-      employeePagination.page = 1;
-      renderAll();
-    } catch (error) {
-      showError("Không thể làm mới danh sách nhân sự.");
-      console.error("employee refresh failed", error);
-    } finally {
-      button.classList.remove("is-loading");
-      button.disabled = false;
-    }
+  ?.addEventListener("click", () => {
+    refreshAllManagerData();
   });
 document.querySelectorAll("[data-employee-sort]").forEach((button) => {
   button.addEventListener("click", () => {

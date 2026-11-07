@@ -199,6 +199,23 @@
             <p class="account-eyebrow">JEWELS · NHÂN SỰ</p>
             <h1 id="adminPageTitle">Hồ sơ nhân sự</h1>
           </div>
+          <div class="admin-topbar-actions">
+            <button
+              type="button"
+              class="admin-secondary-btn hr-global-refresh-btn"
+              id="managerGlobalRefreshBtn"
+              aria-label="Làm mới dữ liệu"
+              title="Làm mới dữ liệu"
+            >
+              <img
+                src="../shared/images/reset.png"
+                alt=""
+                class="button-icon"
+                aria-hidden="true"
+              />
+              <span>Làm mới dữ liệu</span>
+            </button>
+          </div>
         </header>
 
         <div id="managerLoading" class="manager-loading">Đang tải cổng quản lý...</div>
@@ -843,6 +860,15 @@
     <div id="reviewToast" class="success-toast" role="status" aria-live="polite">
       <img src="../shared/images/check.png" alt="" class="toast-icon" />
       <span>Đã duyệt đơn nghỉ thành công!</span>
+    </div>
+    <div
+      id="refreshToast"
+      class="success-toast"
+      role="status"
+      aria-live="polite"
+    >
+      <img src="../shared/images/check.png" alt="" class="toast-icon" />
+      <span>Dữ liệu đã được làm mới!</span>
     </div>
 
     <div id="permanentDeleteModal" class="account-confirm-modal" hidden>

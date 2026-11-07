@@ -300,6 +300,11 @@
     setAttendanceFeedback("");
   }
 
+  // Listen for global data refresh event
+  document.addEventListener("hr:refresh", () => {
+    renderAttendancePanel().catch(() => {});
+  });
+
   // Load/leave lifecycle: the manager portal has no per-view loader, so the
   // setView-dispatched hr:view event drives both directions.
   document.addEventListener("hr:view", (event) => {
