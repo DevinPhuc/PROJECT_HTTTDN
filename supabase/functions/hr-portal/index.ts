@@ -56,6 +56,23 @@ const MANAGER_PERMISSIONS = [
   "manage_staff",
   "manage_employees",
 ];
+const LEADER_ROLES = [
+  "leader",
+  "team_lead",
+  "team lead",
+  "team_leader",
+  "team leader",
+  "trưởng nhóm",
+  "truong nhom",
+];
+const LEADER_PERMISSIONS = [
+  "leader",
+  "team_lead",
+  "team_leader",
+  "team_lead_access",
+  "team_leader_access",
+  "approve_team_leave",
+];
 
 // Live check constraints expect exactly these values.
 const EMPLOYMENT_STATUS: Record<string, string> = {
@@ -92,6 +109,8 @@ type Actor = {
   department_id: string | null;
   is_admin: boolean;
   is_hr: boolean;
+  is_manager: boolean;
+  is_leader: boolean;
   pending_notice?: unknown;
 };
 
@@ -222,12 +241,20 @@ async function getActor(token: string): Promise<Actor | null> {
   let rows;
   try {
     rows = await sql!`
-      select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
+      select e.employee_id, e.full_name, e.email,
+             coalesce(e.current_department_id, position_department.department_id) as current_department_id,
+             e.updated_at,
              lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr,
              a.pending_notice
       from public.employees e
       join public.employee_accounts a on a.employee_id = e.employee_id
-      left join public.departments d on d.department_id = e.current_department_id
+      left join lateral (
+        select (array_agg(distinct dp.department_id))[1] as department_id
+        from public.department_positions dp
+        where dp.position_id = e.current_position_id
+        having count(distinct dp.department_id) = 1
+      ) position_department on true
+      left join public.departments d on d.department_id = coalesce(e.current_department_id, position_department.department_id)
       where e.employee_id = ${employeeId}::uuid
         and a.is_active is true
         and a.deleted_at is null
@@ -237,12 +264,20 @@ async function getActor(token: string): Promise<Actor | null> {
     const code = (err as { code?: string })?.code ?? "";
     if (code === "42703") {
       rows = await sql!`
-        select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
+        select e.employee_id, e.full_name, e.email,
+               coalesce(e.current_department_id, position_department.department_id) as current_department_id,
+               e.updated_at,
                lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr,
                null as pending_notice
         from public.employees e
         join public.employee_accounts a on a.employee_id = e.employee_id
-        left join public.departments d on d.department_id = e.current_department_id
+        left join lateral (
+          select (array_agg(distinct dp.department_id))[1] as department_id
+          from public.department_positions dp
+          where dp.position_id = e.current_position_id
+          having count(distinct dp.department_id) = 1
+        ) position_department on true
+        left join public.departments d on d.department_id = coalesce(e.current_department_id, position_department.department_id)
         where e.employee_id = ${employeeId}::uuid
           and a.is_active is true
           and a.deleted_at is null
@@ -294,7 +329,25 @@ async function getActor(token: string): Promise<Actor | null> {
         and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
         and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date))`;
 
-  if (!adminCheck && !managerCheck) {
+  const [leaderCheck] = await sql!`
+    select true as is_leader
+    where exists (
+      select 1 from public.user_roles ur
+      join public.roles r on r.role_id = ur.role_id
+      where ur.employee_id = ${row.employee_id}::uuid
+        and lower(r.role_name) = any(${sql.array(LEADER_ROLES)})
+        and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+        and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date))
+       or exists (
+      select 1 from public.user_roles ur
+      join public.role_permissions rp on rp.role_id = ur.role_id
+      join public.permissions p on p.permission_id = rp.permission_id
+      where ur.employee_id = ${row.employee_id}::uuid
+        and lower(p.permission_code) = any(${sql.array(LEADER_PERMISSIONS)})
+        and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+        and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date))`;
+
+  if (!adminCheck && !managerCheck && !leaderCheck) {
     if (row.pending_notice) {
       return {
         employee_id: row.employee_id,
@@ -303,6 +356,8 @@ async function getActor(token: string): Promise<Actor | null> {
         department_id: row.current_department_id ?? null,
         is_admin: false,
         is_hr: false,
+        is_manager: false,
+        is_leader: false,
         pending_notice: parseNotice(row.pending_notice),
       };
     }
@@ -316,6 +371,8 @@ async function getActor(token: string): Promise<Actor | null> {
     department_id: row.current_department_id ?? null,
     is_admin: Boolean(adminCheck),
     is_hr: Boolean(row.is_hr),
+    is_manager: Boolean(managerCheck),
+    is_leader: Boolean(leaderCheck && !managerCheck && !adminCheck),
     pending_notice: parseNotice(row.pending_notice),
   };
 }
@@ -361,7 +418,34 @@ async function optionalBootQuery<T>(
 // staff-portal), so every statement inlines its SQL as literal template text.
 async function scopedEmployeeIds(actor: Actor): Promise<string[]> {
   const rows =
-    actor.is_admin || actor.is_hr
+    actor.is_leader
+      ? actor.department_id === null
+        ? []
+        : await sql!`
+            select e.employee_id
+            from public.employees e
+            left join lateral (
+              select (array_agg(distinct dp.department_id))[1] as department_id
+              from public.department_positions dp
+              where dp.position_id = e.current_position_id
+              having count(distinct dp.department_id) = 1
+            ) position_department on true
+            where e.employee_id <> ${actor.employee_id}::uuid
+              and e.employment_status = 'Active'
+              and exists (
+                select 1 from public.employee_accounts a
+                where a.employee_id = e.employee_id
+                  and a.is_active is true
+                  and a.deleted_at is null
+              )
+              and (
+                e.current_department_id = ${actor.department_id}::uuid
+                or (
+                  e.current_department_id is null
+                  and position_department.department_id = ${actor.department_id}::uuid
+                )
+              )`
+      : actor.is_admin || actor.is_hr
       ? await sql!`select employee_id from public.employees`
       : actor.department_id === null
         ? await sql!`select employee_id from public.employees where employee_id = ${actor.employee_id}::uuid`
@@ -377,6 +461,34 @@ async function employeeInScope(
   actor: Actor,
   employeeId: string,
 ): Promise<boolean> {
+  if (actor.is_leader) {
+    if (actor.department_id === null || employeeId === actor.employee_id) return false;
+    const rows = await sql!`
+      select 1 from public.employees e
+      left join lateral (
+        select (array_agg(distinct dp.department_id))[1] as department_id
+        from public.department_positions dp
+        where dp.position_id = e.current_position_id
+        having count(distinct dp.department_id) = 1
+      ) position_department on true
+      where e.employee_id = ${employeeId}::uuid
+        and e.employment_status = 'Active'
+        and exists (
+          select 1 from public.employee_accounts a
+          where a.employee_id = e.employee_id
+            and a.is_active is true
+            and a.deleted_at is null
+        )
+        and (
+          e.current_department_id = ${actor.department_id}::uuid
+          or (
+            e.current_department_id is null
+            and position_department.department_id = ${actor.department_id}::uuid
+          )
+        )
+      limit 1`;
+    return rows.length > 0;
+  }
   if (actor.is_admin || actor.is_hr) return UUID_RE.test(employeeId);
   if (actor.department_id === null) return employeeId === actor.employee_id;
   const rows = await sql!`
@@ -521,6 +633,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     sql!`
       select lr.leave_request_id, lr.employee_id, lr.start_date, lr.end_date,
              lr.reason, lower(lr.status::text) as status,
+             lr.leader_status, lr.leader_reviewed_at,
              to_char(lr.requested_at, 'YYYY-MM-DD"T"HH24:MI:SS') as requested_at,
              case lt.type_name
                when 'Nghỉ phép' then 'annual'
@@ -578,6 +691,8 @@ async function bootAction(actor: Actor): Promise<Response> {
       department_id: actor.department_id,
       is_admin: actor.is_admin,
       is_hr: actor.is_hr,
+      is_manager: actor.is_manager,
+      is_leader: actor.is_leader,
     },
     employees,
     contacts,
@@ -595,6 +710,189 @@ async function bootAction(actor: Actor): Promise<Response> {
     employment_status_history: statusHistory,
     pending_notice: actor.pending_notice || null,
   });
+}
+
+async function leaderBootAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const requestedMonth = str(body.month);
+  const currentMonth = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const month = requestedMonth || currentMonth;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return json({ ok: false, error: "invalid_period" }, 400);
+  }
+
+  const ids = tagged(await scopedEmployeeIds(actor));
+  const [teamEmployees, attendanceRows, leaveRows] = await Promise.all([
+    sql!`
+      select e.employee_id, e.employee_code, e.full_name, e.email,
+             e.employment_status, e.current_position_id as position_id,
+             coalesce(e.current_department_id, position_department.department_id) as department_id,
+             p.position_title
+      from public.employees e
+      left join lateral (
+        select (array_agg(distinct dp.department_id))[1] as department_id
+        from public.department_positions dp
+        where dp.position_id = e.current_position_id
+        having count(distinct dp.department_id) = 1
+      ) position_department on true
+      left join public.positions p on p.position_id = e.current_position_id
+      left join public.employee_accounts a on a.employee_id = e.employee_id
+      where e.employee_id = any(${sql.array(ids)}::uuid[])
+        and a.deleted_at is null
+        and a.is_active is true
+        and e.employment_status = 'Active'
+      order by e.full_name`,
+    sql!`
+      select ar.attendance_id, ar.employee_id,
+             lower(ar.status::text) as status, ar.day_code,
+             to_char(ar.work_date, 'YYYY-MM-DD') as work_date,
+             to_char(ar.check_in_time, 'HH24:MI:SS') as check_in_time,
+             to_char(ar.check_out_time, 'HH24:MI:SS') as check_out_time,
+             ar.overtime_hours, ar.notes
+      from public.attendance_records ar
+      where ar.employee_id = any(${sql.array(ids)}::uuid[])
+        and ar.work_date >= ${`${month}-01`}::date
+        and ar.work_date < (${`${month}-01`}::date + interval '1 month')
+      order by ar.work_date desc, ar.employee_id`,
+    sql!`
+      select lr.leave_request_id, lr.employee_id, e.full_name, e.employee_code,
+             to_char(lr.start_date, 'YYYY-MM-DD') as start_date,
+             to_char(lr.end_date, 'YYYY-MM-DD') as end_date,
+             lr.reason,
+             lower(lr.status::text) as status, lr.leader_status,
+             lr.leader_reviewed_at,
+             to_char(lr.requested_at, 'YYYY-MM-DD"T"HH24:MI:SS') as requested_at,
+             case lt.type_name
+               when 'Nghỉ phép' then 'annual'
+               when 'Nghỉ ốm đau' then 'sick'
+               when 'Nghỉ thai sản' then 'maternity'
+               when 'Xin nghỉ việc' then 'resignation'
+               else lt.type_name
+             end as leave_type
+      from public.leave_requests lr
+      join public.employees e on e.employee_id = lr.employee_id
+      left join public.leave_types lt on lt.leave_type_id = lr.leave_type_id
+      where lr.employee_id = any(${sql.array(ids)}::uuid[])
+      order by lr.requested_at desc`,
+  ]);
+  for (const row of attendanceRows) {
+    (row as Record<string, unknown>).work_date = String(
+      (row as Record<string, unknown>).work_date,
+    ).slice(0, 10);
+  }
+
+  return json({
+    ok: true,
+    actor: {
+      employee_id: actor.employee_id,
+      full_name: actor.full_name,
+      email: actor.email,
+      department_id: actor.department_id,
+    },
+    month,
+    employees: teamEmployees,
+    attendance: attendanceRows,
+    leave_requests: leaveRows,
+    pending_notice: actor.pending_notice || null,
+  });
+}
+
+async function leaderAttendanceListAction(actor: Actor): Promise<Response> {
+  const [todayRow] = await sql!`
+    select (now() at time zone 'Asia/Ho_Chi_Minh')::date::text as today`;
+  const records = await sql!`
+    select attendance_id,
+           to_char(work_date, 'YYYY-MM-DD') as work_date,
+           to_char(check_in_time, 'HH24:MI:SS') as check_in,
+           to_char(check_out_time, 'HH24:MI:SS') as check_out,
+           status
+    from public.attendance_records
+    where employee_id = ${actor.employee_id}::uuid
+    order by work_date desc
+    limit 400`;
+  return json({ ok: true, today: todayRow.today, records });
+}
+
+async function leaderAttendanceClockAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const phase = str(body.phase).toLowerCase();
+  if (phase !== "in" && phase !== "out")
+    return json({ ok: false, error: "invalid_phase" }, 400);
+
+  let clockError = "";
+  try {
+    await sql!.begin(async (tx) => {
+      await tx`
+        select pg_advisory_xact_lock(
+          hashtextextended(
+            ${actor.employee_id} || ':' ||
+              (now() at time zone 'Asia/Ho_Chi_Minh')::date::text,
+            0
+          )
+        )`;
+      const [existing] = await tx`
+        select attendance_id, check_in_time, check_out_time
+        from public.attendance_records
+        where employee_id = ${actor.employee_id}::uuid
+          and work_date = (now() at time zone 'Asia/Ho_Chi_Minh')::date
+        limit 1
+        for update`;
+
+      if (!existing) {
+        if (phase === "out") {
+          clockError = "not_clocked_in";
+          return;
+        }
+        await tx`
+          insert into public.attendance_records
+            (employee_id, work_date, status, check_in_time)
+          values (
+            ${actor.employee_id}::uuid,
+            (now() at time zone 'Asia/Ho_Chi_Minh')::date,
+            'Present',
+            (now() at time zone 'Asia/Ho_Chi_Minh')::time
+          )`;
+        return;
+      }
+
+      if (phase === "in") {
+        if (existing.check_in_time != null) {
+          clockError = "already_in";
+          return;
+        }
+        await tx`
+          update public.attendance_records
+          set check_in_time = (now() at time zone 'Asia/Ho_Chi_Minh')::time
+          where attendance_id = ${existing.attendance_id}`;
+        return;
+      }
+      if (existing.check_in_time == null) {
+        clockError = "not_clocked_in";
+        return;
+      }
+      if (existing.check_out_time != null) {
+        clockError = "already_clocked_out";
+        return;
+      }
+      await tx`
+        update public.attendance_records
+        set check_out_time = (now() at time zone 'Asia/Ho_Chi_Minh')::time
+        where attendance_id = ${existing.attendance_id}`;
+    });
+  } catch (err) {
+    return dbError(err);
+  }
+
+  if (clockError) return json({ ok: false, error: clockError }, 400);
+  return leaderAttendanceListAction(actor);
 }
 
 async function contactTx(
@@ -1060,12 +1358,15 @@ async function leaveReviewAction(
 
   try {
     const [leave] = await sql`
-      select employee_id, lower(status::text) as status, start_date, reason from public.leave_requests
+      select employee_id, lower(status::text) as status, leader_status, start_date, reason
+      from public.leave_requests
       where leave_request_id = ${requestId}::uuid
       limit 1`;
     if (!leave) return json({ ok: false, error: "invalid_reference" }, 400);
     if (leave.status !== "pending")
       return json({ ok: false, error: "already_decided" }, 400);
+    if (leave.leader_status !== "approved")
+      return json({ ok: false, error: "pending_leader_review" }, 400);
     if (String(leave.employee_id) === actor.employee_id) {
       return json({ ok: false, error: "forbidden" }, 403); // no self-approval
     }
@@ -1075,12 +1376,18 @@ async function leaveReviewAction(
 
     // Single statement: no transaction needed (and the pool is max 1, so nested
     // pool queries inside sql.begin would deadlock).
-    await sql`
+    const updated = await sql`
       update public.leave_requests
       set status = ${statusInput === "approved" ? "Approved" : "Rejected"},
           approved_by = ${actor.employee_id}::uuid,
           decided_at = now()
-      where leave_request_id = ${requestId}::uuid`;
+      where leave_request_id = ${requestId}::uuid
+      and lower(status::text) = 'pending'
+      and leader_status = 'approved'
+      returning employee_id`;
+
+    if (!updated.length)
+      return json({ ok: false, error: "already_decided" }, 400);
 
     if (statusInput === "approved") {
       await sql`
@@ -1095,6 +1402,64 @@ async function leaveReviewAction(
   }
 
   return json({ ok: true });
+}
+
+async function leaderLeaveReviewAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const requestId = str(body.leave_request_id);
+  const statusInput = str(body.status).toLowerCase();
+  if (!UUID_RE.test(requestId))
+    return json({ ok: false, error: "invalid_request" }, 400);
+  if (!["approved", "rejected"].includes(statusInput))
+    return json({ ok: false, error: "invalid_status" }, 400);
+
+  try {
+    const updated = await sql!`
+      update public.leave_requests as lr
+      set leader_status = ${statusInput},
+          leader_reviewed_by = ${actor.employee_id}::uuid,
+          leader_reviewed_at = now(),
+          status = case when ${statusInput} = 'rejected' then 'Rejected' else status end,
+          decided_at = case when ${statusInput} = 'rejected' then now() else decided_at end
+      where lr.leave_request_id = ${requestId}::uuid
+        and lower(lr.status::text) = 'pending'
+        and lr.leader_status is null
+        and lr.employee_id <> ${actor.employee_id}::uuid
+        and exists (
+          select 1
+          from public.employees e
+          left join lateral (
+            select (array_agg(distinct dp.department_id))[1] as department_id
+            from public.department_positions dp
+            where dp.position_id = e.current_position_id
+            having count(distinct dp.department_id) = 1
+          ) position_department on true
+          where e.employee_id = lr.employee_id
+            and e.employment_status = 'Active'
+            and (
+              e.current_department_id = ${actor.department_id}::uuid
+              or (
+                e.current_department_id is null
+                and position_department.department_id = ${actor.department_id}::uuid
+              )
+            )
+            and exists (
+              select 1 from public.employee_accounts a
+              where a.employee_id = e.employee_id
+                and a.is_active is true
+                and a.deleted_at is null
+            )
+        )
+      returning leave_request_id`;
+    if (!updated.length)
+      return json({ ok: false, error: "forbidden_or_already_decided" }, 400);
+  } catch (err) {
+    return dbError(err);
+  }
+
+  return json({ ok: true, status: statusInput === "rejected" ? "rejected" : "pending" });
 }
 
 async function attendanceSaveAction(
@@ -1200,6 +1565,7 @@ async function attendanceBulkSaveAction(
 
   // Validate every item before touching the database (all-or-nothing batch).
   const prepared: { employeeId: string; workDate: string; dayCode: string | null }[] = [];
+  const seenDays = new Set<string>();
   for (const item of items) {
     const employeeId = item && typeof item === "object" ? str((item as Record<string, unknown>).employee_id) : "";
     const workDate = item && typeof item === "object" ? str((item as Record<string, unknown>).work_date) : "";
@@ -1210,8 +1576,137 @@ async function attendanceBulkSaveAction(
     const dayCode = dayCodeRaw || null; // "" → NULL = clear
     if (dayCode && !(dayCode in DAY_CODE_STATUS))
       return json({ ok: false, error: "invalid_day_code" }, 400);
+    const dayKey = `${employeeId}:${workDate}`;
+    if (seenDays.has(dayKey)) return json({ ok: false, error: "duplicate_attendance_day" }, 400);
+    seenDays.add(dayKey);
     prepared.push({ employeeId, workDate, dayCode });
   }
+
+  if (actor.is_leader) {
+    if (!actor.department_id) return json({ ok: false, error: "forbidden" }, 403);
+    const inputRows = prepared.map((item) => ({
+      employee_id: item.employeeId,
+      work_date: item.workDate,
+      day_code: item.dayCode,
+    }));
+    const inputJson = JSON.stringify(inputRows);
+    const employeeIds = [...new Set(prepared.map((item) => item.employeeId))];
+
+    try {
+      await sql!.begin(async (tx) => {
+        const lockedEmployees = await tx`
+          select e.employee_id
+          from public.employees e
+          left join lateral (
+            select (array_agg(distinct dp.department_id))[1] as department_id
+            from public.department_positions dp
+            where dp.position_id = e.current_position_id
+            having count(distinct dp.department_id) = 1
+          ) position_department on true
+          where e.employee_id = any(${sql!.array([...employeeIds, actor.employee_id])}::uuid[])
+            and (
+              (
+                e.employee_id = ${actor.employee_id}::uuid
+                and e.employment_status = 'Active'
+                and coalesce(e.current_department_id, position_department.department_id) = ${actor.department_id}::uuid
+              )
+              or (
+                e.employee_id <> ${actor.employee_id}::uuid
+                and e.employment_status = 'Active'
+                and exists (
+                  select 1 from public.employee_accounts a
+                  where a.employee_id = e.employee_id
+                    and a.is_active is true
+                    and a.deleted_at is null
+                )
+                and (
+                  e.current_department_id = ${actor.department_id}::uuid
+                  or (
+                    e.current_department_id is null
+                    and position_department.department_id = ${actor.department_id}::uuid
+                  )
+                )
+              )
+            )
+          order by e.employee_id
+          for update of e`;
+        if (lockedEmployees.length !== employeeIds.length + 1) throw makeError("forbidden");
+
+        await tx`
+          select pg_advisory_xact_lock(
+            hashtextextended(locked.employee_id::text || ':' || locked.work_date::text, 0)
+          )
+          from (
+            select distinct input.employee_id, input.work_date
+            from jsonb_to_recordset(${inputJson}::jsonb)
+              as input(employee_id uuid, work_date date, day_code text)
+            order by input.employee_id, input.work_date
+          ) locked`;
+
+        await tx`
+          with input as (
+            select * from jsonb_to_recordset(${inputJson}::jsonb)
+              as item(employee_id uuid, work_date date, day_code text)
+          )
+          delete from public.attendance_records ar
+          using input
+          where input.day_code is null
+            and ar.employee_id = input.employee_id
+            and ar.work_date = input.work_date`;
+
+        const codeGroups = [
+          { codes: ["X", "CT"], status: "Present" },
+          { codes: ["P", "L"], status: "OnLeave" },
+          { codes: ["O", "KP"], status: "Absent" },
+        ];
+        for (const group of codeGroups) {
+          await tx`
+            with input as (
+              select * from jsonb_to_recordset(${inputJson}::jsonb)
+                as item(employee_id uuid, work_date date, day_code text)
+            )
+            update public.attendance_records ar
+            set status = ${group.status},
+                day_code = input.day_code,
+                check_in_time = case
+                  when input.day_code = 'X' then coalesce(ar.check_in_time, ${FULL_DAY_IN}::time)
+                  else ar.check_in_time
+                end,
+                check_out_time = case
+                  when input.day_code = 'X' then coalesce(ar.check_out_time, ${FULL_DAY_OUT}::time)
+                  else ar.check_out_time
+                end
+            from input
+            where input.day_code = any(${sql!.array(group.codes)})
+              and ar.employee_id = input.employee_id
+              and ar.work_date = input.work_date`;
+
+          await tx`
+            with input as (
+              select * from jsonb_to_recordset(${inputJson}::jsonb)
+                as item(employee_id uuid, work_date date, day_code text)
+            )
+            insert into public.attendance_records
+              (employee_id, work_date, status, day_code, check_in_time, check_out_time)
+            select input.employee_id, input.work_date, ${group.status}, input.day_code,
+                   case when input.day_code = 'X' then ${FULL_DAY_IN}::time else null end,
+                   case when input.day_code = 'X' then ${FULL_DAY_OUT}::time else null end
+            from input
+            where input.day_code = any(${sql!.array(group.codes)})
+              and not exists (
+                select 1 from public.attendance_records ar
+                where ar.employee_id = input.employee_id
+                  and ar.work_date = input.work_date
+              )`;
+        }
+      });
+    } catch (err) {
+      return dbError(err);
+    }
+
+    return json({ ok: true, count: prepared.length });
+  }
+
   for (const employeeId of new Set(prepared.map((it) => it.employeeId))) {
     if (!(await employeeInScope(actor, employeeId)))
       return json({ ok: false, error: "forbidden" }, 403);
@@ -1388,20 +1883,56 @@ Deno.serve(async (req) => {
         const employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
         if (UUID_RE.test(employeeId)) {
           const [roleRow] = await sql!`
-            select r.role_name
-            from public.user_roles ur
-            join public.roles r on r.role_id = ur.role_id
-            where ur.employee_id = ${employeeId}::uuid
-              and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
-              and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
-            order by ur.valid_from desc, ur.user_role_id desc
-            limit 1`;
+            select
+              exists (
+                select 1 from public.user_roles ur
+                join public.roles r on r.role_id = ur.role_id
+                where ur.employee_id = ${employeeId}::uuid
+                  and r.role_name = 'Admin'
+                  and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+                  and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+              ) as is_admin,
+              exists (
+                select 1 from public.user_roles ur
+                join public.roles r on r.role_id = ur.role_id
+                where ur.employee_id = ${employeeId}::uuid
+                  and lower(r.role_name) = any(${sql.array(MANAGER_ROLES)})
+                  and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+                  and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+              ) or exists (
+                select 1 from public.user_roles ur
+                join public.role_permissions rp on rp.role_id = ur.role_id
+                join public.permissions p on p.permission_id = rp.permission_id
+                where ur.employee_id = ${employeeId}::uuid
+                  and lower(p.permission_code) = any(${sql.array(MANAGER_PERMISSIONS)})
+                  and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+                  and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+              ) as is_manager,
+              exists (
+                select 1 from public.user_roles ur
+                join public.roles r on r.role_id = ur.role_id
+                where ur.employee_id = ${employeeId}::uuid
+                  and lower(r.role_name) = any(${sql.array(LEADER_ROLES)})
+                  and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+                  and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+              ) or exists (
+                select 1 from public.user_roles ur
+                join public.role_permissions rp on rp.role_id = ur.role_id
+                join public.permissions p on p.permission_id = rp.permission_id
+                where ur.employee_id = ${employeeId}::uuid
+                  and lower(p.permission_code) = any(${sql.array(LEADER_PERMISSIONS)})
+                  and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+                  and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+              ) as is_leader`;
           if (roleRow) {
-            activeRole = String(roleRow.role_name);
-            const lower = activeRole.toLowerCase();
-            if (lower === "admin") {
+            if (roleRow.is_admin) {
+              activeRole = "Admin";
               redirectUrl = "../admin/login.html";
-            } else if (MANAGER_ROLES.includes(lower)) {
+            } else if (roleRow.is_manager) {
+              activeRole = "Manager";
+              redirectUrl = "../manager/login.html";
+            } else if (roleRow.is_leader) {
+              activeRole = "Leader";
               redirectUrl = "../manager/login.html";
             } else {
               redirectUrl = "../staff/staff-login.html";
@@ -1422,8 +1953,24 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "bad_request" }, 400);
   }
 
+  const action = str(body.action);
+  const leaderActions = [
+    "leader_boot",
+    "leader_leave_review",
+    "leader_attendance_bulk",
+    "leader_attendance_list",
+    "leader_attendance_clock",
+  ];
+  if (
+    (actor.is_leader && !["ping", "clear_notice", ...leaderActions].includes(action)) ||
+    (!actor.is_leader && leaderActions.includes(action)) ||
+    (!actor.is_admin && !actor.is_manager && !actor.is_leader && !["ping", "clear_notice"].includes(action))
+  ) {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
+
   try {
-    switch (body.action) {
+    switch (action) {
       case "ping":
         return json({ ok: true, pending_notice: actor.pending_notice || null });
       case "clear_notice": {
@@ -1432,6 +1979,12 @@ Deno.serve(async (req) => {
       }
       case "boot":
         return await bootAction(actor);
+      case "leader_boot":
+        return await leaderBootAction(actor, body);
+      case "leader_attendance_list":
+        return await leaderAttendanceListAction(actor);
+      case "leader_attendance_clock":
+        return await leaderAttendanceClockAction(actor, body);
       case "employee_save":
         return await employeeSaveAction(actor, body);
       case "employee_delete":
@@ -1442,9 +1995,13 @@ Deno.serve(async (req) => {
         return await permissionsSaveAction(actor, body);
       case "leave_review":
         return await leaveReviewAction(actor, body);
+      case "leader_leave_review":
+        return await leaderLeaveReviewAction(actor, body);
       case "attendance_save":
         return await attendanceSaveAction(actor, body);
       case "attendance_bulk":
+        return await attendanceBulkSaveAction(actor, body);
+      case "leader_attendance_bulk":
         return await attendanceBulkSaveAction(actor, body);
       case "payroll_save":
         return await payrollSaveAction(actor, body);

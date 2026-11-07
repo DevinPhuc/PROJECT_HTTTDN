@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đăng nhập Quản lý - Jewels</title>
+  <title>Đăng nhập quản lý / trưởng nhóm - Jewels</title>
   <link rel="stylesheet" href="../shared/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -287,8 +287,8 @@
 
     <section class="login-form-wrap">
       <p class="eyebrow">Cổng quản lý nhân sự</p>
-      <h2>Đăng nhập quản lý</h2>
-      <p>Chỉ tài khoản có vai trò quản lý nhân sự mới được truy cập.</p>
+      <h2>Đăng nhập quản lý / trưởng nhóm</h2>
+      <p>Tài khoản sẽ được chuyển đến cổng phù hợp với vai trò được cấp.</p>
 
       <form class="login-form" id="adminLoginForm" novalidate>
         <label class="field">
@@ -332,6 +332,7 @@
     const portal = window.jewelsPortal;
 
     if (portal.validSession("manager")) window.location.replace("dashboard.html");
+    else if (portal.validSession("leader")) window.location.replace("../leader/leader-dashboard.html");
 
     const toast = document.getElementById("adminLoginToast");
     const passwordInput = document.getElementById("adminPassword");
@@ -341,7 +342,7 @@
     const ERROR_MESSAGES = {
       invalid_credentials: "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
       account_locked: "Tài khoản đang tạm khóa. Vui lòng thử lại sau 15 phút.",
-      forbidden: "Tài khoản này không có quyền quản lý."
+      forbidden: "Tài khoản này không có quyền quản lý hoặc trưởng nhóm."
     };
 
     let toastTimer;
@@ -379,7 +380,7 @@
       submitButton.disabled = true;
 
       try {
-        const result = await portal.signIn("manager", { username, password });
+        const result = await portal.signIn("hr", { username, password });
         if (result.error) {
           if (result.error === "network_error") {
             showToast("Không kết nối được máy chủ. Kiểm tra mạng (VPN/proxy) rồi thử lại.");
@@ -390,7 +391,9 @@
           passwordInput.focus();
           return;
         }
-        window.location.href = "dashboard.html";
+        window.location.href = result.activePortal === "leader"
+          ? "../leader/leader-dashboard.html"
+          : "dashboard.html";
       } catch (err) {
         console.error(err);
         showToast("Không thể kết nối máy chủ. Vui lòng thử lại sau.");

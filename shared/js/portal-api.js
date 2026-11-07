@@ -1,4 +1,4 @@
-// Shared token plumbing for the staff and manager portals: the same HS256
+// Shared token plumbing for the staff, manager, and leader portals: the same HS256
 // session token the admin portal stores, keyed per portal, issued by
 // admin-login (portal mode) and verified server-side by each portal's
 // edge function. Browsers never touch the tables directly.
@@ -55,6 +55,7 @@
     const norm = String(role || "").trim().toLowerCase();
     if (norm === "admin") return "../admin/login.html";
     if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(norm)) return "../manager/login.html";
+    if (["leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom"].includes(norm)) return "../manager/login.html";
     return "../staff/staff-login.html";
   }
 
@@ -166,7 +167,9 @@
       if (notice.type === "role_changed" && notice.new_role) {
         return getLoginUrlForRole(notice.new_role);
       }
-      return portal === "manager" ? "../manager/login.html" : "../staff/staff-login.html";
+      return ["manager", "leader"].includes(portal)
+        ? "../manager/login.html"
+        : "../staff/staff-login.html";
     };
 
     if (confirmBtn) {
@@ -251,7 +254,16 @@
       }
     }
     if (!payload?.ok) return { error: payload?.error || "server_error" };
-    saveSession(portal, { token: payload.token, user: payload.user, portals: payload.portals });
+    const portals = Array.isArray(payload.portals) ? payload.portals : [];
+    if (portal === "staff" && !portals.includes("staff")) {
+      return { error: "forbidden" };
+    }
+    const activePortal = portal === "hr"
+      ? portals.includes("manager") ? "manager"
+        : portals.includes("leader") ? "leader" : null
+      : portal;
+    if (!activePortal) return { error: "forbidden" };
+    saveSession(activePortal, { token: payload.token, user: payload.user, portals });
     try {
       if (window.sb && typeof window.sb.channel === "function" && payload.user?.employee_id) {
         const nowFormatted = new Intl.DateTimeFormat("en-GB", {
@@ -266,7 +278,7 @@
         });
       }
     } catch (e) {}
-    return { user: payload.user, portals: payload.portals || [] };
+    return { user: payload.user, portals, activePortal };
   }
 
   window.jewelsPortal = {

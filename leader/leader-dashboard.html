@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Cổng trưởng nhóm Jewels." />
+    <title>Leader Portal - Jewels</title>
+    <link rel="icon" type="image/svg+xml" href="../shared/images/brand-logo-1.svg" />
+    <link rel="stylesheet" href="../shared/css/style.css" />
+    <link rel="stylesheet" href="css/leader.css" />
+  </head>
+  <body>
+    <main class="leader-shell">
+      <aside class="leader-sidebar">
+        <div class="leader-brand">
+          <div class="leader-brand-mark">J</div>
+          <div><span class="leader-brand-name">Jewels</span><strong>TEAM HUB</strong></div>
+        </div>
+        <div class="leader-profile-card">
+          <div class="leader-avatar" id="leaderAvatar">TN</div>
+          <div class="leader-profile-content">
+            <button type="button" class="leader-profile-toggle" id="leaderProfileToggle" aria-expanded="false" aria-controls="leaderProfileMenu">
+              <span><strong id="leaderProfileName">Đang tải...</strong><span id="leaderProfileEmail"></span></span>
+              <span class="leader-profile-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="leader-profile-menu" id="leaderProfileMenu">
+              <button type="button" class="leader-logout-btn" id="leaderLogoutBtn">
+                <img src="../shared/images/log-out.png" alt="" class="nav-png-icon" />Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+        <p class="leader-nav-label">KHÔNG GIAN NHÓM</p>
+        <nav class="leader-nav" aria-label="Quản lý nhóm">
+          <a class="leader-nav-item is-active" href="#attendance-clock" data-leader-view="attendance-clock">
+            <img src="../shared/images/timekeeping.png" alt="" class="nav-png-icon" />Chấm công
+          </a>
+          <a class="leader-nav-item" href="#attendance-sheet" data-leader-view="attendance-sheet">
+            <img src="../shared/images/calendar-month.png" alt="" class="nav-png-icon" />Bảng chấm công
+          </a>
+          <a class="leader-nav-item" href="#approvals" data-leader-view="approvals">
+            <img src="../shared/images/file-text.png" alt="" class="nav-png-icon" />Duyệt đơn
+          </a>
+        </nav>
+        <div class="leader-sidebar-note"><span class="leader-live-dot"></span>Không gian trưởng nhóm</div>
+      </aside>
+
+      <section class="leader-main">
+        <header class="leader-topbar">
+          <div><p class="leader-eyebrow">JEWELS <span>/</span> QUẢN LÝ NHÓM</p><h1 id="leaderPageTitle">Chấm công</h1></div>
+          <div class="leader-topbar-actions">
+            <button type="button" class="leader-button leader-button-secondary" id="leaderRefreshBtn">
+              <img src="../shared/images/reset.png" alt="" class="button-icon" />Làm mới dữ liệu
+            </button>
+          </div>
+        </header>
+        <div id="leaderLoading" class="leader-loading">Đang tải dữ liệu nhóm...</div>
+        <div id="leaderApp" hidden>
+          <section class="leader-view active" data-leader-panel="attendance-clock">
+            <div class="leader-section-heading">
+              <div><p class="leader-eyebrow">BẮT ĐẦU NGÀY LÀM VIỆC</p><h2>Chấm công</h2><p class="leader-subtitle">Ghi nhận giờ làm của bạn và theo dõi hoạt động trong nhóm.</p></div>
+              <span class="leader-summary" id="leaderClockSummary">Chưa chấm công hôm nay</span>
+            </div>
+            <section class="leader-card leader-clock-card">
+              <div class="leader-clock-intro"><span class="leader-clock-icon">◷</span><div><p class="leader-eyebrow">CHẤM CÔNG CÁ NHÂN</p><p class="leader-clock-date" id="leaderClockDate"></p></div></div>
+              <div class="leader-clock-columns">
+                <div class="leader-clock-col">
+                  <p class="leader-clock-col-label">Giờ vào</p><p class="leader-clock-time" id="leaderCheckIn">--:--</p>
+                  <button type="button" class="leader-clock-button" id="leaderCheckInBtn">Vào làm</button>
+                </div>
+                <div class="leader-clock-col">
+                  <p class="leader-clock-col-label">Giờ ra</p><p class="leader-clock-time" id="leaderCheckOut">--:--</p>
+                  <button type="button" class="leader-clock-button" id="leaderCheckOutBtn">Ra về</button>
+                </div>
+              </div>
+              <p id="leaderClockFeedback" class="leader-feedback" role="status" aria-live="polite"></p>
+            </section>
+            <section class="leader-card">
+              <div class="leader-card-heading">
+                <div><p class="leader-eyebrow">NHÓM CỦA TÔI</p><h3>Lịch sử chấm công nhóm</h3></div>
+                <label class="leader-period-control">Tháng<input type="month" id="leaderClockMonth" /></label>
+              </div>
+              <div class="leader-table-wrap">
+                <table class="leader-table">
+                  <thead><tr><th>Nhân sự</th><th>Ngày</th><th>Giờ vào</th><th>Giờ ra</th><th>Trạng thái</th><th>Tăng ca</th></tr></thead>
+                  <tbody id="leaderClockRows"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section class="leader-view" data-leader-panel="attendance-sheet" hidden>
+            <div class="leader-section-heading">
+              <div><p class="leader-eyebrow">THEO DÕI THỜI GIAN</p><h2>Bảng chấm công</h2><p class="leader-subtitle">Chọn ký hiệu cho từng ngày của nhân sự trong nhóm.</p></div>
+              <div class="leader-module-actions">
+                <label class="leader-period-control">Tháng
+                  <span class="leader-month-selectors">
+                    <select id="leaderSheetMonth" aria-label="Tháng">
+                      <option value="01">January</option><option value="02">February</option>
+                      <option value="03">March</option><option value="04">April</option>
+                      <option value="05">May</option><option value="06">June</option>
+                      <option value="07">July</option><option value="08">August</option>
+                      <option value="09">September</option><option value="10">October</option>
+                      <option value="11">November</option><option value="12">December</option>
+                    </select>
+                    <input type="number" id="leaderSheetYear" min="2000" max="2100" step="1" aria-label="Năm" />
+                  </span>
+                </label>
+                <button type="button" class="leader-button leader-button-primary" id="leaderSaveAttendanceBtn">Lưu bảng chấm công</button>
+              </div>
+            </div>
+            <section class="leader-card">
+              <div class="leader-filter">
+                <label>Tìm nhân sự<input id="leaderAttendanceSearch" class="leader-input" type="search" placeholder="Tên hoặc mã nhân viên" /></label>
+                <p class="leader-feedback" id="leaderAttendanceFeedback" role="status" aria-live="polite"></p>
+              </div>
+              <div class="leader-board-wrap">
+                <table class="leader-table leader-board">
+                  <thead id="leaderSheetHead"></thead><tbody id="leaderSheetBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section class="leader-view" data-leader-panel="approvals" hidden>
+            <div class="leader-section-heading">
+              <div><p class="leader-eyebrow">HỘP THƯ NHÓM</p><h2>Duyệt đơn nhân sự</h2><p class="leader-subtitle">Xem xét đơn của nhân sự thuộc nhóm bạn.</p></div>
+              <select id="leaderRequestFilter" class="leader-input" aria-label="Lọc đơn nghỉ">
+                <option value="all">Tất cả đơn</option><option value="pending">Chờ trưởng nhóm</option>
+                <option value="manager">Chờ quản lý</option><option value="resolved">Đã xử lý</option>
+              </select>
+            </div>
+            <section class="leader-card">
+              <div class="leader-table-wrap">
+                <table class="leader-table">
+                  <thead><tr><th>Nhân sự</th><th>Loại đơn</th><th>Ngày gửi</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                  <tbody id="leaderRequestsBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../shared/js/supabase-client.js"></script>
+    <script src="../shared/js/portal-api.js"></script>
+    <script src="js/leader.js"></script>
+  </body>
+</html>

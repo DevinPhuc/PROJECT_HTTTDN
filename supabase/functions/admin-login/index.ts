@@ -73,11 +73,11 @@ Deno.serve(async (req) => {
   const password = typeof body.password === "string" ? body.password : "";
   if (!username || !password) return json({ ok: false, error: "invalid_credentials" }, 401);
 
-  // Portal mode: staff/manager sign-in against portal_login, gated by the
+  // Portal mode: staff/manager/leader sign-in against portal_login, gated by the
   // portals the account may enter. Response keeps the same shape plus portals.
   const portal = typeof body.portal === "string" ? body.portal.trim().toLowerCase() : "";
   if (portal) {
-    if (!["staff", "manager"].includes(portal)) {
+    if (!["staff", "manager", "leader", "hr"].includes(portal)) {
       return json({ ok: false, error: "invalid_portal" }, 400);
     }
 
@@ -97,7 +97,66 @@ Deno.serve(async (req) => {
     const portals = Array.isArray(portalResult.portals)
       ? portalResult.portals.filter((p): p is string => typeof p === "string")
       : [];
-    if (!portals.includes(portal)) {
+    const [activeAccess] = await sql`
+      select
+        exists (
+          select 1
+          from public.user_roles ur
+          join public.roles r on r.role_id = ur.role_id
+          where ur.employee_id = ${portalResult.employee_id}::uuid
+            and r.role_name = 'Admin'
+            and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+            and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+        ) as is_admin,
+        exists (
+          select 1
+          from public.user_roles ur
+          join public.roles r on r.role_id = ur.role_id
+          where ur.employee_id = ${portalResult.employee_id}::uuid
+            and lower(r.role_name) in ('manager', 'hr_manager', 'quản lý', 'quản lý nhân sự')
+            and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+            and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+        ) or exists (
+          select 1
+          from public.user_roles ur
+          join public.role_permissions rp on rp.role_id = ur.role_id
+          join public.permissions p on p.permission_id = rp.permission_id
+          where ur.employee_id = ${portalResult.employee_id}::uuid
+            and lower(p.permission_code) in ('manager', 'hr_manager', 'manage_staff', 'manage_employees')
+            and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+            and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+        ) as is_manager,
+        exists (
+          select 1
+          from public.user_roles ur
+          join public.roles r on r.role_id = ur.role_id
+          where ur.employee_id = ${portalResult.employee_id}::uuid
+            and lower(r.role_name) in ('leader', 'team_lead', 'team lead', 'team_leader', 'team leader', 'trưởng nhóm', 'truong nhom')
+            and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+            and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+        ) or exists (
+          select 1
+          from public.user_roles ur
+          join public.role_permissions rp on rp.role_id = ur.role_id
+          join public.permissions p on p.permission_id = rp.permission_id
+          where ur.employee_id = ${portalResult.employee_id}::uuid
+            and lower(p.permission_code) in ('leader', 'team_lead', 'team_leader', 'team_lead_access', 'team_leader_access', 'approve_team_leave')
+            and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+            and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+        ) as is_leader`;
+    if (activeAccess.is_admin) {
+      portals.splice(0, portals.length, "admin");
+    } else if (activeAccess.is_manager) {
+      portals.splice(0, portals.length, "manager");
+    } else if (activeAccess.is_leader) {
+      portals.splice(0, portals.length, "leader");
+    } else {
+      portals.splice(0, portals.length, "staff");
+    }
+    const allowed = portal === "hr"
+      ? portals.includes("manager") || portals.includes("leader")
+      : portals.includes(portal);
+    if (!allowed) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
 

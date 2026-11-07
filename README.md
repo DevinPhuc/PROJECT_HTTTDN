@@ -3,6 +3,7 @@
 ## Cấu trúc dự án
 
 - `manager/`: đăng nhập và quản trị nhân sự.
+- `leader/`: cổng trưởng nhóm, gồm chấm công, bảng chấm công và duyệt đơn hai cấp.
 - `staff/`: cổng nhân viên, dùng giao diện xanh teal riêng.
 - `database/`: cấu trúc và dữ liệu cơ sở dữ liệu.
 - `shared/`: tài nguyên dùng chung cho giao diện quản trị.
@@ -14,7 +15,9 @@ Mở `staff/staff-login.html` để truy cập cổng nhân viên. Tài khoản 
 Admin hiện có giao diện quản lý hồ sơ, duyệt đơn nghỉ, báo cáo, phân quyền, chấm công và lương.
 Manager có báo cáo nhân sự theo ngày chốt tháng, thống kê trình độ/lương/thâm niên, xem quyền kế thừa theo vai trò và lịch sử thay đổi vai trò. Xem [hướng dẫn Supabase](docs/supabase-setup.md) để áp dụng bảng lịch sử trạng thái phục vụ báo cáo.
 
-Kiến trúc xác thực: cả hai portal dùng token HS256 do edge function `admin-login` phát hành, kiểm tra qua header `x-admin-token`. Dữ liệu cập nhật hoàn toàn qua edge function riêng — `staff-portal` và `supabase/functions/hr-portal`; trình duyệt không gọi bảng trực tiếp. Plumbing dùng chung nằm ở `shared/js/portal-api.js` (phiên đăng nhập, `sbInvoke`, ánh xạ lỗi). Hàm DB `portal_login` xác định portal được phép theo vai trò.
+Kiến trúc xác thực: các portal dùng token HS256 do edge function `admin-login` phát hành, kiểm tra qua header `x-admin-token`. Dữ liệu cập nhật hoàn toàn qua edge function — `staff-portal` và `supabase/functions/hr-portal`; trình duyệt không gọi bảng trực tiếp. Plumbing dùng chung nằm ở `shared/js/portal-api.js` (phiên đăng nhập, `sbInvoke`, ánh xạ lỗi). Hàm DB `portal_login` xác định portal được phép theo vai trò.
+
+Manager và leader dùng chung màn đăng nhập tại `manager/login.html`; vai trò Supabase quyết định mở `manager/dashboard.html` hay `leader/leader-dashboard.html`. Leader chỉ xem và thao tác trong phòng ban được gán, duyệt đơn trước manager hoặc từ chối trực tiếp. Xem [hướng dẫn Supabase](docs/supabase-setup.md) để áp migration và biết phạm vi nhóm được xác định theo schema hiện tại.
 
 Cấu hình Supabase (URL, key) cho các portal nằm trong `shared/js/supabase-client.js` (tạo client, retry khi mất kết nối; không dùng Supabase Auth).
 Xem [hướng dẫn Supabase](docs/supabase-setup.md) để áp migration và cấp vai trò manager. Chạy dự án qua HTTP server (cập nhật dính `sbInvoke` cần cả `supabase-client.js` trước `portal-api.js`); không mở trực tiếp bằng `file://`.
