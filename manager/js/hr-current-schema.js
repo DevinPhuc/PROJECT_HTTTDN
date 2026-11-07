@@ -498,6 +498,18 @@ function renderEmployees() {
   );
 }
 
+// System roles hidden from assignment dropdowns.
+const hiddenRoleNames = ["admin", "manager", "quản lý", "hr_manager"];
+
+function assignableRoleOptions() {
+  return roles.filter(
+    (role) =>
+      !hiddenRoleNames.includes(
+        String(role.role_name || "").trim().toLowerCase(),
+      ),
+  );
+}
+
 function fillRoleSelect(select, selectedValue = "", roleOptions = roles) {
   select.replaceChildren();
   const placeholder = document.createElement("option");
@@ -1435,7 +1447,12 @@ document.getElementById("exportStaffStatsBtn").addEventListener("click", () => {
 function renderEmployeeSelects() {
   const previousPermissions = document.getElementById("permissionEmployee").value;
   fillSelect(document.getElementById("permissionEmployee"), employees, "employee_id", (employee) => `${employee.full_name} · ${employee.email}`, previousPermissions);
-  fillRoleSelect(document.getElementById("permissionRole"), roleAssignments.get(document.getElementById("permissionEmployee").value)?.[0] || "");
+  fillRoleSelect(
+    document.getElementById("permissionRole"),
+    roleAssignments.get(document.getElementById("permissionEmployee").value)
+      ?.[0] || "",
+    assignableRoleOptions(),
+  );
   fillRoleSelect(document.getElementById("employeeRole"));
   fillSelect(
     document.getElementById("employeePosition"),
@@ -1614,6 +1631,7 @@ document.getElementById("permissionEmployee").addEventListener("change", () => {
   fillRoleSelect(
     document.getElementById("permissionRole"),
     roleAssignments.get(employee?.employee_id)?.[0] || "",
+    assignableRoleOptions(),
   );
   document.getElementById("permissionFeedback").textContent = "";
   renderPermissions();
