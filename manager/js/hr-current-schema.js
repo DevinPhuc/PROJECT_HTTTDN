@@ -1229,6 +1229,12 @@ function renderRequests() {
   body.replaceChildren();
 
   const filtered = requests.filter((request) => {
+    const employee = employees.find(
+      (item) => item.employee_id === request.employee_id,
+    );
+    // Xóa ra khỏi danh sách nếu nhân sự đã bị xóa (không còn trong danh sách active)
+    if (!employee) return false;
+
     const status = String(request.status || "").toLowerCase();
     if (filter === "pending" && status !== "pending") return false;
     if (filter === "approved" && status !== "approved") return false;
@@ -1236,12 +1242,9 @@ function renderRequests() {
     if (filter === "resolved" && status === "pending") return false;
 
     if (searchTerm) {
-      const employee = employees.find(
-        (item) => item.employee_id === request.employee_id,
-      );
-      const name = (employee?.full_name || "Nhân sự đã xóa").toLowerCase();
-      const email = (employee?.email || "").toLowerCase();
-      const code = (employee?.employee_code || "").toLowerCase();
+      const name = (employee.full_name || "").toLowerCase();
+      const email = (employee.email || "").toLowerCase();
+      const code = (employee.employee_code || "").toLowerCase();
       const typeLabel = (LEAVE_TYPES[request.leave_type] || "").toLowerCase();
       const reason = (request.reason || "").toLowerCase();
       const statusLabel = (LEAVE_STATUSES[request.status] || "").toLowerCase();
@@ -1259,12 +1262,20 @@ function renderRequests() {
     return true;
   });
 
-  // Sort: pending first, then by date descending
+  // Sort: pending first (ngày gửi cũ nhất lên trước), rồi đến đã duyệt (ngày gửi mới nhất lên trước)
   filtered.sort((a, b) => {
     const aPending = a.status === "pending" ? 1 : 0;
     const bPending = b.status === "pending" ? 1 : 0;
     if (aPending !== bPending) return bPending - aPending;
-    return String(b.start_date || "").localeCompare(String(a.start_date || ""));
+
+    const aTime = a.requested_at || a.start_date || "";
+    const bTime = b.requested_at || b.start_date || "";
+    if (aPending && bPending) {
+      // Đơn chưa duyệt: ngày gửi cũ nhất lên trước (ascending)
+      return aTime.localeCompare(bTime);
+    }
+    // Đơn đã duyệt / đã xử lý: ngày gửi mới nhất lên trước (descending)
+    return bTime.localeCompare(aTime);
   });
 
   const totalMatches = filtered.length;
@@ -1276,7 +1287,7 @@ function renderRequests() {
   if (!pageRequests.length) {
     const row = document.createElement("tr");
     const cell = document.createElement("td");
-    cell.colSpan = 6;
+    cell.colSpan = 7;
     cell.style.textAlign = "center";
     cell.style.padding = "36px 14px";
     cell.style.color = "var(--admin-muted, #747b74)";
@@ -1317,7 +1328,13 @@ function renderRequests() {
       typeCell.append(typeBadge);
       row.append(typeCell);
 
-      // 3. Thời gian
+      // 3. Ngày gửi (nằm giữa Loại đơn và Thời gian)
+      const sentDateCell = document.createElement("td");
+      sentDateCell.className = "hr-sent-date-cell";
+      sentDateCell.textContent = dateLabel(request.requested_at || request.start_date);
+      row.append(sentDateCell);
+
+      // 4. Thời gian
       const timeCell = document.createElement("td");
       const timeWrap = document.createElement("div");
       timeWrap.className = "hr-time-cell";

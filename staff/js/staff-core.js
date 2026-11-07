@@ -441,11 +441,25 @@ async function loadStaffPortal() {
     if (allowedView(view) && VIEW_MODULES[view]?.load) tasks.push(VIEW_MODULES[view].load());
   });
   const results = await Promise.allSettled(tasks); if (results.some((result) => result.status === "rejected")) showPageError("Không tải được dữ liệu. Vui lòng thử lại sau.");
+  const refreshBtn = document.getElementById("staffRefreshBtn");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => refreshStaffData(refreshBtn));
+  }
+
   setInterval(async () => {
     if (!DEMO_MODE && portal?.validSession?.("staff")) {
-      await callStaff({ action: "ping" });
+      try {
+        await callStaff({ action: "ping" });
+        if (currentView === "leave" && VIEW_MODULES.leave?.load) {
+          await VIEW_MODULES.leave.load();
+        } else if (currentView === "profile" && window.loadPersonalInfo) {
+          await window.loadPersonalInfo();
+        }
+      } catch (err) {
+        // silent background refresh
+      }
     }
-  }, 5000);
+  }, 3000);
 }
 
 // Toast feedback (section 9): same bottom-right pattern as the manager
@@ -461,4 +475,28 @@ function showStaffToast(kind, message) {
   });
   toast.classList.add("show");
   staffToastTimer = setTimeout(() => toast.classList.remove("show"), 5000);
+}
+
+async function refreshStaffData(button) {
+  if (button) {
+    button.disabled = true;
+    button.classList.add("is-loading");
+  }
+  try {
+    const tasks = [];
+    if (VIEW_MODULES.profile?.load) tasks.push(VIEW_MODULES.profile.load());
+    if (currentView && currentView !== "profile" && VIEW_MODULES[currentView]?.load) {
+      tasks.push(VIEW_MODULES[currentView].load());
+    }
+    await Promise.allSettled(tasks);
+    showStaffToast("success", "Đã làm mới dữ liệu!");
+  } catch (err) {
+    console.error("Refresh failed", err);
+    showStaffToast("error", "Không thể làm mới dữ liệu.");
+  } finally {
+    if (button) {
+      button.classList.remove("is-loading");
+      button.disabled = false;
+    }
+  }
 }

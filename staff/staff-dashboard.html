@@ -247,6 +247,21 @@
             <p class="account-eyebrow">KHÔNG GIAN NHÂN VIÊN</p>
             <h1 id="staffPageTitle">Thông tin cá nhân</h1>
           </div>
+          <div class="admin-topbar-actions">
+            <button
+              type="button"
+              class="admin-secondary-btn account-refresh-btn"
+              id="staffRefreshBtn"
+              aria-label="Làm mới dữ liệu"
+              title="Làm mới dữ liệu"
+            >
+              <img
+                src="../shared/images/reset.png"
+                alt=""
+                aria-hidden="true"
+              />
+            </button>
+          </div>
         </header>
 
         <div id="staffLoading" class="staff-loading">Đang tải cổng nhân viên...</div>
@@ -355,8 +370,7 @@
                 </h3>
                 <div id="sectionHistory" class="accordion-collapse collapse show">
                   <div class="accordion-body">
-                    <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Ngày hiệu lực</th><th>Trạng thái</th><th>Lý do</th><th></th></tr></thead><tbody id="statusRows"></tbody></table></div>
-                    <button type="button" class="admin-secondary-btn staff-row-add" data-row-add="statusRows">Thêm dòng</button>
+                    <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Ngày hiệu lực</th><th>Trạng thái</th><th>Lý do</th></tr></thead><tbody id="statusRows"></tbody></table></div>
                   </div>
                 </div>
               </div>

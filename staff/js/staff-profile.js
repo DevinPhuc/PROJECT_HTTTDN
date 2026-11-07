@@ -194,19 +194,20 @@ function qualificationRow(q = {}) {
 
 function statusRow(row = {}) {
   const tr = document.createElement("tr");
+  const dateTd = document.createElement("td");
+  dateTd.textContent = dateLabel(row.effective_date) || "—";
+
+  const statusTd = document.createElement("td");
+  const statusBadge = document.createElement("span");
+  const label = STATUS_LABELS[row.status] || row.status || "Đang nghỉ phép";
+  statusBadge.className = "staff-status-badge staff-status-onleave";
+  statusBadge.textContent = label;
+  statusTd.append(statusBadge);
+
   const reasonTd = document.createElement("td");
-  const reasonInput = document.createElement("input");
-  reasonInput.className = "s-reason";
-  reasonInput.type = "text";
-  reasonInput.value = row.reason ?? "";
-  reasonTd.append(reasonInput);
-  // No future-dated effective rows beyond the current system year.
-  tr.append(
-    cellInput("s-date", "date", null, row.effective_date, { max: `${CURRENT_YEAR}-12-31` }),
-    cellSelect("s-status", STATUS_LABELS[row.status] ? row.status : ""),
-    reasonTd,
-    deleteCell()
-  );
+  reasonTd.textContent = row.reason || "—";
+
+  tr.append(dateTd, statusTd, reasonTd);
   return tr;
 }
 
@@ -252,6 +253,22 @@ function addRowHandlers() {
 function renderRowTable(tbodyId, rows, build) {
   const tbody = document.getElementById(tbodyId);
   tbody.replaceChildren();
+  if (tbodyId === "statusRows") {
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 3;
+      td.style.textAlign = "center";
+      td.style.padding = "24px 12px";
+      td.style.color = "var(--admin-muted, #747b74)";
+      td.textContent = "Chưa có lịch sử trạng thái nghỉ phép.";
+      tr.append(td);
+      tbody.append(tr);
+    } else {
+      rows.forEach((row) => tbody.append(build(row)));
+    }
+    return;
+  }
   rows.forEach((row) => tbody.append(build(row)));
   // One empty row keeps the editable table usable when there is no data yet.
   if (!rows.length) tbody.append(build({}));
@@ -306,8 +323,6 @@ async function saveProfile(event) {
   // Row validation first: any partial row stops the save before data moves.
   const qualRows = collectQualRows();
   if (qualRows === null) { showProfileFeedback("Mỗi dòng bằng cấp đã nhập cần có tên bằng cấp.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); return; }
-  const historyRows = collectStatusRows();
-  if (historyRows === null) { showProfileFeedback("Mỗi dòng lịch sử cần có cả ngày hiệu lực và trạng thái.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); return; }
 
   const submitBtn = document.querySelector("#profileForm button[type='submit']");
   submitBtn.disabled = true;
@@ -362,13 +377,8 @@ async function saveProfile(event) {
     const qualSave = await callStaff({ action: "qualifications_save", rows: qualRows });
     if (!qualSave.ok) { showProfileFeedback("Đã lưu hồ sơ nhưng không thể lưu bằng cấp & trình độ.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); return; }
 
-    const histSave = await callStaff({ action: "status_history_save", rows: historyRows });
-    if (!histSave.ok) { showProfileFeedback("Đã lưu hồ sơ nhưng không thể lưu lịch sử trạng thái.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); return; }
-
-    // Rebuild both tables from the saved replies so normalized values (e.g. a
-    // blanked graduation year) show what is actually stored.
     renderRowTable("qualificationRows", qualSave.data.rows || [], qualificationRow);
-    renderRowTable("statusRows", histSave.data.rows || [], statusRow);
+    await loadPersonalInfo();
     populateProfile();
     renderPayrollInfo();
     renderPersonalInfo();
@@ -399,3 +409,5 @@ async function loadProfile() {
 }
 
 VIEW_MODULES.profile = { load: loadProfile };
+
+window.loadPersonalInfo = loadPersonalInfo;

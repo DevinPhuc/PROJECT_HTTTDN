@@ -464,6 +464,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     sql!`
       select lr.leave_request_id, lr.employee_id, lr.start_date, lr.end_date,
              lr.reason, lower(lr.status::text) as status,
+             to_char(lr.requested_at, 'YYYY-MM-DD"T"HH24:MI:SS') as requested_at,
              case lt.type_name
                when 'Nghỉ phép' then 'annual'
                when 'Nghỉ ốm đau' then 'sick'
@@ -1001,7 +1002,7 @@ async function leaveReviewAction(
 
   try {
     const [leave] = await sql`
-      select employee_id, lower(status::text) as status from public.leave_requests
+      select employee_id, lower(status::text) as status, start_date, reason from public.leave_requests
       where leave_request_id = ${requestId}::uuid
       limit 1`;
     if (!leave) return json({ ok: false, error: "invalid_reference" }, 400);
@@ -1022,6 +1023,15 @@ async function leaveReviewAction(
           approved_by = ${actor.employee_id}::uuid,
           decided_at = now()
       where leave_request_id = ${requestId}::uuid`;
+
+    if (statusInput === "approved") {
+      await sql`
+        insert into public.employee_status_history
+          (employee_id, status, effective_date, reason, recorded_by)
+        values
+          (${leave.employee_id}::uuid, 'OnLeave', ${leave.start_date}::date,
+           ${leave.reason || 'Nghỉ phép'}, ${actor.employee_id}::uuid)`;
+    }
   } catch (err) {
     return dbError(err);
   }

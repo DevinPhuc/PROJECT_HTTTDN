@@ -236,9 +236,18 @@ async function personalInfoAction(actor: Actor): Promise<Response> {
     where employee_id = ${actor.employee_id}::uuid
     order by graduation_year desc nulls last`;
   const history = await sql!`
-    select status, to_char(effective_date, 'YYYY-MM-DD') as effective_date, reason
-    from public.employee_status_history
-    where employee_id = ${actor.employee_id}::uuid
+    select 'OnLeave' as status, to_char(effective_date, 'YYYY-MM-DD') as effective_date, reason
+    from (
+      select effective_date, reason
+      from public.employee_status_history
+      where employee_id = ${actor.employee_id}::uuid
+        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
+      union
+      select start_date as effective_date, coalesce(reason, 'Nghỉ phép') as reason
+      from public.leave_requests
+      where employee_id = ${actor.employee_id}::uuid
+        and lower(status::text) = 'approved'
+    ) s
     order by effective_date desc`;
   return json({
     ok: true,
@@ -661,42 +670,20 @@ async function qualificationsSaveAction(actor: Actor, body: Record<string, unkno
   return json({ ok: true, rows: saved });
 }
 
-async function statusHistorySaveAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
-  const rows = Array.isArray(body.rows) ? body.rows : null;
-  if (!rows) return json({ ok: false, error: "bad_request" }, 400);
-
-  // Status values must satisfy the DB check constraint.
-  const allowedStatus = ["Active", "OnLeave", "Resigned"];
-  const mapped = rows.map((raw) => {
-    const row = raw as Record<string, unknown>;
-    return {
-      status: str(row.status),
-      effective_date: str(row.effective_date),
-      reason: str(row.reason),
-    };
-  });
-  if (mapped.some(
-    (row) => (Boolean(row.reason) && (!row.status || !isRealDate(row.effective_date))) ||
-      (row.status && (!allowedStatus.includes(row.status) || !isRealDate(row.effective_date))),
-  )) return json({ ok: false, error: "invalid_history" }, 400);
-  const kept = mapped.filter((row) => row.status && isRealDate(row.effective_date));
-
-  await sql!.begin(async (tx) => {
-    await tx`delete from public.employee_status_history where employee_id = ${actor.employee_id}::uuid`;
-    for (const row of kept) {
-      await tx`
-        insert into public.employee_status_history
-          (employee_id, status, effective_date, reason, recorded_by)
-        values
-          (${actor.employee_id}::uuid, ${row.status}, ${row.effective_date}::date,
-           ${row.reason}, ${actor.employee_id}::uuid)`;
-    }
-  });
-
+async function statusHistorySaveAction(actor: Actor, _body: Record<string, unknown>): Promise<Response> {
   const saved = await sql!`
-    select status, to_char(effective_date, 'YYYY-MM-DD') as effective_date, reason
-    from public.employee_status_history
-    where employee_id = ${actor.employee_id}::uuid
+    select 'OnLeave' as status, to_char(effective_date, 'YYYY-MM-DD') as effective_date, reason
+    from (
+      select effective_date, reason
+      from public.employee_status_history
+      where employee_id = ${actor.employee_id}::uuid
+        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
+      union
+      select start_date as effective_date, coalesce(reason, 'Nghỉ phép') as reason
+      from public.leave_requests
+      where employee_id = ${actor.employee_id}::uuid
+        and lower(status::text) = 'approved'
+    ) s
     order by effective_date desc`;
   return json({ ok: true, rows: saved });
 }

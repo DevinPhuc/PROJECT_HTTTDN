@@ -2242,7 +2242,13 @@ body.manager-ready .manager-loading {
 
 /* Requests approval table styles */
 .hr-requests-table {
-  min-width: 860px;
+  min-width: 960px;
+}
+
+.hr-requests-table td.hr-sent-date-cell {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--admin-ink, #1e261f);
 }
 
 .hr-requests-table th.hr-actions-column,
