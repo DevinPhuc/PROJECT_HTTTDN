@@ -1326,6 +1326,7 @@ body:has(.admin-page) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .form-group label {
@@ -1341,6 +1342,7 @@ body:has(.admin-page) {
 .form-group input,
 .form-group select {
   width: 100%;
+  min-width: 0;
   min-height: 38px;
   padding: 8px 10px;
   border: 1px solid #dce1da;
@@ -1370,22 +1372,11 @@ body:has(.admin-page) {
   background-image: none;
 }
 
-.employee-contact-date-row {
+.form-subgrid-2 {
   display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 8px;
-}
-
-.employee-position-group {
-  grid-column: 1 / -1;
-}
-
-.employee-dept-role-row {
-  display: grid;
-  grid-column: 1 / -1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  min-width: 0;
 }
 
 .employee-password-group {
@@ -1461,20 +1452,13 @@ body:has(.admin-page) {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .employee-contact-date-row {
-    grid-column: auto;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .employee-position-group,
-  .employee-dept-role-row,
-  .employee-password-group {
-    grid-column: auto;
-  }
-
-  .employee-dept-role-row {
+  .form-subgrid-2 {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
+  }
+
+  .employee-password-group {
+    grid-column: auto;
   }
 
   [data-hr-panel="approvals"] .panel-heading > .admin-search {
