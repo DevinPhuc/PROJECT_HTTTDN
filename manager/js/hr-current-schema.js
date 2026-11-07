@@ -924,6 +924,11 @@ function showEmployeeForm(employee = null) {
     if (form.elements.namedItem("employeeCode")) {
       form.elements.namedItem("employeeCode").readOnly = true;
     }
+    const statusSelect = form.elements.namedItem("employmentStatus");
+    if (statusSelect) {
+      statusSelect.value = "Đang làm";
+      statusSelect.disabled = true;
+    }
     if (!canChooseDepartment) {
       departmentSelect.disabled = true;
     }
@@ -1177,6 +1182,8 @@ document
       document.getElementById("employeePhone")?.focus();
       return;
     }
+    const statusSelect = form.elements.namedItem("employmentStatus");
+    const currentStatus = (statusSelect?.value || values.employmentStatus || "Đang làm").trim();
     const result = await callHr({
       action: "employee_save",
       id: values.id || undefined,
@@ -1190,7 +1197,7 @@ document
       date_of_birth: values.dateOfBirth || null,
       education: String(values.education || "").trim(),
       hire_date: values.hireDate,
-      employment_status: STATUS_TO_DB[values.employmentStatus] || "active",
+      employment_status: STATUS_TO_DB[currentStatus] || "active",
       role_id: values.roleId || undefined,
       password: String(values.password || "").trim(),
     });

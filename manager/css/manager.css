@@ -1367,9 +1367,10 @@ body:has(.admin-page) {
   cursor: not-allowed;
 }
 
+/* Keep native select dropdown indicator on disabled selects */
 #employeeForm select:disabled {
-  appearance: none;
-  background-image: none;
+  appearance: auto;
+  -webkit-appearance: auto;
 }
 
 .form-subgrid-2 {
