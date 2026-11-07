@@ -13,8 +13,7 @@ function isoYearsAgo(years) {
 }
 
 // Fields that may not be left blank when saving (personal / identity / tax).
-const REQUIRED_PROFILE_FIELDS = ["name", "birthDate", "phone", "address", "marital_status",
-  "id_type", "national_id", "nationality", "tax_code", "social_insurance_no", "health_insurance_no"];
+const REQUIRED_PROFILE_FIELDS = ["name", "birthDate"];
 
 function renderBlankFieldErrors(form, names) {
   form.querySelectorAll(".staff-field-blank").forEach((el) => el.remove());
@@ -307,12 +306,12 @@ async function saveProfile(event) {
   // Section 8: required personal/identity/tax fields may not be blank.
   if (renderBlankFieldErrors(event.currentTarget, REQUIRED_PROFILE_FIELDS)) {
     showProfileFeedback("Vui lòng điền các trường còn trống.", true);
-    showStaffToast("error", "Không thành công. Vui lòng thử lại.");
+    showStaffToast("error", "Vui lòng điền các trường còn trống.");
     return;
   }
 
   const rawPhone = String(formData.get("phone") || "").trim();
-  if (!/^\d{10}$/.test(rawPhone)) {
+  if (rawPhone && !/^\d{10}$/.test(rawPhone)) {
     showProfileFeedback("Số điện thoại phải gồm đúng 10 chữ số.", true);
     showStaffToast("error", "Số điện thoại phải gồm đúng 10 chữ số.");
     const phoneInput = event.currentTarget.querySelector("[name='phone']");
@@ -386,7 +385,7 @@ async function saveProfile(event) {
     renderPayrollInfo();
     renderPersonalInfo();
     showProfileFeedback("Đã lưu hồ sơ.", true);
-    showStaffToast("success", "Lưu thay đổi thành công!");
+    showStaffToast("success", "Lưu thay đổi thành công");
     saveProfile._timer = setTimeout(() => { document.getElementById("profileFeedback").textContent = ""; }, 5000);
   } finally {
     updateProfileSubmitButton();

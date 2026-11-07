@@ -541,6 +541,7 @@ async function listRows() {
            e.full_name,
            e.email,
            e.gender,
+           contact.phone_number,
            to_char(e.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
            to_char(e.hire_date, 'YYYY-MM-DD') as hire_date,
            coalesce(e.current_department_id, position_department.department_id) as department_id,
@@ -554,6 +555,12 @@ async function listRows() {
            active_role.role_id,
            active_role.role_name
     from public.employees e
+    left join lateral (
+      select c.phone_number
+      from public.employee_contacts c
+      where c.employee_id = e.employee_id
+      limit 1
+    ) contact on true
     left join lateral (
       select dp.department_id
       from public.department_positions dp

@@ -180,7 +180,7 @@ async function updateProfileAction(actor: Actor, body: Record<string, unknown>):
   const dob = str(body.date_of_birth);
 
   if (!fullName || !isRealDate(dob)) return json({ ok: false, error: "invalid_profile" }, 400);
-  if (!/^\d{10}$/.test(phoneNumber)) return json({ ok: false, error: "invalid_phone" }, 400);
+  if (phoneNumber && !/^\d{10}$/.test(phoneNumber)) return json({ ok: false, error: "invalid_phone" }, 400);
 
   await sql!.begin(async (tx) => {
     await tx`
@@ -194,13 +194,13 @@ async function updateProfileAction(actor: Actor, body: Record<string, unknown>):
     if (existing) {
       await tx`
         update public.employee_contacts
-        set phone_number = ${phoneNumber},
-            address = ${address}
+        set phone_number = ${phoneNumber || null},
+            address = ${address || null}
         where employee_id = ${actor.employee_id}::uuid`;
-    } else {
+    } else if (phoneNumber || address) {
       await tx`
         insert into public.employee_contacts (employee_id, phone_number, address)
-        values (${actor.employee_id}::uuid, ${phoneNumber}, ${address})`;
+        values (${actor.employee_id}::uuid, ${phoneNumber || null}, ${address || null})`;
     }
     // Marital status is the only identity field the employee may self-edit;
     // no insert — the row is HR-seeded (national_id is NOT NULL).
@@ -584,16 +584,20 @@ async function personalInfoSaveAction(actor: Actor, body: Record<string, unknown
     const finalNationality = (nationality || String(existing?.nationality ?? "") || "Vietnam").trim();
     const finalMarital = (marital || String(existing?.marital_status ?? "")).trim();
 
-    if (!existing) {
-      if (!nationalId && !idType && !nationality && !marital) {
-        // Nothing entered and no row: the save is a no-op.
+    if (!nationalId && !idType) {
+      if (existing) {
+        if (finalMarital) {
+          await tx`
+            update public.employee_personal_info
+            set marital_status = ${finalMarital}
+            where employee_id = ${actor.employee_id}::uuid`;
+          return { created: false, updated: true };
+        }
         return { created: false, updated: false };
       }
-      if (!nationalId || !idType) {
-        // Started filling identity data but left a required field blank.
-        return null;
-      }
+      return { created: false, updated: false };
     }
+
     if (!["CCCD", "CMND", "Passport"].includes(finalType) || !finalNationalId) {
       return null;
     }

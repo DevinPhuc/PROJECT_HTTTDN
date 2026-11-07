@@ -286,7 +286,7 @@
                       <label>Họ và tên<input name="name" type="text" required maxlength="100"></label>
                       <label>Email công việc<input name="email" type="email" readonly></label>
                       <label>Ngày sinh<input name="birthDate" type="date"></label>
-                      <label>Số điện thoại<input name="phone" type="tel" required maxlength="10" pattern="[0-9]{10}" placeholder="Nhập 10 chữ số"></label>
+                      <label>Số điện thoại<input name="phone" type="tel" maxlength="10" placeholder="Nhập 10 chữ số"></label>
                       <label class="staff-field-wide">Địa chỉ<input name="address" type="text" maxlength="180"></label>
                       <label>Tình trạng hôn nhân<select name="marital_status"><option value="">—</option><option>Độc thân</option><option>Đã kết hôn</option><option>Ly hôn</option></select></label>
                     </div>
@@ -523,7 +523,7 @@
   <script src="../shared/js/portal-api.js"></script>
   <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
   <script src="js/staff-core.js"></script>
-  <script src="js/staff-profile.js"></script>
+  <script src="js/staff-profile.js?v=20261107-1"></script>
   <script src="js/staff-leave.js"></script>
   <script src="js/staff-attendance.js"></script>
   <script src="js/staff-salary-month.js"></script>

@@ -479,11 +479,22 @@ async function loadInitialData() {
 
 async function refreshAccountData(button) {
   if (state.accountsLoading) return;
-  button.disabled = true;
-  button.classList.add("is-loading");
-  await loadInitialData();
-  button.classList.remove("is-loading");
-  button.disabled = false;
+  const btn = button || document.getElementById("accountRefreshBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add("is-loading");
+  }
+  try {
+    await loadInitialData();
+    showAccountToast("refreshToast");
+  } catch (err) {
+    console.error("Refresh failed", err);
+  } finally {
+    if (btn) {
+      btn.classList.remove("is-loading");
+      btn.disabled = false;
+    }
+  }
 }
 
 async function loadOptions() {

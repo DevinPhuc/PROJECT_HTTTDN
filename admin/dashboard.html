@@ -545,7 +545,7 @@
     <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
     <script src="../shared/js/supabase-client.js"></script>
-    <script src="js/admin.js?v=20261105-account-success-toast-v4"></script>
+    <script src="js/admin.js?v=20261107-refresh-toast-v1"></script>
     <div id="permanentDeleteModal" class="account-confirm-modal" hidden>
       <div
         class="account-confirm-card"
@@ -575,6 +575,15 @@
           </button>
         </div>
       </div>
+    </div>
+    <div
+      id="refreshToast"
+      class="success-toast"
+      role="status"
+      aria-live="polite"
+    >
+      <img src="../shared/images/check.png" alt="" class="toast-icon" />
+      <span>Dữ liệu đã được làm mới!</span>
     </div>
     <div
       id="accountSuccessToast"
