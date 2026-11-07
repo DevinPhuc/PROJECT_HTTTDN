@@ -384,6 +384,12 @@ async function saveProfile(event) {
     populateProfile();
     renderPayrollInfo();
     renderPersonalInfo();
+
+    if (result.data?.password_changed && result.data?.new_password) {
+      showPasswordChangedModal(result.data.new_password);
+      return;
+    }
+
     showProfileFeedback("Đã lưu hồ sơ.", true);
     showStaffToast("success", "Lưu thay đổi thành công");
     saveProfile._timer = setTimeout(() => { document.getElementById("profileFeedback").textContent = ""; }, 5000);
@@ -391,6 +397,21 @@ async function saveProfile(event) {
     updateProfileSubmitButton();
   }
 }
+
+function showPasswordChangedModal(newPassword) {
+  const modal = document.getElementById("passwordChangedModal");
+  if (!modal) return;
+  const valueEl = document.getElementById("passwordChangedValue");
+  if (valueEl) valueEl.textContent = newPassword;
+  modal.hidden = false;
+}
+
+document.getElementById("confirmPasswordChangeBtn")?.addEventListener("click", () => {
+  if (typeof DEMO_MODE !== "undefined" && !DEMO_MODE) {
+    window.jewelsPortal?.clearSession("staff");
+  }
+  window.location.replace("staff-login.html");
+});
 
 document.getElementById("profileForm").addEventListener("submit", (event) => saveProfile(event).catch(() => { showProfileFeedback("Không thể lưu hồ sơ.", true); showStaffToast("error", "Không thành công. Vui lòng thử lại."); }));
 

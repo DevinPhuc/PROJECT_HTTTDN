@@ -162,6 +162,35 @@ async function bootAction(actor: Actor): Promise<Response> {
   });
 }
 
+function abbreviatePosition(positionName: string): string {
+  const normalized = positionName.trim().toLowerCase();
+  if (normalized.includes("admin")) return "AD";
+  if (normalized.includes("quản lý") || normalized.includes("manager")) return "QL";
+  if (normalized.includes("nhân viên") || normalized.includes("staff")) return "NV";
+  return (
+    normalized
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join("") || "NV"
+  ).toUpperCase();
+}
+
+function generateAccountPassword(
+  roleName: string,
+  departmentDescription: string,
+  dateOfBirth: string,
+): string {
+  const positionPrefix = abbreviatePosition(roleName);
+  const departmentPrefix = (departmentDescription || "")
+    .trim()
+    .slice(0, 3)
+    .toLowerCase();
+  const [year, month, day] = dateOfBirth.split("-");
+  return `${positionPrefix}${departmentPrefix}@${day}${month}${year}`;
+}
+
 async function updateProfileAction(actor: Actor, body: Record<string, unknown>): Promise<Response> {
   // Slices match the column limits so an oversized payload fails cleanly, not 500.
   const fullName = str(body.full_name).slice(0, 150);
@@ -172,6 +201,34 @@ async function updateProfileAction(actor: Actor, body: Record<string, unknown>):
   if (!fullName || !isRealDate(dob)) return json({ ok: false, error: "invalid_profile" }, 400);
   if (phoneNumber && !/^\d{10}$/.test(phoneNumber)) return json({ ok: false, error: "invalid_phone" }, 400);
 
+  const [currentEmp] = await sql!`
+    select to_char(e.date_of_birth, 'YYYY-MM-DD') as old_dob,
+           coalesce(r.role_name, 'Nhân viên') as role_name,
+           coalesce(d.description, d.department_name, '') as department_description
+    from public.employees e
+    left join public.departments d on d.department_id = e.current_department_id
+    left join lateral (
+      select r.role_name
+      from public.user_roles ur
+      join public.roles r on r.role_id = ur.role_id
+      where ur.employee_id = e.employee_id
+        and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+        and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+      order by ur.valid_from desc, ur.user_role_id desc
+      limit 1
+    ) r on true
+    where e.employee_id = ${actor.employee_id}::uuid
+    limit 1`;
+
+  const dobChanged = Boolean(currentEmp?.old_dob && currentEmp.old_dob !== dob);
+  const newPassword = dobChanged
+    ? generateAccountPassword(
+        String(currentEmp?.role_name || "Nhân viên"),
+        String(currentEmp?.department_description || ""),
+        dob,
+      )
+    : "";
+
   await sql!.begin(async (tx) => {
     await tx`
       update public.employees
@@ -179,6 +236,13 @@ async function updateProfileAction(actor: Actor, body: Record<string, unknown>):
           date_of_birth = ${dob}::date,
           updated_at = now()
       where employee_id = ${actor.employee_id}::uuid`;
+
+    if (dobChanged && newPassword) {
+      await tx`
+        update public.employee_accounts
+        set password_hash = extensions.crypt(${newPassword}, extensions.gen_salt('bf', 10))
+        where employee_id = ${actor.employee_id}::uuid`;
+    }
 
     const existing = await ownContact(tx, actor.employee_id);
     if (existing) {
@@ -208,7 +272,13 @@ async function updateProfileAction(actor: Actor, body: Record<string, unknown>):
     ownContact(sql, actor.employee_id),
   ]);
 
-  return json({ ok: true, employee, contact: contact ?? null });
+  return json({
+    ok: true,
+    employee,
+    contact: contact ?? null,
+    password_changed: dobChanged,
+    new_password: dobChanged ? newPassword : null,
+  });
 }
 
 // Own identity + qualification + status-history payload for the profile menu.

@@ -509,6 +509,32 @@
       </div>
     </div>
 
+    <div
+      class="logout-modal"
+      id="passwordChangedModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="passwordChangedTitle"
+      hidden
+    >
+      <div class="logout-modal-content" style="width: min(100%, 460px); max-width: 460px;">
+        <h2 id="passwordChangedTitle" style="font-size: 23px; line-height: 1.4; margin: 0 0 24px; font-weight: 500;">
+          Mật khẩu bạn đã bị thay đổi,<br />
+          Sau đây là mật khẩu mới của bạn: <span id="passwordChangedValue" style="color: #278a4b; font-weight: 600;"></span>
+        </h2>
+        <div class="logout-modal-actions" style="display: flex; justify-content: center;">
+          <button
+            type="button"
+            class="admin-secondary-btn"
+            id="confirmPasswordChangeBtn"
+            style="min-width: 100px; padding: 8px 24px;"
+          >
+            Đồng ý
+          </button>
+        </div>
+      </div>
+    </div>
+
   <div id="staffSuccessToast" class="staff-toast staff-success-toast" role="status" aria-live="polite">
     <img src="../shared/images/check.png" alt="" class="toast-icon" />
     <span></span>
@@ -523,7 +549,7 @@
   <script src="../shared/js/portal-api.js"></script>
   <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
   <script src="js/staff-core.js"></script>
-  <script src="js/staff-profile.js?v=20261107-1"></script>
+  <script src="js/staff-profile.js?v=20261107-dob-password-v1"></script>
   <script src="js/staff-leave.js"></script>
   <script src="js/staff-attendance.js"></script>
   <script src="js/staff-salary-month.js"></script>
