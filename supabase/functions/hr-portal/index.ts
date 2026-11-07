@@ -418,33 +418,12 @@ async function bootAction(actor: Actor): Promise<Response> {
       select c.employee_id, c.phone_number, c.address
       from public.employee_contacts c
       where c.employee_id = any(${sql.array(ids)}::uuid[])`,
-    actor.is_admin || actor.is_hr
-      ? sql!`
-          select p.position_id, p.position_title, p.description,
-                 coalesce((select json_agg(dp.department_id) from public.department_positions dp
-                           where dp.position_id = p.position_id), '[]'::json) as department_ids
-          from public.positions p
-          order by p.position_title`
-      : actor.department_id === null
-        ? sql!`
-          select p.position_id, p.position_title, p.description,
-                 coalesce((select json_agg(dp.department_id) from public.department_positions dp
-                           where dp.position_id = p.position_id), '[]'::json) as department_ids
-          from public.positions p
-          join public.employees e on e.current_position_id = p.position_id
-          where e.employee_id = ${actor.employee_id}::uuid
-          order by p.position_title`
-        : sql!`
-          select p.position_id, p.position_title, p.description,
-                 coalesce((select json_agg(dpm.department_id) from public.department_positions dpm
-                           where dpm.position_id = p.position_id), '[]'::json) as department_ids
-          from public.positions p
-          where exists (
-            select 1 from public.department_positions dp
-            where dp.position_id = p.position_id
-              and dp.department_id = ${actor.department_id}::uuid
-          )
-          order by p.position_title`,
+    sql!`
+      select p.position_id, p.position_title, p.description,
+             coalesce((select json_agg(dp.department_id) from public.department_positions dp
+                       where dp.position_id = p.position_id), '[]'::json) as department_ids
+      from public.positions p
+      order by p.position_title`,
     sql!`select department_id, department_name, description from public.departments order by department_name`,
     actor.is_admin
       ? sql!`select role_id, role_name, description, true as assignable from public.roles order by role_name`

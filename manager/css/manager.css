@@ -1377,6 +1377,21 @@ body:has(.admin-page) {
   gap: 8px;
 }
 
+.employee-position-group {
+  grid-column: 1 / -1;
+}
+
+.employee-dept-role-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.employee-password-group {
+  grid-column: 1 / -1;
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -1449,6 +1464,17 @@ body:has(.admin-page) {
   .employee-contact-date-row {
     grid-column: auto;
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .employee-position-group,
+  .employee-dept-role-row,
+  .employee-password-group {
+    grid-column: auto;
+  }
+
+  .employee-dept-role-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
 
   [data-hr-panel="approvals"] .panel-heading > .admin-search {

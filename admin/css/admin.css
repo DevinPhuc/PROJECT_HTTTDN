@@ -460,6 +460,7 @@ body:has(.admin-page) {
   padding: 20px 24px;
   border: 1px solid var(--admin-line);
   background: #fff;
+  border-radius: 8px;
 }
 
 .admin-form-header {

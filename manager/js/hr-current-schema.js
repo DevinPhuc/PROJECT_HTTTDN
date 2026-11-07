@@ -728,6 +728,28 @@ function fillRoleSelect(select, selectedValue = "", roleOptions = roles) {
   select.value = selectedRole ? selectedRole.role_id : "";
 }
 
+function renderManagerPositionOptions(departmentId, selectedPositionId) {
+  const positionSelect = document.getElementById("employeePosition");
+  if (!positionSelect) return;
+  const filtered = positions.filter((item) => {
+    if (!departmentId) return true;
+    if (selectedPositionId && String(item.position_id) === String(selectedPositionId)) return true;
+    const deptIds = item.department_ids || [];
+    return deptIds.some((id) => String(id) === String(departmentId));
+  });
+  const listToRender = filtered.length > 0 ? filtered : positions;
+  fillSelect(
+    positionSelect,
+    listToRender,
+    "position_id",
+    (position) => position.position_title,
+    selectedPositionId || "",
+  );
+  if (selectedPositionId) {
+    positionSelect.value = selectedPositionId;
+  }
+}
+
 function showEmployeeForm(employee = null) {
   const form = document.getElementById("employeeForm");
   form.reset();
@@ -748,20 +770,7 @@ function showEmployeeForm(employee = null) {
 
   const departmentSelect = document.getElementById("employeeDepartment");
   const departmentGroup = document.getElementById("employeeDepartmentGroup");
-  fillSelect(
-    departmentSelect,
-    departments,
-    "department_id",
-    (department) => department.department_name,
-    employee?.department_id || "",
-  );
-  const canChooseDepartment = Boolean(
-    currentActor?.is_admin || currentActor?.is_hr,
-  );
-  if (!canChooseDepartment) {
-    departmentSelect.value = currentActor?.department_id || "";
-  }
-  departmentGroup.hidden = !canChooseDepartment;
+  const positionSelect = document.getElementById("employeePosition");
   const dateOfBirthInput = form.elements.namedItem("dateOfBirth");
   const passwordInput = form.elements.namedItem("password");
   const passwordGroup = passwordInput.closest(".form-group");
@@ -773,8 +782,30 @@ function showEmployeeForm(employee = null) {
     .toISOString()
     .slice(0, 10);
 
+  const canChooseDepartment = Boolean(
+    currentActor?.is_admin || currentActor?.is_hr,
+  );
+
   if (employee) {
     const contact = contacts.get(employee.employee_id);
+    const targetDeptId = employee.department_id || "";
+    const targetPosId = employee.position_id || employee.current_position_id || "";
+
+    fillSelect(
+      departmentSelect,
+      departments,
+      "department_id",
+      (department) => department.department_name,
+      targetDeptId,
+    );
+    departmentSelect.value = targetDeptId;
+    departmentGroup.hidden = false;
+
+    renderManagerPositionOptions(targetDeptId, targetPosId);
+    if (targetPosId) {
+      positionSelect.value = targetPosId;
+    }
+
     const values = {
       name: employee.full_name,
       email: employee.email,
@@ -788,11 +819,16 @@ function showEmployeeForm(employee = null) {
         : "",
       employmentStatus:
         STATUS_LABELS[normalizedStatus(employee.employment_status)],
+      positionId: targetPosId,
+      departmentId: targetDeptId,
     };
     Object.entries(values).forEach(([key, value]) => {
       if (form.elements.namedItem(key))
         form.elements.namedItem(key).value = value;
     });
+    if (targetPosId) {
+      positionSelect.value = targetPosId;
+    }
     const currentRoles = roleAssignments.get(employee.employee_id) || [];
     if (currentRoles.length > 0) {
       form.elements.namedItem("roleId").value = currentRoles[0];
@@ -823,15 +859,36 @@ function showEmployeeForm(employee = null) {
     passwordInput.readOnly = true;
     passwordInput.placeholder = "Mật khẩu tạo tự động theo vai trò, phòng ban, ngày sinh";
     passwordGroup.hidden = false;
+
+    fillSelect(
+      departmentSelect,
+      departments,
+      "department_id",
+      (department) => department.department_name,
+      canChooseDepartment ? "" : (currentActor?.department_id || ""),
+    );
+    if (!canChooseDepartment) {
+      departmentSelect.value = currentActor?.department_id || "";
+    }
+    departmentGroup.hidden = false;
+
+    const defaultDeptId = departmentSelect.value || currentActor?.department_id || "";
+    renderManagerPositionOptions(defaultDeptId, "");
+
     updateGeneratedEmployeePassword();
 
     // MỞ KHÓA FORM VÀ HIỆN LẠI NÚT LƯU KHI THÊM MỚI
     Array.from(form.elements).forEach((el) => {
       el.disabled = false;
     });
+    if (!canChooseDepartment) {
+      departmentSelect.disabled = true;
+    }
     if (saveButton) {
       saveButton.style.display = "inline-flex";
     }
+    document.getElementById("employeeFormTitle").textContent =
+      "Thêm nhân sự mới";
   }
 
   document.getElementById("addEmployeeModal").classList.remove("hidden");
@@ -931,7 +988,11 @@ if (employeeForm) {
   }
   const deptInput = employeeForm.elements.namedItem("departmentId");
   if (deptInput) {
-    deptInput.addEventListener("change", updateGeneratedEmployeePassword);
+    deptInput.addEventListener("change", () => {
+      const posSelect = employeeForm.elements.namedItem("positionId");
+      renderManagerPositionOptions(deptInput.value, posSelect?.value || "");
+      updateGeneratedEmployeePassword();
+    });
   }
   const posInput = employeeForm.elements.namedItem("positionId");
   if (posInput) {
@@ -1069,8 +1130,8 @@ document
       id: values.id || undefined,
       full_name: String(values.name).trim(),
       email: String(values.email).trim().toLowerCase(),
-      position_id: values.positionId,
-      department_id: values.departmentId || undefined,
+      position_id: values.positionId || document.getElementById("employeePosition")?.value,
+      department_id: values.departmentId || document.getElementById("employeeDepartment")?.value || currentActor?.department_id || undefined,
       date_of_birth: values.dateOfBirth || null,
       education: String(values.education || "").trim(),
       hire_date: values.hireDate,
@@ -1920,12 +1981,7 @@ function renderEmployeeSelects() {
     assignableRoleOptions(),
   );
   fillRoleSelect(document.getElementById("employeeRole"));
-  fillSelect(
-    document.getElementById("employeePosition"),
-    positions,
-    "position_id",
-    (position) => position.position_title,
-  );
+  renderManagerPositionOptions("", "");
   renderPermissions();
 }
 
@@ -2181,12 +2237,7 @@ async function initHrPortal() {
     showError("Không tải được dữ liệu. Vui lòng thử lại sau.");
     return;
   }
-  fillSelect(
-    document.getElementById("employeePosition"),
-    positions,
-    "position_id",
-    (position) => position.position_title,
-  );
+  renderManagerPositionOptions("", "");
   fillRoleSelect(document.getElementById("employeeRole"));
   // document.getElementById("payrollForm").elements.namedItem("workDays").value = 0;
   await renderAll();

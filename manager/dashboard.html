@@ -291,28 +291,36 @@
                       </select>
                     </div>
                     <div class="form-group">
-                      <label>Chức vụ <span class="req">*</span></label>
+                      <label>Trạng thái</label>
+                      <select name="employmentStatus">
+                        <option>Đang làm</option>
+                        <option>Đang nghỉ phép</option>
+                        <option>Đã nghỉ việc</option>
+                      </select>
+                    </div>
+                    <div class="form-group employee-position-group">
+                      <label>Vị trí <span class="req">*</span></label>
                       <select
                         name="positionId"
                         id="employeePosition"
                         required
                       ></select>
                     </div>
-                    <div class="employee-status-role-row">
-                      <div class="form-group">
-                        <label>Trạng thái</label>
-                        <select name="employmentStatus">
-                          <option>Đang làm</option>
-                          <option>Đang nghỉ phép</option>
-                          <option>Đã nghỉ việc</option>
-                        </select>
+                    <div class="employee-dept-role-row">
+                      <div class="form-group" id="employeeDepartmentGroup">
+                        <label>Phòng ban</label>
+                        <select
+                          name="departmentId"
+                          id="employeeDepartment"
+                          required
+                        ></select>
                       </div>
-                      <div class="form-group">
+                      <div class="form-group" id="employeeRoleGroup">
                         <label>Vai trò hệ thống <span class="req">*</span></label>
                         <select name="roleId" id="employeeRole" required></select>
                       </div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group employee-password-group">
                       <label
                         >Mật khẩu đăng nhập <span class="req">*</span></label
                       >
@@ -323,14 +331,6 @@
                         readonly
                         required
                       />
-                    </div>
-                    <div class="form-group" id="employeeDepartmentGroup">
-                      <label>Phòng ban</label>
-                      <select
-                        name="departmentId"
-                        id="employeeDepartment"
-                        required
-                      ></select>
                     </div>
                   </div>
                   <div class="modal-footer">
