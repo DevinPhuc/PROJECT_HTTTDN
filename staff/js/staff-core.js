@@ -393,6 +393,7 @@ async function loadStaffPortal() {
   department = position ? { department_id: position.department_id, department_name: position.department_name } : null;
   permissionCodes = boot.data.permissionCodes || [];
   if ((boot.data.roleNames || []).some((name) => ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(String(name).toLowerCase()))) { window.location.replace("../manager/dashboard.html"); return; }
+  if ((boot.data.roleNames || []).some((name) => String(name).toLowerCase() === "admin")) { window.location.replace("../admin/dashboard.html"); return; }
   // Logout confirmation modal (same behavior as manager dashboard).
   const logoutModal = document.getElementById("logoutModal");
   const cancelLogoutBtn = document.getElementById("cancelLogoutBtn");

@@ -96,21 +96,6 @@ async function getActor(token: string): Promise<Actor | null> {
     }
   }
 
-  const [roleRow] = await sql!`
-    select r.role_name
-    from public.user_roles ur
-    join public.roles r on r.role_id = ur.role_id
-    where ur.employee_id = ${employeeId}::uuid
-      and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
-      and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
-    order by ur.valid_from desc, ur.user_role_id desc
-    limit 1`;
-
-  const roleName = String(roleRow?.role_name || "").toLowerCase();
-  if (roleName === "admin" || ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(roleName)) {
-    return null;
-  }
-
   return { employee_id: row.employee_id, username: row.username, full_name: row.full_name };
 }
 
