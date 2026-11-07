@@ -197,6 +197,9 @@ function statusRow(row = {}) {
   const dateTd = document.createElement("td");
   dateTd.textContent = dateLabel(row.effective_date) || "—";
 
+  const endDateTd = document.createElement("td");
+  endDateTd.textContent = dateLabel(row.end_date) || "—";
+
   const statusTd = document.createElement("td");
   const statusBadge = document.createElement("span");
   const label = STATUS_LABELS[row.status] || row.status || "Đang nghỉ phép";
@@ -207,7 +210,7 @@ function statusRow(row = {}) {
   const reasonTd = document.createElement("td");
   reasonTd.textContent = row.reason || "—";
 
-  tr.append(dateTd, statusTd, reasonTd);
+  tr.append(dateTd, endDateTd, statusTd, reasonTd);
   return tr;
 }
 
@@ -257,7 +260,7 @@ function renderRowTable(tbodyId, rows, build) {
     if (!rows.length) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 3;
+      td.colSpan = 4;
       td.style.textAlign = "center";
       td.style.padding = "24px 12px";
       td.style.color = "var(--admin-muted, #747b74)";

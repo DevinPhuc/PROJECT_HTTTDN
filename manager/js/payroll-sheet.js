@@ -330,12 +330,27 @@
     forbidden: "Bạn không có quyền lưu lương cho nhân sự này.",
     invalid_period: "Kỳ lương không hợp lệ.",
   };
-  function enqueueSave(x, undo, label) {
+  let payrollToastTimer = null;
+  function showPayrollToast(msg) {
+    const toast = $("payrollToast") || $("successToast");
+    if (!toast) return;
+    const span = toast.querySelector("span");
+    if (span) span.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(payrollToastTimer);
+    payrollToastTimer = setTimeout(() => toast.classList.remove("show"), 5000);
+  }
+
+  function enqueueSave(x, undo, label, savedAmount) {
     st.chain = st.chain.then(async () => {
       try {
         const res = await callHr(payload(x));
         if (!res.ok) { undo(); feedbackMsg(ERR[res.error] || `Không lưu được lương của ${label}.`, true); keepFocus(); return false; }
-        feedbackMsg(`Đã lưu lương cho ${label}.`);
+        const amountVal = savedAmount != null ? savedAmount : (x.luongCB || 0);
+        const amountText = (amountVal ? fmt(amountVal) : "0") + " đ";
+        const msg = `Đã lưu lương ${amountText} cho nhân viên ${label} thành công!`;
+        feedbackMsg(msg);
+        showPayrollToast(msg);
         return true;
       } catch {
         undo(); feedbackMsg("Không kết nối được máy chủ. Lương chưa được lưu.", true); keepFocus(); return false;
@@ -357,7 +372,7 @@
     }
     const undo = putCache(next);
     keepFocus();
-    enqueueSave(next, undo, next.ten);
+    enqueueSave(next, undo, next.ten, val);
   }
 
   async function saveAll() {
@@ -375,7 +390,9 @@
       } catch { /* tiếp tục với dòng sau */ }
     }
     if (button) button.disabled = false;
-    feedbackMsg(`Đã lưu ${ok}/${L.length} dòng lương ${monthLabel(st.ym).toLowerCase()}.`, ok !== L.length);
+    const allMsg = `Đã lưu lương cho ${ok} nhân viên thành công!`;
+    feedbackMsg(allMsg, ok !== L.length);
+    if (ok > 0) showPayrollToast(allMsg);
     draw();
   }
 

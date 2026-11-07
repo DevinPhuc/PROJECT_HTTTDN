@@ -236,17 +236,23 @@ async function personalInfoAction(actor: Actor): Promise<Response> {
     where employee_id = ${actor.employee_id}::uuid
     order by graduation_year desc nulls last`;
   const history = await sql!`
-    select 'OnLeave' as status, to_char(effective_date, 'YYYY-MM-DD') as effective_date, reason
+    select status, effective_date, end_date, reason
     from (
-      select effective_date, reason
-      from public.employee_status_history
-      where employee_id = ${actor.employee_id}::uuid
-        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
-      union
-      select start_date as effective_date, coalesce(reason, 'Nghỉ phép') as reason
+      select 'OnLeave' as status,
+             to_char(start_date, 'YYYY-MM-DD') as effective_date,
+             to_char(end_date, 'YYYY-MM-DD') as end_date,
+             coalesce(reason, 'Nghỉ phép') as reason
       from public.leave_requests
       where employee_id = ${actor.employee_id}::uuid
         and lower(status::text) = 'approved'
+      union
+      select 'OnLeave' as status,
+             to_char(effective_date, 'YYYY-MM-DD') as effective_date,
+             null as end_date,
+             reason
+      from public.employee_status_history
+      where employee_id = ${actor.employee_id}::uuid
+        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
     ) s
     order by effective_date desc`;
   return json({
@@ -672,17 +678,23 @@ async function qualificationsSaveAction(actor: Actor, body: Record<string, unkno
 
 async function statusHistorySaveAction(actor: Actor, _body: Record<string, unknown>): Promise<Response> {
   const saved = await sql!`
-    select 'OnLeave' as status, to_char(effective_date, 'YYYY-MM-DD') as effective_date, reason
+    select status, effective_date, end_date, reason
     from (
-      select effective_date, reason
-      from public.employee_status_history
-      where employee_id = ${actor.employee_id}::uuid
-        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
-      union
-      select start_date as effective_date, coalesce(reason, 'Nghỉ phép') as reason
+      select 'OnLeave' as status,
+             to_char(start_date, 'YYYY-MM-DD') as effective_date,
+             to_char(end_date, 'YYYY-MM-DD') as end_date,
+             coalesce(reason, 'Nghỉ phép') as reason
       from public.leave_requests
       where employee_id = ${actor.employee_id}::uuid
         and lower(status::text) = 'approved'
+      union
+      select 'OnLeave' as status,
+             to_char(effective_date, 'YYYY-MM-DD') as effective_date,
+             null as end_date,
+             reason
+      from public.employee_status_history
+      where employee_id = ${actor.employee_id}::uuid
+        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
     ) s
     order by effective_date desc`;
   return json({ ok: true, rows: saved });
