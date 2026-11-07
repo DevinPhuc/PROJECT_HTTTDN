@@ -64,7 +64,11 @@ async function getActor(token: string): Promise<Actor | null> {
     const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
     employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
     iat = typeof payload.iat === "number" ? payload.iat : 0;
-  } catch {
+  } catch (err) {
+    console.error("staff-portal: JWT verification failed", {
+      name: err instanceof Error ? err.name : "UnknownError",
+      message: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
   if (!UUID_RE.test(employeeId)) return null;
@@ -465,7 +469,7 @@ async function attendanceListAction(actor: Actor): Promise<Response> {
     from public.attendance_records
     where employee_id = ${actor.employee_id}::uuid
     order by work_date desc
-    limit 30`;
+    limit 400`; // month/week pickers span a year+; 400 rows ≈ that history
   return json({ ok: true, today: todayRow.today, records: rows });
 }
 

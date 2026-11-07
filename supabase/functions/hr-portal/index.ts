@@ -71,6 +71,17 @@ const ATTENDANCE_STATUS: Record<string, string> = {
   on_leave: "OnLeave",
 };
 
+// Code sheet values mapped to attendance status; day_code remains the source of truth.
+const DAY_CODE_STATUS: Record<string, { status: string }> = {
+  X: { status: "present" },
+  CT: { status: "present" },
+  N: { status: "halfday" },
+  P: { status: "on_leave" },
+  L: { status: "on_leave" },
+  O: { status: "absent" },
+  KP: { status: "absent" },
+};
+
 type Actor = {
   employee_id: string;
   full_name: string;
@@ -212,7 +223,7 @@ async function getActor(token: string): Promise<Actor | null> {
     }
   }
 
-  // THAY ĐỔI: Dùng (now() at time zone 'Asia/Ho_Chi_Minh')::date thay vì biến VN_TODAY
+  // Ngày hiệu lực được đối chiếu theo múi giờ Asia/Ho_Chi_Minh.
   const [adminCheck] = await sql!`
     select true as is_admin
     where exists (
@@ -315,7 +326,7 @@ async function employeeInScope(
     select 1 from public.employees e
     left join public.department_positions dp on dp.position_id = e.current_position_id
     where e.employee_id = ${employeeId}::uuid
-      and (e.current_department_id = ${actor.department_id}::uuid 
+      and (e.current_department_id = ${actor.department_id}::uuid
            or dp.department_id = ${actor.department_id}::uuid
            or e.employee_id = ${actor.employee_id}::uuid)
     limit 1`;
@@ -399,8 +410,8 @@ async function bootAction(actor: Actor): Promise<Response> {
       from public.employees e
       left join public.employee_accounts a on a.employee_id = e.employee_id
       where e.employee_id = any(${sql.array(ids)}::uuid[])
-        and a.deleted_at is null 
-        and a.is_active = true 
+        and a.deleted_at is null
+        and a.is_active = true
         and e.employment_status = 'Active'
       order by e.full_name`,
     sql!`
@@ -491,7 +502,7 @@ async function bootAction(actor: Actor): Promise<Response> {
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by pay_year desc nulls last, pay_month desc nulls last`,
     sql!`
-      select attendance_id, employee_id, work_date, status, overtime_hours, notes
+      select attendance_id, employee_id, work_date, status, day_code, overtime_hours, notes
       from public.attendance_records
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by work_date desc`,
@@ -847,23 +858,48 @@ async function employeeDeleteAction(
     }
   }
 
+  // 1. Không cho phép ai tự xóa chính tài khoản của mình
+  if (!actor.is_admin && id === actor.employee_id) {
+    return json({ ok: false, error: "forbidden_self_delete" }, 403);
+  }
+
+  // 2. Kiểm tra phạm vi (Scope):
+  // - Nếu là Admin hoặc HR Manager: employeeInScope sẽ luôn trả về True (được phép xóa toàn công ty)
+  // - Nếu là Manager thường: employeeInScope chỉ trả về True nếu người bị xóa cùng phòng ban
+  if (!(await employeeInScope(actor, id))) {
+    return json({ ok: false, error: "forbidden_out_of_scope" }, 403);
+  }
+
+  // 3. Không ai được phép xóa Admin (Trừ khi người xóa cũng là Admin)
+  if (!actor.is_admin && (await employeeHoldsAdminRole(id))) {
+    return json({ ok: false, error: "forbidden_cannot_delete_admin" }, 403);
+  }
+
+  // (Đã gỡ bỏ đoạn mã cấm Manager xóa Manager khác. Bây giờ quyền lực được
+  // quyết định hoàn toàn dựa vào phòng ban (Scope) ở bước 2).
+
   try {
     await sql!.begin(async (tx) => {
+      // THỰC HIỆN XÓA MỀM (Dành cho cả Manager và Admin khi gọi qua hr-portal)
+
+      // Đánh dấu tài khoản đã xóa, khóa tài khoản
       await tx`
         update public.employee_accounts
         set deleted_at = now(), is_active = false
         where employee_id = ${id}::uuid
           and deleted_at is null`;
 
+      // Cập nhật trạng thái nhân viên thành đã nghỉ việc
       await tx`
         update public.employees
         set employment_status = 'Resigned'
         where employee_id = ${id}::uuid`;
-      const today = sql!`(now() at time zone 'Asia/Ho_Chi_Minh')::date`;
+
+      // Ghi log trạng thái nghỉ việc
       await tx`
         insert into public.hr_employment_status_history
           (employee_id, employment_status, effective_from, changed_by, reason)
-        values (${id}::uuid, 'Resigned', ${today},
+        values (${id}::uuid, 'Resigned', (now() at time zone 'Asia/Ho_Chi_Minh')::date,
                 ${actor.employee_id}::uuid, 'Quản lý xóa hồ sơ (Nghỉ việc)')`;
     });
   } catch (err) {
@@ -1006,6 +1042,22 @@ async function attendanceSaveAction(
   if (!(await employeeInScope(actor, employeeId)))
     return json({ ok: false, error: "forbidden" }, 403);
 
+  // Optional day_code (code sheet). Absent property = untouched (payroll panel
+  // keeps calling this without day_code); "" clears; otherwise must be a valid code.
+  const hasDayCode = Object.prototype.hasOwnProperty.call(body, "day_code");
+  let dayCode: string | null = null;
+  if (hasDayCode) {
+    dayCode = str(body.day_code).toUpperCase() || null; // "" → NULL (clear)
+    if (dayCode && !(dayCode in DAY_CODE_STATUS))
+      return json({ ok: false, error: "invalid_day_code" }, 400);
+  }
+  // day_code keeps status in sync on write; the code sheet owns the mapping.
+  const statusInputForDb = hasDayCode && dayCode
+    ? DAY_CODE_STATUS[dayCode].status
+    : statusInput;
+  // Fragment trick: empty fragment = untouched; value may be null (= clear).
+  const dayCodeFrag = hasDayCode ? sql!`day_code = ${dayCode},` : sql!``;
+
   try {
     await sql!.begin(async (tx) => {
       const [existing] = await tx`
@@ -1020,7 +1072,8 @@ async function attendanceSaveAction(
       if (existing) {
         await tx`
           update public.attendance_records
-          set status = ${ATTENDANCE_STATUS[statusInput]},
+          set ${dayCodeFrag}
+              status = ${ATTENDANCE_STATUS[statusInputForDb]},
               overtime_hours = ${overtimeHours},
               overtime_type = ${overtimeType},
               ot_consent = ${overtimeConsent},
@@ -1029,10 +1082,11 @@ async function attendanceSaveAction(
       } else {
         await tx`
           insert into public.attendance_records
-            (employee_id, work_date, status, overtime_hours, night_hours,
+            (employee_id, work_date, status, day_code, overtime_hours, night_hours,
              overtime_type, ot_consent, notes)
           values (${employeeId}::uuid, ${workDate}::date,
-                  ${ATTENDANCE_STATUS[statusInput]}, ${overtimeHours}, 0,
+                  ${ATTENDANCE_STATUS[statusInputForDb]},
+                  ${hasDayCode ? dayCode : null}, ${overtimeHours}, 0,
                   ${overtimeType}, ${overtimeConsent}, ${notes})`;
       }
     });
@@ -1041,6 +1095,75 @@ async function attendanceSaveAction(
   }
 
   return json({ ok: true });
+}
+
+// Code sheet drag-paint: one transaction for a whole batch of painted cells.
+async function attendanceBulkSaveAction(
+  actor: Actor,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const ym = str(body.ym);
+  const items = Array.isArray(body.items) ? body.items : [];
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym) || !items.length || items.length > 1200) {
+    return json({ ok: false, error: "invalid_request" }, 400);
+  }
+
+  // Validate every item before touching the database (all-or-nothing batch).
+  const prepared: { employeeId: string; workDate: string; dayCode: string | null }[] = [];
+  for (const item of items) {
+    const employeeId = item && typeof item === "object" ? str((item as Record<string, unknown>).employee_id) : "";
+    const workDate = item && typeof item === "object" ? str((item as Record<string, unknown>).work_date) : "";
+    const dayCodeRaw = item && typeof item === "object" ? str((item as Record<string, unknown>).day_code).toUpperCase() : "";
+    if (!UUID_RE.test(employeeId) || !isRealDate(workDate) || !workDate.startsWith(`${ym}-`)) {
+      return json({ ok: false, error: "invalid_request" }, 400);
+    }
+    const dayCode = dayCodeRaw || null; // "" → NULL = clear
+    if (dayCode && !(dayCode in DAY_CODE_STATUS))
+      return json({ ok: false, error: "invalid_day_code" }, 400);
+    prepared.push({ employeeId, workDate, dayCode });
+  }
+  for (const employeeId of new Set(prepared.map((it) => it.employeeId))) {
+    if (!(await employeeInScope(actor, employeeId)))
+      return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  try {
+    await sql!.begin(async (tx) => {
+      for (const it of prepared) {
+        const [existing] = await tx`
+          select attendance_id from public.attendance_records
+          where employee_id = ${it.employeeId}::uuid and work_date = ${it.workDate}::date
+          limit 1`;
+        if (existing) {
+          // Paint sets code + mapped status only; clear resets the code and keeps
+          // the row (clock timestamps untouched).
+          if (it.dayCode) {
+            await tx`
+              update public.attendance_records
+              set day_code = ${it.dayCode},
+                  status = ${ATTENDANCE_STATUS[DAY_CODE_STATUS[it.dayCode].status]}
+              where attendance_id = ${existing.attendance_id}`;
+          } else {
+            await tx`
+              update public.attendance_records
+              set day_code = null
+              where attendance_id = ${existing.attendance_id}`;
+          }
+        } else if (it.dayCode) {
+          // Fresh painted day: overtime_hours/night_hours default to 0.
+          await tx`
+            insert into public.attendance_records
+              (employee_id, work_date, status, day_code)
+            values (${it.employeeId}::uuid, ${it.workDate}::date,
+                    ${ATTENDANCE_STATUS[DAY_CODE_STATUS[it.dayCode].status]}, ${it.dayCode})`;
+        }
+      }
+    });
+  } catch (err) {
+    return dbError(err);
+  }
+
+  return json({ ok: true, count: prepared.length });
 }
 
 async function payrollSaveAction(
@@ -1052,7 +1175,7 @@ async function payrollSaveAction(
   const month = Number(body.pay_month);
   const baseSalary = Number(body.base_salary);
   const allowance = Number(body.allowance ?? 0);
-  const overtimePay = Number(body.overtime_pay ?? 0);
+  const overtimePay = 0;
   const workDays = Number(body.work_days ?? 0);
   const standardDays = Number(body.standard_days ?? 0);
   const insuranceAmount = Number(body.insurance_amount ?? 0);
@@ -1210,6 +1333,8 @@ Deno.serve(async (req) => {
         return await leaveReviewAction(actor, body);
       case "attendance_save":
         return await attendanceSaveAction(actor, body);
+      case "attendance_bulk":
+        return await attendanceBulkSaveAction(actor, body);
       case "payroll_save":
         return await payrollSaveAction(actor, body);
       default:

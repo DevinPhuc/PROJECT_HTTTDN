@@ -311,7 +311,7 @@ async function getActor(token: string): Promise<Actor | null> {
   if (!UUID_RE.test(employeeId)) return null;
 
   const rows = await sql!`
-    select e.employee_id, a.username, e.full_name, e.updated_at 
+    select e.employee_id, a.username, e.full_name, e.updated_at
     from public.employees e
     join public.employee_accounts a on a.employee_id = e.employee_id
     where e.employee_id = ${employeeId}::uuid
