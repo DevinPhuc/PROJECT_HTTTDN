@@ -59,21 +59,22 @@ function isRealDate(value: string): boolean {
 
 async function getActor(token: string): Promise<Actor | null> {
   let employeeId = "";
+  let iat = 0;
   try {
     const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
     employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
+    iat = typeof payload.iat === "number" ? payload.iat : 0;
   } catch (err) {
     console.error("staff-portal: JWT verification failed", {
       name: err instanceof Error ? err.name : "UnknownError",
       message: err instanceof Error ? err.message : String(err),
     });
-
     return null;
   }
   if (!UUID_RE.test(employeeId)) return null;
 
   const rows = await sql!`
-    select e.employee_id, a.username, e.full_name
+    select e.employee_id, a.username, e.full_name, e.updated_at
     from public.employees e
     join public.employee_accounts a on a.employee_id = e.employee_id
     where e.employee_id = ${employeeId}::uuid
@@ -82,7 +83,20 @@ async function getActor(token: string): Promise<Actor | null> {
       and e.employment_status = 'Active'
     limit 1`;
 
-  return (rows[0] as Actor | undefined) ?? null;
+  const row = rows[0] as { employee_id: string; username: string; full_name: string; updated_at?: string | Date | null } | undefined;
+  if (!row) return null;
+
+  if (row.updated_at && iat > 0) {
+    const updateTime = new Date(row.updated_at).getTime();
+    if (!Number.isNaN(updateTime)) {
+      const lastUpdated = Math.floor(updateTime / 1000);
+      if (iat < lastUpdated - 5) {
+        return null;
+      }
+    }
+  }
+
+  return { employee_id: row.employee_id, username: row.username, full_name: row.full_name };
 }
 
 const DB_ERRORS: Record<string, string> = {
@@ -710,7 +724,41 @@ Deno.serve(async (req) => {
   } catch (err) {
     return dbError(err); // database trouble is not a bad token
   }
-  if (!actor) return json({ ok: false, error: "unauthorized" }, 401);
+  if (!actor) {
+    let redirectUrl = "staff-login.html";
+    let activeRole = "";
+    if (token) {
+      try {
+        const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
+        const employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
+        if (UUID_RE.test(employeeId)) {
+          const [roleRow] = await sql!`
+            select r.role_name
+            from public.user_roles ur
+            join public.roles r on r.role_id = ur.role_id
+            where ur.employee_id = ${employeeId}::uuid
+              and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
+              and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+            order by ur.valid_from desc, ur.user_role_id desc
+            limit 1`;
+          if (roleRow) {
+            activeRole = String(roleRow.role_name);
+            const lower = activeRole.toLowerCase();
+            if (lower === "admin") {
+              redirectUrl = "../admin/login.html";
+            } else if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(lower)) {
+              redirectUrl = "../manager/login.html";
+            } else {
+              redirectUrl = "staff-login.html";
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return json({ ok: false, error: "unauthorized", role: activeRole, redirect_url: redirectUrl }, 401);
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -721,6 +769,7 @@ Deno.serve(async (req) => {
 
   try {
     switch (body.action) {
+      case "ping": return json({ ok: true });
       case "boot": return await bootAction(actor);
       case "update_profile": return await updateProfileAction(actor, body);
       case "personal_info": return await personalInfoAction(actor);

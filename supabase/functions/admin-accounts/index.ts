@@ -79,7 +79,8 @@ function readProfile(body: Record<string, unknown>) {
     !fields.email ||
     !fields.gender ||
     !fields.date_of_birth ||
-    !fields.hire_date
+    !fields.hire_date ||
+    !fields.department_id
   )
     return { error: "missing_fields" } as const;
 
@@ -88,9 +89,10 @@ function readProfile(body: Record<string, unknown>) {
     return { error: "invalid_date_of_birth" } as const;
   if (!isRealDate(fields.hire_date))
     return { error: "invalid_hire_date" } as const;
-  if (
-    ![fields.department_id, fields.position_id].every((v) => UUID_RE.test(v))
-  ) {
+  if (!UUID_RE.test(fields.department_id)) {
+    return { error: "invalid_reference" } as const;
+  }
+  if (fields.position_id && !UUID_RE.test(fields.position_id)) {
     return { error: "invalid_reference" } as const;
   }
 
@@ -110,6 +112,13 @@ function readProfile(body: Record<string, unknown>) {
 
 // Returns department details and position name plus reference validity.
 async function loadDepartmentAndRefs(departmentId: string, positionId: string) {
+  if (!positionId) {
+    const rows = await sql!`
+      select d.department_name, d.description, null as position_title, true as position_ok
+      from public.departments d
+      where d.department_id = ${departmentId}::uuid`;
+    return rows[0] ?? null;
+  }
   const rows = await sql!`
     select d.department_name, d.description, p.position_title,
            exists(
@@ -144,6 +153,7 @@ async function resolveProfile(body: Record<string, unknown>) {
 
 function abbreviatePosition(positionName: string) {
   const role = positionName.trim().toLowerCase();
+  if (role === "admin") return "AD";
   if (role === "nhân viên") return "NV";
   if (role === "quản lý") return "QL";
   if (role === "trưởng nhóm") return "TN";
@@ -208,11 +218,11 @@ async function updateAccountPassword(
     where employee_id = ${employeeId}::uuid`;
 }
 
-// Admin is never assignable; a missing role falls back to the default "Nhân viên" role.
+// A missing role falls back to the default "Nhân viên" role.
 async function resolveRoleId(value: unknown): Promise<string | null> {
   const roleId = str(value);
   const rows = UUID_RE.test(roleId)
-    ? await sql!`select role_id from public.roles where role_id = ${roleId}::uuid and role_name <> 'Admin' limit 1`
+    ? await sql!`select role_id from public.roles where role_id = ${roleId}::uuid limit 1`
     : await sql!`select role_id from public.roles where role_name = 'Nhân viên' limit 1`;
   return rows.length ? String(rows[0].role_id) : null;
 }
@@ -387,7 +397,6 @@ async function rolesRows() {
            ) as permission_ids
     from public.roles r
     left join public.role_permissions rp on rp.role_id = r.role_id
-    where r.role_name <> 'Admin'
     group by r.role_id, r.role_name, r.description
     order by r.role_name`;
 }
@@ -469,23 +478,56 @@ async function assignRoleAction(
   if (!UUID_RE.test(roleId))
     return json({ ok: false, error: "invalid_reference" }, 400);
 
+  if (employeeId === actor.employee_id) {
+    return json({ ok: false, error: "forbidden_self_role_change" }, 403);
+  }
+
   const result = await sql!.begin(async (tx) => {
     const [employee] = await tx`
       select employee_id from public.employees where employee_id = ${employeeId}::uuid limit 1`;
     if (!employee) return { error: "not_found" } as const;
 
+    const [currentUr] = await tx`
+      select r.role_name
+      from public.user_roles ur
+      join public.roles r on r.role_id = ur.role_id
+      where ur.employee_id = ${employeeId}::uuid
+        and ur.valid_from <= ${VN_TODAY}::date
+        and (ur.valid_to is null or ur.valid_to >= ${VN_TODAY}::date)
+      order by ur.valid_from desc
+      limit 1`;
+    if (currentUr?.role_name === "Admin") {
+      return { error: "forbidden_admin_role_change" } as const;
+    }
+
     const [role] = await tx`
-      select role_id from public.roles
-      where role_id = ${roleId}::uuid and role_name <> 'Admin' limit 1`;
+      select role_id, role_name from public.roles
+      where role_id = ${roleId}::uuid limit 1`;
     if (!role) return { error: "unknown_role" } as const;
+    if (role.role_name === "Admin") {
+      return { error: "cannot_create_admin" } as const;
+    }
 
     await setActiveRole(tx, employeeId, roleId, actor);
+    await tx`
+      update public.employees
+      set updated_at = now()
+      where employee_id = ${employeeId}::uuid`;
     await updateAccountPassword(tx, employeeId, roleId);
     return { ok: true } as const;
   });
 
   if ("error" in result) return json({ ok: false, error: result.error }, 400);
   return json({ ok: true, employee_id: employeeId, role_id: roleId });
+}
+
+async function latestActivitiesAction(): Promise<Response> {
+  const rows = await sql!`
+    select a.employee_id,
+           to_char(a.last_login at time zone 'Asia/Ho_Chi_Minh', 'DD/MM/YYYY HH24:MI') as last_login
+    from public.employee_accounts a
+    where a.last_login is not null`;
+  return json({ ok: true, activities: rows });
 }
 
 async function listRows() {
@@ -577,12 +619,16 @@ async function createAction(
   const roleId = await resolveRoleId(body.role_id);
   if (!roleId) return json({ ok: false, error: "unknown_role" }, 400);
 
-  const username = fields.email.split("@")[0].toLowerCase();
   const [role] = await sql!`
     select role_name
     from public.roles
     where role_id = ${roleId}::uuid
     limit 1`;
+  if (role?.role_name === "Admin") {
+    return json({ ok: false, error: "cannot_create_admin" }, 400);
+  }
+
+  const username = fields.email.split("@")[0].toLowerCase();
 
   const password = generateAccountPassword(
     String(role?.role_name || ""),
@@ -598,7 +644,7 @@ async function createAction(
          current_position_id, current_department_id, employment_status)
       values
         (${fields.employee_code}, ${fields.full_name}, ${fields.date_of_birth}, ${fields.gender},
-         ${fields.email}, ${fields.hire_date}, ${fields.position_id}::uuid,
+         ${fields.email}, ${fields.hire_date}, ${(fields.position_id || null)}::uuid,
          ${fields.department_id}::uuid, 'Active')
       returning employee_id`;
 
@@ -647,7 +693,7 @@ async function updateAction(
           gender = ${fields.gender},
           date_of_birth = ${fields.date_of_birth},
           hire_date = ${fields.hire_date},
-          current_position_id = ${fields.position_id}::uuid,
+          current_position_id = ${(fields.position_id || null)}::uuid,
           current_department_id = ${fields.department_id}::uuid,
           updated_at = now()
       where employee_id = ${employeeId}::uuid
@@ -663,11 +709,32 @@ async function updateAction(
 
     // Role is owned by the "Vai trò & Quyền" section; only touch it when supplied.
     if (roleId) {
-      const [role] = await tx`
-        select role_id from public.roles
-        where role_id = ${roleId}::uuid and role_name <> 'Admin' limit 1`;
-      if (!role) return { error: "unknown_role" } as const;
-      await setActiveRole(tx, employeeId, roleId, actor);
+      const [currentUr] = await tx`
+        select ur.role_id, r.role_name
+        from public.user_roles ur
+        join public.roles r on r.role_id = ur.role_id
+        where ur.employee_id = ${employeeId}::uuid
+          and ur.valid_from <= ${VN_TODAY}::date
+          and (ur.valid_to is null or ur.valid_to >= ${VN_TODAY}::date)
+        order by ur.valid_from desc
+        limit 1`;
+
+      if (!currentUr || String(currentUr.role_id) !== roleId) {
+        if (employeeId === actor.employee_id) {
+          return { error: "forbidden_self_role_change" } as const;
+        }
+        if (currentUr?.role_name === "Admin") {
+          return { error: "forbidden_admin_role_change" } as const;
+        }
+        const [role] = await tx`
+          select role_id, role_name from public.roles
+          where role_id = ${roleId}::uuid limit 1`;
+        if (!role) return { error: "unknown_role" } as const;
+        if (role.role_name === "Admin") {
+          return { error: "cannot_create_admin" } as const;
+        }
+        await setActiveRole(tx, employeeId, roleId, actor);
+      }
     }
 
     const submittedPassword = str(body.generated_password);
@@ -771,38 +838,142 @@ async function restoreAction(body: Record<string, unknown>): Promise<Response> {
 
 async function permanentDeleteAction(
   body: Record<string, unknown>,
+  actor: Actor,
 ): Promise<Response> {
   const employeeId = str(body.employee_id);
   if (!UUID_RE.test(employeeId))
     return json({ ok: false, error: "invalid_employee" }, 400);
 
+  if (employeeId === actor.employee_id) {
+    return json({ ok: false, error: "forbidden_self_delete" }, 403);
+  }
+
+  // Prevent deleting admin account
+  const [adminCheck] = await sql!`
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.role_id = ur.role_id
+    where ur.employee_id = ${employeeId}::uuid
+      and r.role_name = 'Admin'
+      and ur.valid_from <= ${VN_TODAY}::date
+      and (ur.valid_to is null or ur.valid_to >= ${VN_TODAY}::date)
+    limit 1`;
+  if (adminCheck) {
+    return json({ ok: false, error: "forbidden_cannot_delete_admin" }, 403);
+  }
+
   let result;
   try {
     result = await sql!.begin(async (tx) => {
-      const [account] = await tx`
+      const [emp] = await tx`
         select employee_id
-        from public.employee_accounts
+        from public.employees
         where employee_id = ${employeeId}::uuid
-          and deleted_at is not null
         for update`;
-      if (!account) return { error: "not_found" } as const;
+      if (!emp) return { error: "not_found" } as const;
 
+      // 1. Delete payroll_details (FK to payroll)
+      await tx`
+        delete from public.payroll_details
+        where payroll_id in (
+          select payroll_id from public.payroll where employee_id = ${employeeId}::uuid
+        )`;
+
+      // 2. Delete payroll
+      await tx`
+        delete from public.payroll
+        where employee_id = ${employeeId}::uuid`;
+
+      // 3. Nullify attendance ot_approved_by, then delete attendance_records
+      await tx`
+        update public.attendance_records
+        set ot_approved_by = null
+        where ot_approved_by = ${employeeId}::uuid`;
+      await tx`
+        delete from public.attendance_records
+        where employee_id = ${employeeId}::uuid`;
+
+      // 4. Nullify leave_requests approved_by, then delete leave_requests
+      await tx`
+        update public.leave_requests
+        set approved_by = null
+        where approved_by = ${employeeId}::uuid`;
+      await tx`
+        delete from public.leave_requests
+        where employee_id = ${employeeId}::uuid`;
+
+      // 5. Nullify career_history approved_by, then delete career_history
+      await tx`
+        update public.career_history
+        set approved_by = null
+        where approved_by = ${employeeId}::uuid`;
+      await tx`
+        delete from public.career_history
+        where employee_id = ${employeeId}::uuid`;
+
+      // 6. Nullify employee_status_history recorded_by, then delete employee_status_history
+      await tx`
+        update public.employee_status_history
+        set recorded_by = null
+        where recorded_by = ${employeeId}::uuid`;
+      await tx`
+        delete from public.employee_status_history
+        where employee_id = ${employeeId}::uuid`;
+
+      // 7. Nullify hr_employment_status_history changed_by, then delete hr_employment_status_history
+      await tx`
+        update public.hr_employment_status_history
+        set changed_by = null
+        where changed_by = ${employeeId}::uuid`;
+      await tx`
+        delete from public.hr_employment_status_history
+        where employee_id = ${employeeId}::uuid`;
+
+      // 8. Delete personal, qualification, and payroll info
+      await tx`
+        delete from public.employee_payroll_info
+        where employee_id = ${employeeId}::uuid`;
+      await tx`
+        delete from public.employee_personal_info
+        where employee_id = ${employeeId}::uuid`;
+      await tx`
+        delete from public.employee_qualifications
+        where employee_id = ${employeeId}::uuid`;
+
+      // 9. Delete employee_contacts
+      await tx`
+        delete from public.employee_contacts
+        where employee_id = ${employeeId}::uuid`;
+
+      // 10. Nullify user_roles assigned_by, then delete employee's user_roles
+      await tx`
+        update public.user_roles
+        set assigned_by = null
+        where assigned_by = ${employeeId}::uuid`;
       await tx`
         delete from public.user_roles
-        where employee_id = ${employeeId}::uuid
-           or assigned_by = ${employeeId}::uuid`;
-      const rows = await tx`
+        where employee_id = ${employeeId}::uuid`;
+
+      // 11. Delete employee_accounts
+      await tx`
         delete from public.employee_accounts
+        where employee_id = ${employeeId}::uuid`;
+
+      // 12. Delete employees
+      const [deletedEmp] = await tx`
+        delete from public.employees
         where employee_id = ${employeeId}::uuid
-          and deleted_at is not null
         returning employee_id`;
-      if (rows.length === 0) return { error: "not_found" } as const;
-      return { ok: true, employee_id: rows[0].employee_id } as const;
+
+      if (!deletedEmp) return { error: "not_found" } as const;
+
+      return { ok: true, employee_id: deletedEmp.employee_id } as const;
     });
   } catch (error) {
     console.error("admin-accounts: permanent delete failed", {
       employee_id: employeeId,
       code: (error as { code?: string })?.code,
+      message: (error as { message?: string })?.message,
       detail: (error as { detail?: string })?.detail,
     });
     return json({ ok: false, error: "permanent_delete_failed" }, 400);
@@ -825,6 +996,8 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "server_not_configured" }, 500);
   }
 
+  
+
   const token = req.headers.get("x-admin-token") ?? "";
 
   let actor: Actor | null;
@@ -833,7 +1006,41 @@ Deno.serve(async (req) => {
   } catch (err) {
     return dbError(err); // database trouble is not a bad token
   }
-  if (!actor) return json({ ok: false, error: "unauthorized" }, 401);
+  if (!actor) {
+    let redirectUrl = "login.html";
+    let activeRole = "";
+    if (token) {
+      try {
+        const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
+        const employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
+        if (UUID_RE.test(employeeId)) {
+          const [roleRow] = await sql!`
+            select r.role_name
+            from public.user_roles ur
+            join public.roles r on r.role_id = ur.role_id
+            where ur.employee_id = ${employeeId}::uuid
+              and ur.valid_from <= ${VN_TODAY}::date
+              and (ur.valid_to is null or ur.valid_to >= ${VN_TODAY}::date)
+            order by ur.valid_from desc, ur.user_role_id desc
+            limit 1`;
+          if (roleRow) {
+            activeRole = String(roleRow.role_name);
+            const lower = activeRole.toLowerCase();
+            if (lower === "admin") {
+              redirectUrl = "login.html";
+            } else if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(lower)) {
+              redirectUrl = "../manager/login.html";
+            } else {
+              redirectUrl = "../staff/staff-login.html";
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return json({ ok: false, error: "unauthorized", role: activeRole, redirect_url: redirectUrl }, 401);
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -852,6 +1059,9 @@ Deno.serve(async (req) => {
         return await initAction();
       case "options":
         return await optionsAction();
+      
+      case "latest_activities":
+        return await latestActivitiesAction();
       case "list":
         return await listAction();
       case "staff":
@@ -867,7 +1077,7 @@ Deno.serve(async (req) => {
       case "restore":
         return await restoreAction(body);
       case "permanent_delete":
-        return await permanentDeleteAction(body);
+        return await permanentDeleteAction(body, actor);
       case "roles":
         return await rolesAction();
       case "permissions":

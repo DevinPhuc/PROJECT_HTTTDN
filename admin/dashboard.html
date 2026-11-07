@@ -235,29 +235,27 @@
                   <p class="account-eyebrow">TỔNG QUAN</p>
                   <h2>Danh sách tài khoản</h2>
                 </div>
-                <span class="panel-note" id="overviewAccountsCount"
-                  >— tài khoản</span
-                >
+                <div class="overview-heading-actions">
+                  <span class="panel-note" id="overviewAccountsCount">— tài khoản</span>
+                  <button
+                    type="button"
+                    class="admin-secondary-btn account-refresh-btn"
+                    id="overviewAccountRefreshBtn"
+                    aria-label="Làm mới dữ liệu"
+                    title="Làm mới dữ liệu"
+                  >
+                    <img
+                      src="../shared/images/reset.png"
+                      alt=""
+                      aria-hidden="true"
+                    />
+                  </button>
+                </div>
               </div>
               <div class="admin-list" id="overviewAccounts"></div>
               <div
                 class="account-pagination overview-pagination"
                 id="overviewAccountsPagination"
-              ></div>
-            </section>
-
-            <section class="admin-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="account-eyebrow">NHÂN SỰ</p>
-                  <h2>Nhân viên</h2>
-                </div>
-                <span class="panel-note" id="overviewStaffCount"></span>
-              </div>
-              <div class="mini-table" id="overviewStaff"></div>
-              <div
-                class="account-pagination overview-pagination"
-                id="overviewStaffPagination"
               ></div>
             </section>
           </div>
@@ -402,7 +400,7 @@
                     >Phòng ban<select name="department_id" required></select
                   ></label>
                   <label
-                    >Vị trí<select name="position_id" required></select
+                    >Vị trí<select name="position_id"></select
                   ></label>
                   <label
                     >Trạng thái<select name="is_active">
@@ -420,7 +418,7 @@
                       name="generated_password"
                       type="text"
                       readonly
-                      placeholder="Tự động tạo"
+                      placeholder="Mật khẩu tự động tạo theo vai trò, phòng ban, ngày sinh"
                   /></label>
                 </div>
                 <p id="accountFormMessage" role="status"></p>
@@ -569,7 +567,7 @@
     </div>
     <div
       id="accountSuccessToast"
-      class="account-success-toast"
+      class="success-toast"
       role="status"
       aria-live="polite"
     >
@@ -577,17 +575,35 @@
       <span>Đã thêm nhân sự thành công!</span>
     </div>
     <div
-      id="accountPermanentDeleteToast"
-      class="account-success-toast"
+      id="accountUpdateToast"
+      class="success-toast"
       role="status"
       aria-live="polite"
     >
       <img src="../shared/images/check.png" alt="" class="toast-icon" />
-      <span>Bạn đã xóa tài khoản thành công.</span>
+      <span>Đã cập nhật nhân sự thành công!</span>
+    </div>
+    <div
+      id="accountDeleteToast"
+      class="delete-toast"
+      role="status"
+      aria-live="polite"
+    >
+      <img src="../shared/images/x.png" alt="" class="toast-icon" />
+      <span>Đã xóa nhân sự thành công!</span>
+    </div>
+    <div
+      id="accountPermanentDeleteToast"
+      class="delete-toast"
+      role="status"
+      aria-live="polite"
+    >
+      <img src="../shared/images/x.png" alt="" class="toast-icon" />
+      <span>Đã xóa nhân sự thành công!</span>
     </div>
     <div
       id="accountErrorToast"
-      class="account-success-toast account-error-toast"
+      class="delete-toast account-error-toast"
       role="alert"
       aria-live="assertive"
     >

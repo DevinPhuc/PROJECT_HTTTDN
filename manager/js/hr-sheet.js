@@ -624,6 +624,10 @@
   document.addEventListener("hr:view", (event) => {
     if (event.detail.view === "attendance-sheet") load();
   });
+  document.addEventListener("hr:refresh", () => {
+    rebuildOverlay();
+    render();
+  });
   // Direct-hash loads: setView fires after async boot, but cover the rare
   // already-active case synchronously.
   if (document.querySelector('[data-hr-panel="attendance-sheet"].active')) load();

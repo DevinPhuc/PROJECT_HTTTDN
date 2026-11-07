@@ -2150,3 +2150,231 @@ body.manager-ready .manager-loading {
     justify-content: center;
   }
 }
+
+/* Global refresh button in manager topbar */
+.hr-global-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #d7ddd7;
+  border-radius: 4px;
+  background: #ffffff;
+  color: var(--admin-ink, #252b27);
+  font-family: var(--body-font, "Sofia Sans", sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 100ms ease;
+}
+
+.hr-global-refresh-btn:hover:not(:disabled) {
+  background: #f8faf7;
+  border-color: #aebbb1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.hr-global-refresh-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.hr-global-refresh-btn .button-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 0;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.hr-global-refresh-btn.is-loading .button-icon,
+.hr-global-refresh-btn.is-loading img {
+  animation: employee-refresh-spin 800ms linear infinite;
+}
+
+.hr-global-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Requests approval table styles */
+.hr-requests-table {
+  min-width: 860px;
+}
+
+.hr-requests-table th.hr-actions-column,
+.hr-requests-table td.hr-actions-column {
+  width: 170px;
+  min-width: 170px;
+  text-align: center;
+}
+
+.hr-requests-table th.hr-status-column,
+.hr-requests-table td.hr-status-column {
+  width: 130px;
+  min-width: 120px;
+  text-align: center;
+}
+
+.hr-requests-table .hr-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.hr-btn-approve {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--admin-green, #345b4a);
+  border-radius: 4px;
+  background: var(--admin-green, #345b4a);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 100ms ease;
+}
+
+.hr-btn-approve:hover:not(:disabled) {
+  background: var(--admin-green-dark, #244336);
+  border-color: var(--admin-green-dark, #244336);
+  box-shadow: 0 2px 6px rgba(36, 67, 54, 0.25);
+}
+
+.hr-btn-approve:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.hr-btn-approve:disabled,
+.hr-btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hr-btn-reject {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #e1b4ae;
+  border-radius: 4px;
+  background: #ffffff;
+  color: var(--admin-red, #a5483f);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 100ms ease;
+}
+
+.hr-btn-reject:hover:not(:disabled) {
+  background: var(--admin-red, #a5483f);
+  border-color: var(--admin-red, #a5483f);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(165, 72, 63, 0.25);
+}
+
+.hr-btn-reject:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.hr-action-done {
+  color: var(--admin-muted, #747b74);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.hr-employee-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hr-employee-name {
+  color: var(--admin-ink, #252b27);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hr-employee-email {
+  color: var(--admin-muted, #747b74);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.hr-leave-type-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #eef3ef;
+  color: #2e4b3e;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hr-leave-type-badge.hr-leave-resignation {
+  background: #fdf0ed;
+  color: #a5483f;
+}
+
+.hr-time-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hr-time-range {
+  color: var(--admin-ink, #252b27);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.hr-time-days {
+  color: var(--admin-muted, #747b74);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.hr-reason-cell {
+  max-width: 250px;
+  color: #3b443e;
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.hr-requests-table .hr-status {
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: inline-block;
+}
