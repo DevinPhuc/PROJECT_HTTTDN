@@ -442,7 +442,7 @@ async function loadStaffPortal() {
   });
   const results = await Promise.allSettled(tasks); if (results.some((result) => result.status === "rejected")) showPageError("Không tải được dữ liệu. Vui lòng thử lại sau.");
   setInterval(async () => {
-    if (session && !DEMO_MODE) {
+    if (!DEMO_MODE && portal?.validSession?.("staff")) {
       await callStaff({ action: "ping" });
     }
   }, 5000);
