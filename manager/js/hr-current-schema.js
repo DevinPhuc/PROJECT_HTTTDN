@@ -1012,7 +1012,6 @@ document
 async function refreshAllManagerData() {
   const buttons = [
     document.getElementById("managerGlobalRefreshBtn"),
-    document.getElementById("employeeRefreshBtn"),
   ].filter(Boolean);
 
   buttons.forEach((btn) => {
@@ -1043,11 +1042,6 @@ document
     refreshAllManagerData();
   });
 
-document
-  .getElementById("employeeRefreshBtn")
-  ?.addEventListener("click", () => {
-    refreshAllManagerData();
-  });
 document.querySelectorAll("[data-employee-sort]").forEach((button) => {
   button.addEventListener("click", () => {
     const key = button.dataset.employeeSort;
