@@ -178,6 +178,17 @@ function isRealDate(value: string): boolean {
   );
 }
 
+let noticeColumnChecked = false;
+async function ensureNoticeColumn() {
+  if (noticeColumnChecked) return;
+  try {
+    await sql!`alter table public.employee_accounts add column if not exists pending_notice jsonb`;
+    noticeColumnChecked = true;
+  } catch (err) {
+    console.error("hr-portal: ensureNoticeColumn failed", err);
+  }
+}
+
 async function getActor(token: string): Promise<Actor | null> {
   let employeeId = "";
   let iat = 0;
@@ -193,18 +204,39 @@ async function getActor(token: string): Promise<Actor | null> {
   }
   if (!UUID_RE.test(employeeId)) return null;
 
-  const rows = await sql!`
-    select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
-           lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr,
-           a.pending_notice
-    from public.employees e
-    join public.employee_accounts a on a.employee_id = e.employee_id
-    left join public.departments d on d.department_id = e.current_department_id
-    where e.employee_id = ${employeeId}::uuid
-      and a.is_active is true
-      and a.deleted_at is null
-      and e.employment_status = 'Active'
-    limit 1`;
+  let rows;
+  try {
+    rows = await sql!`
+      select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
+             lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr,
+             a.pending_notice
+      from public.employees e
+      join public.employee_accounts a on a.employee_id = e.employee_id
+      left join public.departments d on d.department_id = e.current_department_id
+      where e.employee_id = ${employeeId}::uuid
+        and a.is_active is true
+        and a.deleted_at is null
+        and e.employment_status = 'Active'
+      limit 1`;
+  } catch (err) {
+    const code = (err as { code?: string })?.code ?? "";
+    if (code === "42703") {
+      rows = await sql!`
+        select e.employee_id, e.full_name, e.email, e.current_department_id, e.updated_at,
+               lower(coalesce(d.department_name, '')) = 'nhân sự' as is_hr,
+               null as pending_notice
+        from public.employees e
+        join public.employee_accounts a on a.employee_id = e.employee_id
+        left join public.departments d on d.department_id = e.current_department_id
+        where e.employee_id = ${employeeId}::uuid
+          and a.is_active is true
+          and a.deleted_at is null
+          and e.employment_status = 'Active'
+        limit 1`;
+    } else {
+      throw err;
+    }
+  }
 
   const row = rows[0] as
     | undefined
@@ -1321,6 +1353,8 @@ Deno.serve(async (req) => {
     console.error("hr-portal: SUPABASE_DB_URL or ADMIN_JWT_SECRET is not set");
     return json({ ok: false, error: "server_not_configured" }, 500);
   }
+
+  await ensureNoticeColumn();
 
   const token = req.headers.get("x-admin-token") ?? "";
 

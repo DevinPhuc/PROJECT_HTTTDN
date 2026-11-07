@@ -1125,6 +1125,8 @@ Deno.serve(async (req) => {
 
   
 
+  await ensureNoticeColumn();
+
   const token = req.headers.get("x-admin-token") ?? "";
 
   let actor: Actor | null;

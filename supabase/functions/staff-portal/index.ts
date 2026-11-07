@@ -57,6 +57,17 @@ function isRealDate(value: string): boolean {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+let noticeColumnChecked = false;
+async function ensureNoticeColumn() {
+  if (noticeColumnChecked) return;
+  try {
+    await sql!`alter table public.employee_accounts add column if not exists pending_notice jsonb`;
+    noticeColumnChecked = true;
+  } catch (err) {
+    console.error("staff-portal: ensureNoticeColumn failed", err);
+  }
+}
+
 async function getActor(token: string): Promise<Actor | null> {
   let employeeId = "";
   let iat = 0;
@@ -73,15 +84,33 @@ async function getActor(token: string): Promise<Actor | null> {
   }
   if (!UUID_RE.test(employeeId)) return null;
 
-  const rows = await sql!`
-    select e.employee_id, a.username, e.full_name, a.pending_notice
-    from public.employees e
-    join public.employee_accounts a on a.employee_id = e.employee_id
-    where e.employee_id = ${employeeId}::uuid
-      and a.is_active is true
-      and a.deleted_at is null
-      and e.employment_status = 'Active'
-    limit 1`;
+  let rows;
+  try {
+    rows = await sql!`
+      select e.employee_id, a.username, e.full_name, a.pending_notice
+      from public.employees e
+      join public.employee_accounts a on a.employee_id = e.employee_id
+      where e.employee_id = ${employeeId}::uuid
+        and a.is_active is true
+        and a.deleted_at is null
+        and e.employment_status = 'Active'
+      limit 1`;
+  } catch (err) {
+    const code = (err as { code?: string })?.code ?? "";
+    if (code === "42703") {
+      rows = await sql!`
+        select e.employee_id, a.username, e.full_name, null as pending_notice
+        from public.employees e
+        join public.employee_accounts a on a.employee_id = e.employee_id
+        where e.employee_id = ${employeeId}::uuid
+          and a.is_active is true
+          and a.deleted_at is null
+          and e.employment_status = 'Active'
+        limit 1`;
+    } else {
+      throw err;
+    }
+  }
 
   const row = rows[0] as
     | { employee_id: string; username: string; full_name: string; pending_notice?: unknown }
@@ -796,6 +825,8 @@ Deno.serve(async (req) => {
     console.error("staff-portal: SUPABASE_DB_URL or ADMIN_JWT_SECRET is not set");
     return json({ ok: false, error: "server_not_configured" }, 500);
   }
+
+  await ensureNoticeColumn();
 
   const token = req.headers.get("x-admin-token") ?? "";
 
