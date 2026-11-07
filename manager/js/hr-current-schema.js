@@ -786,17 +786,9 @@ function showEmployeeForm(employee = null) {
   form.elements.namedItem("id").value = employee?.employee_id || "";
 
   const saveButton = document.getElementById("saveEmployeeBtn");
-  saveButton.innerHTML = "";
-  const saveIcon = document.createElement("img");
-  saveIcon.src = employee
-    ? "../shared/images/save.png"
-    : "../shared/images/user-add.png";
-  saveIcon.alt = "";
-  saveIcon.className = "button-icon";
-  saveButton.append(
-    saveIcon,
-    document.createTextNode(employee ? "Lưu thông tin" : "Thêm nhân sự"),
-  );
+  if (saveButton) {
+    saveButton.textContent = employee ? "Lưu thông tin" : "Thêm nhân sự";
+  }
 
   const departmentSelect = document.getElementById("employeeDepartment");
   const departmentGroup = document.getElementById("employeeDepartmentGroup");
