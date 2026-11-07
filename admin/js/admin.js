@@ -1089,15 +1089,7 @@ function renderPositionOptions(departmentId, selectedPositionId) {
 function renderDepartmentOptions(positionId, selectedDepartmentId) {
   const form = document.getElementById("accountForm");
   if (!form) return;
-  const selectedPosition = (state.options?.positions || []).find(
-    (item) => String(item.position_id) === String(positionId),
-  );
-  const departmentIds = new Set(
-    (selectedPosition?.department_ids || []).map((id) => String(id)),
-  );
-  const departments = (state.options?.departments || []).filter(
-    (item) => !positionId || departmentIds.has(String(item.department_id)),
-  );
+  const departments = state.options?.departments || [];
   fillSelectOptions(
     form.elements.department_id,
     departments,
@@ -1105,11 +1097,20 @@ function renderDepartmentOptions(positionId, selectedDepartmentId) {
     "department_name",
     "Chọn phòng ban",
   );
-  form.elements.department_id.value = departments.some(
-    (item) => String(item.department_id) === String(selectedDepartmentId),
-  )
-    ? selectedDepartmentId
-    : "";
+  if (
+    selectedDepartmentId &&
+    departments.some((item) => String(item.department_id) === String(selectedDepartmentId))
+  ) {
+    form.elements.department_id.value = selectedDepartmentId;
+  } else if (positionId) {
+    const selectedPosition = (state.options?.positions || []).find(
+      (item) => String(item.position_id) === String(positionId),
+    );
+    const departmentIds = (selectedPosition?.department_ids || []).map((id) => String(id));
+    if (departmentIds.length > 0 && !departmentIds.includes(String(form.elements.department_id.value))) {
+      form.elements.department_id.value = departmentIds[0];
+    }
+  }
 }
 
 // The role is assigned separately in the "Vai trò & Quyền" section.
@@ -1128,10 +1129,6 @@ function fillAccountOptions(account) {
   renderPositionOptions(
     account?.department_id || "",
     account?.position_id || "",
-  );
-  renderDepartmentOptions(
-    account?.position_id || "",
-    account?.department_id || "",
   );
 }
 
