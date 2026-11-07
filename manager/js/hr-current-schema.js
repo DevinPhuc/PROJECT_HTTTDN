@@ -827,29 +827,6 @@ function renderRequests() {
         : `${dateLabel(request.start_date)} - ${dateLabel(request.end_date)}`,
     );
     addCell(row, request.reason);
-<<<<<<< HEAD
-    const statusCell = document.createElement("td");
-    const badge = document.createElement("span");
-    badge.className = `hr-status hr-status-${String(request.status || "pending").toLowerCase()}`;
-    badge.textContent = LEAVE_STATUSES[request.status] || request.status;
-    row.append(statusCell);
-    const actions = document.createElement("td");
-    actions.className = "hr-row-actions";
-    if (request.status === "pending")
-      ["approved", "rejected"].forEach((status) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className =
-          status === "approved" ? "mini-btn" : "mini-btn danger";
-        button.dataset.reviewStatus = status;
-        button.dataset.requestId = request.leave_request_id;
-        button.textContent = status === "approved" ? "Duyệt" : "Từ chối";
-        actions.append(button);
-      });
-    actionsCell.append(actions);
-    row.append(actionsCell);
-    body.append(row);
-=======
     const statusCell = document.createElement("td"); const badge = document.createElement("span"); badge.className = `hr-status hr-status-${String(request.status || "pending").toLowerCase()}`; badge.textContent = LEAVE_STATUSES[request.status] || request.status; statusCell.append(badge); row.append(statusCell);
     const actionsCell = document.createElement("td"); const actions = document.createElement("div"); actions.className = "hr-row-actions";
     if (request.status === "pending") ["approved", "rejected"].forEach((status) => {
@@ -857,7 +834,6 @@ function renderRequests() {
       button.dataset.reviewStatus = status; button.dataset.requestId = request.leave_request_id; button.textContent = status === "approved" ? "Duyệt" : "Từ chối"; actions.append(button);
     });
     actionsCell.append(actions); row.append(actionsCell); body.append(row);
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
   });
 }
 
@@ -1447,28 +1423,6 @@ document.getElementById("exportStaffStatsBtn").addEventListener("click", () => {
 });
 
 function renderEmployeeSelects() {
-<<<<<<< HEAD
-  const previousPayroll =
-    document.getElementById("payrollEmployee").value || selectedEmployeeId;
-  const previousPermissions =
-    document.getElementById("permissionEmployee").value;
-  ["permissionEmployee", "payrollEmployee"].forEach((id) =>
-    fillSelect(
-      document.getElementById(id),
-      employees,
-      "employee_id",
-      (employee) => `${employee.full_name} · ${employee.email}`,
-      id === "payrollEmployee" ? previousPayroll : previousPermissions,
-    ),
-  );
-  selectedEmployeeId = document.getElementById("payrollEmployee").value || "";
-  fillRoleSelect(
-    document.getElementById("permissionRole"),
-    roleAssignments.get(
-      document.getElementById("permissionEmployee").value,
-    )?.[0] || "",
-  );
-=======
   // const previousPayroll = document.getElementById("payrollEmployee").value || selectedEmployeeId;
   // const previousPermissions = document.getElementById("permissionEmployee").value;
   // ["permissionEmployee", "payrollEmployee"].forEach((id) => fillSelect(document.getElementById(id), employees, "employee_id", (employee) => `${employee.full_name} · ${employee.email}`, id === "payrollEmployee" ? previousPayroll : previousPermissions));
@@ -1476,7 +1430,6 @@ function renderEmployeeSelects() {
   const previousPermissions = document.getElementById("permissionEmployee").value;
   fillSelect(document.getElementById("permissionEmployee"), employees, "employee_id", (employee) => `${employee.full_name} · ${employee.email}`, previousPermissions);
   fillRoleSelect(document.getElementById("permissionRole"), roleAssignments.get(document.getElementById("permissionEmployee").value)?.[0] || "");
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
   fillRoleSelect(document.getElementById("employeeRole"));
   fillSelect(
     document.getElementById("employeePosition"),
@@ -1705,305 +1658,6 @@ document
     }
   });
 
-<<<<<<< HEAD
-function selectedPayrollEmployee() {
-  return employees.find(
-    (employee) =>
-      employee.employee_id === document.getElementById("payrollEmployee").value,
-  );
-}
-
-function selectedPeriod() {
-  const [year, month] = document
-    .getElementById("payrollMonth")
-    .value.split("-")
-    .map(Number);
-  return {
-    year,
-    month,
-    start: `${year}-${String(month).padStart(2, "0")}-01`,
-    end: new Date(year, month, 0).toISOString().slice(0, 10),
-  };
-}
-
-async function loadAttendanceAndPayroll() {
-  const employee = selectedPayrollEmployee();
-  if (!employee) return;
-  const period = selectedPeriod();
-  const records = attendanceCache
-    .filter(
-      (record) =>
-        record.employee_id === employee.employee_id &&
-        record.work_date >= period.start &&
-        record.work_date <= period.end,
-    )
-    .sort((a, b) => a.work_date.localeCompare(b.work_date));
-  const payroll = payrollCache.find(
-    (record) =>
-      record.employee_id === employee.employee_id &&
-      Number(record.pay_year) === period.year &&
-      Number(record.pay_month) === period.month,
-  );
-  document.getElementById("payrollForm").elements.namedItem("workDays").value =
-    records.filter((record) => record.status === "present").length;
-  document
-    .getElementById("payrollForm")
-    .elements.namedItem("baseSalary").value = payroll?.base_salary ?? 0;
-  document.getElementById("payrollForm").elements.namedItem("allowance").value =
-    payroll?.allowance ?? payroll?.bonus ?? 0;
-  document.getElementById("payrollForm").elements.namedItem("tax").value =
-    payroll?.personal_income_tax ?? 0;
-  // payroll has no insurance_rate column: derive the applied rate from the stored amount.
-  document
-    .getElementById("payrollForm")
-    .elements.namedItem("insuranceRate").value =
-    payroll &&
-    Number(payroll.base_salary) > 0 &&
-    payroll.insurance_amount != null
-      ? Math.round(
-          (Number(payroll.insurance_amount) / Number(payroll.base_salary)) *
-            1000,
-        ) / 10
-      : 10.5;
-  const tbody = document.getElementById("attendanceBody");
-  tbody.replaceChildren();
-  records.forEach((record) => {
-    const row = document.createElement("tr");
-    addCell(row, dateLabel(record.work_date));
-    addCell(row, capitalized(record.status) || record.status);
-    addCell(row, `${record.overtime_hours || 0} giờ`);
-    addCell(row, record.notes || "-");
-    tbody.append(row);
-  });
-  renderPayrollPreview();
-}
-
-function payrollCalculation() {
-  const form = document.getElementById("payrollForm");
-  const employee = selectedPayrollEmployee();
-  if (!employee) return null;
-  const values = Object.fromEntries(new FormData(form).entries());
-  const baseSalary = Number(values.baseSalary);
-  const standardDays = Number(values.standardDays);
-  const workDays = Number(values.workDays);
-  const allowance = Number(values.allowance);
-  const insuranceRate = Number(values.insuranceRate);
-  const tax = Number(values.tax);
-  if (
-    !standardDays ||
-    workDays > standardDays ||
-    [baseSalary, workDays, allowance, insuranceRate, tax].some((value) => value < 0)
-  )
-    return null;
-  const basePay = (baseSalary * workDays) / standardDays;
-  const insuranceAmount = (baseSalary * insuranceRate) / 100;
-  const grossSalary = basePay + allowance;
-  const totalDeductions = insuranceAmount + tax;
-  return {
-    baseSalary,
-    standardDays,
-    workDays,
-    allowance,
-    insuranceRate,
-    tax,
-    insuranceAmount,
-    grossSalary,
-    totalDeductions,
-    netSalary: grossSalary - totalDeductions,
-  };
-}
-
-function renderPayrollPreview() {
-  const result = payrollCalculation();
-  const employee = selectedPayrollEmployee();
-  const heading = document.querySelector("#payrollPreview h3");
-  const content = document.getElementById("payrollPreviewContent");
-  content.replaceChildren();
-  if (!employee) {
-    heading.textContent = "Chọn nhân sự";
-    return;
-  }
-  heading.textContent = employee.full_name;
-  if (!result) {
-    content.textContent = "Kiểm tra ngày công và mức lương.";
-    return;
-  }
-  [
-    ["Lương cơ bản", money(result.baseSalary)],
-    [
-      "Lương theo ngày công",
-      money((result.baseSalary * result.workDays) / result.standardDays),
-    ],
-    ["Phụ cấp", money(result.allowance)],
-    ["Bảo hiểm", `- ${money(result.insuranceAmount)}`],
-    ["Thuế TNCN", `- ${money(result.tax)}`],
-    ["Thực nhận", money(result.netSalary)],
-  ].forEach(([labelText, value]) => {
-    const row = document.createElement("div");
-    const term = document.createElement("dt");
-    term.textContent = labelText;
-    const definition = document.createElement("dd");
-    definition.textContent = value;
-    row.append(term, definition);
-    content.append(row);
-  });
-}
-
-function renderPayrollTable() {
-  const period = selectedPeriod();
-  document.getElementById("payrollTableTitle").textContent =
-    `Bảng lương tháng ${String(period.month).padStart(2, "0")}/${period.year}`;
-  const map = new Map(
-    payrollCache
-      .filter(
-        (record) =>
-          Number(record.pay_year) === period.year &&
-          Number(record.pay_month) === period.month,
-      )
-      .map((record) => [record.employee_id, record]),
-  );
-  const body = document.getElementById("payrollBody");
-  body.replaceChildren();
-  employees.forEach((employee) => {
-    const record = map.get(employee.employee_id);
-    const row = document.createElement("tr");
-    addCell(row, employee.full_name);
-    if (record) {
-      addCell(row, `${record.work_days ?? "-"}/${record.standard_days ?? "-"}`);
-      addCell(row, money(record.gross_salary));
-      addCell(
-        row,
-        money(
-          record.total_deductions ||
-            Number(record.gross_salary) - Number(record.net_salary),
-        ),
-      );
-      addCell(row, money(record.net_salary));
-    } else {
-      addCell(row, "-");
-      addCell(row, "Chưa tính lương");
-      addCell(row, "-");
-      addCell(row, "-");
-    }
-    body.append(row);
-  });
-}
-
-async function savePayroll(event) {
-  event.preventDefault();
-  const employee = selectedPayrollEmployee();
-  const period = selectedPeriod();
-  const result = payrollCalculation();
-  if (!employee || !result) {
-    feedback("payrollFeedback", "Kiểm tra ngày công và khoản lương.", true);
-    return;
-  }
-  const response = await callHr({
-    action: "payroll_save",
-    employee_id: employee.employee_id,
-    pay_year: period.year,
-    pay_month: period.month,
-    base_salary: result.baseSalary,
-    allowance: result.allowance,
-    overtime_pay: 0,
-    work_days: result.workDays,
-    standard_days: result.standardDays,
-    insurance_amount: result.insuranceAmount,
-    personal_income_tax: result.tax,
-    total_deductions: result.totalDeductions,
-    gross_salary: result.grossSalary,
-    net_salary: result.netSalary,
-  });
-  if (!response.ok) {
-    feedback(
-      "payrollFeedback",
-      response.error === "invalid_amounts"
-        ? "Số tiền không hợp lệ (thực nhận phải ≤ tổng thu nhập)."
-        : "Không lưu được lương. Kiểm tra số liệu và quyền.",
-      true,
-    );
-    return;
-  }
-  feedback("payrollFeedback", `Đã lưu lương cho ${employee.full_name}.`);
-  await loadLookups();
-  renderAll();
-}
-
-document
-  .getElementById("payrollEmployee")
-  .addEventListener("change", () =>
-    loadAttendanceAndPayroll().catch(() =>
-      feedback("payrollFeedback", "Không tải được chấm công/lương.", true),
-    ),
-  );
-document.getElementById("payrollMonth").value =
-  `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-document
-  .getElementById("payrollMonth")
-  .addEventListener("change", () =>
-    Promise.resolve(loadAttendanceAndPayroll()).catch(() =>
-      showError("Không tải được kỳ lương."),
-    ),
-  );
-document
-  .getElementById("payrollForm")
-  .addEventListener("input", renderPayrollPreview);
-document
-  .getElementById("payrollForm")
-  .addEventListener("submit", (event) =>
-    savePayroll(event).catch(() =>
-      feedback("payrollFeedback", "Không thể lưu lương.", true),
-    ),
-  );
-document.getElementById("attendanceDate").value = new Date()
-  .toISOString()
-  .slice(0, 10);
-document
-  .getElementById("attendanceForm")
-  .addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const employee = selectedPayrollEmployee();
-    if (!employee) return;
-    const values = Object.fromEntries(
-      new FormData(event.currentTarget).entries(),
-    );
-    const result = await callHr({
-      action: "attendance_save",
-      employee_id: employee.employee_id,
-      work_date: values.workDate,
-      status: values.status,
-      overtime_hours: Number(values.overtimeHours),
-      notes: String(values.notes || "").trim() || null,
-    });
-    if (!result.ok) {
-      feedback(
-        "attendanceFeedback",
-        result.error === "forbidden"
-          ? "Bạn không có quyền chấm công cho nhân sự này."
-          : "Không lưu được ngày công.",
-        true,
-      );
-      return;
-    }
-    feedback("attendanceFeedback", "Đã lưu ngày công.");
-    await loadLookups();
-    await loadAttendanceAndPayroll();
-    renderPayrollTable();
-  });
-
-async function renderAll() {
-  renderEmployeePositionFilter();
-  renderEmployees();
-  renderRequests();
-  renderMonthlyReport();
-  renderStaffStats();
-  renderEmployeeSelects();
-  renderPermissions();
-  if (selectedEmployeeId) {
-    await loadAttendanceAndPayroll();
-    renderPayrollTable();
-  }
-=======
 // function selectedPayrollEmployee() {
 //   return employees.find((employee) => employee.employee_id === document.getElementById("payrollEmployee").value);
 // }
@@ -2102,7 +1756,6 @@ async function renderAll() {
   renderEmployees(); renderRequests(); renderMonthlyReport(); renderStaffStats(); renderEmployeeSelects(); renderPermissions();
   // if (selectedEmployeeId) { await loadAttendanceAndPayroll(); renderPayrollTable(); }
   window.PayrollSheet?.render();
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
 }
 
 async function initHrPortal() {
@@ -2140,23 +1793,11 @@ async function initHrPortal() {
     (position) => position.position_title,
   );
   fillRoleSelect(document.getElementById("employeeRole"));
-<<<<<<< HEAD
-  document.getElementById("payrollForm").elements.namedItem("workDays").value =
-    0;
-  await renderAll();
-  const initial = window.location.hash.slice(1);
-  setView(
-    document.querySelector(`[data-hr-panel="${initial}"]`)
-      ? initial
-      : "employees",
-  );
-=======
   // document.getElementById("payrollForm").elements.namedItem("workDays").value = 0;
   await renderAll();
   const initial = window.location.hash.slice(1);
   setView(document.querySelector(`[data-hr-panel="${initial}"]`) ? initial : "attendance-clock");
   document.body.classList.add("manager-ready");
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)
 }
 
 const profileToggle = document.getElementById("adminProfileToggle");
@@ -2219,16 +1860,4 @@ logoutModal.addEventListener("click", (event) => {
   if (event.target === logoutModal) setLogoutModalOpen(false);
 });
 
-<<<<<<< HEAD
-initHrPortal().catch((error) => {
-  console.error(error);
-  showError("Không thể kết nối máy chủ.");
-});
-setInterval(async () => {
-  if (currentActor) {
-    await callHr({ action: "ping" });
-  }
-}, 15000);
-=======
 initHrPortal().catch((error) => { console.error(error); showError("Không thể kết nối máy chủ."); });
->>>>>>> 314ae7d (Manager: Add attendance check, attendance sheet, salary table menus)

@@ -62,7 +62,12 @@ async function getActor(token: string): Promise<Actor | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
     employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
-  } catch {
+  } catch (err) {
+    console.error("staff-portal: JWT verification failed", {
+      name: err instanceof Error ? err.name : "UnknownError",
+      message: err instanceof Error ? err.message : String(err),
+    });
+
     return null;
   }
   if (!UUID_RE.test(employeeId)) return null;
