@@ -7,7 +7,6 @@
     present: "Có mặt",
     absent: "Vắng mặt",
     late: "Đi muộn",
-    halfday: "Nửa ngày",
     onleave: "Nghỉ phép"
   };
   const CLOCK_MESSAGES = { in: "Đã ghi nhận giờ vào.", out: "Đã ghi nhận giờ ra." };
