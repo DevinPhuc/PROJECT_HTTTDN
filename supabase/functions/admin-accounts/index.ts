@@ -1041,11 +1041,7 @@ async function permanentDeleteAction(
         delete from public.payroll
         where employee_id = ${employeeId}::uuid`;
 
-      // 3. Nullify attendance ot_approved_by, then delete attendance_records
-      await tx`
-        update public.attendance_records
-        set ot_approved_by = null
-        where ot_approved_by = ${employeeId}::uuid`;
+      // 3. Delete attendance_records
       await tx`
         delete from public.attendance_records
         where employee_id = ${employeeId}::uuid`;

@@ -232,7 +232,10 @@ async function ensureNoticeColumn() {
         add column if not exists leader_reviewed_by uuid references public.employees(employee_id) on delete set null,
         add column if not exists leader_reviewed_at timestamptz`;
   } catch (err) {
-    console.warn("hr-portal: ensure leader columns on leave_requests failed", err);
+    console.warn(
+      "hr-portal: ensure leader columns on leave_requests failed",
+      err,
+    );
   }
   noticeColumnChecked = true;
 }
@@ -438,11 +441,10 @@ async function optionalBootQuery<T>(
 // sql.raw fragments proved unreliable under npm:postgres in Deno (see
 // staff-portal), so every statement inlines its SQL as literal template text.
 async function scopedEmployeeIds(actor: Actor): Promise<string[]> {
-  const rows =
-    actor.is_leader
-      ? (!actor.department_id || !UUID_RE.test(actor.department_id))
-        ? []
-        : await sql!`
+  const rows = actor.is_leader
+    ? !actor.department_id || !UUID_RE.test(actor.department_id)
+      ? []
+      : await sql!`
             select e.employee_id
             from public.employees e
             left join lateral (
@@ -466,9 +468,9 @@ async function scopedEmployeeIds(actor: Actor): Promise<string[]> {
                   and position_department.department_id = ${actor.department_id}::uuid
                 )
               )`
-      : actor.is_admin || actor.is_hr
+    : actor.is_admin || actor.is_hr
       ? await sql!`select employee_id from public.employees`
-      : (!actor.department_id || !UUID_RE.test(actor.department_id))
+      : !actor.department_id || !UUID_RE.test(actor.department_id)
         ? await sql!`select employee_id from public.employees where employee_id = ${actor.employee_id}::uuid`
         : await sql!`
         select employee_id from public.employees
@@ -483,7 +485,8 @@ async function employeeInScope(
   employeeId: string,
 ): Promise<boolean> {
   if (actor.is_leader) {
-    if (actor.department_id === null || employeeId === actor.employee_id) return false;
+    if (actor.department_id === null || employeeId === actor.employee_id)
+      return false;
     const rows = await sql!`
       select 1 from public.employees e
       left join lateral (
@@ -620,7 +623,9 @@ async function fetchBootLeaveRows(ids: string[]): Promise<unknown[]> {
   }
 }
 
-async function fetchBootAttendanceRows(ids: string[]): Promise<Record<string, unknown>[]> {
+async function fetchBootAttendanceRows(
+  ids: string[],
+): Promise<Record<string, unknown>[]> {
   try {
     return (await sql!`
       select attendance_id, employee_id, work_date, status, day_code, 0 as overtime_hours, null as notes
@@ -731,7 +736,11 @@ async function bootAction(actor: Actor): Promise<Response> {
       from public.payroll
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by pay_year desc nulls last, pay_month desc nulls last`,
-    fetchBootAttendanceRows(ids),
+    sql!`
+      select attendance_id, employee_id, work_date, status, day_code
+      from public.attendance_records
+      where employee_id = any(${sql.array(ids)}::uuid[])
+      order by work_date desc`,
     optionalBootQuery(
       "hr_employment_status_history",
       sql!`
@@ -772,7 +781,9 @@ async function bootAction(actor: Actor): Promise<Response> {
     departments,
     roles,
     permissions,
-    all_employee_codes: (allCodeRows as Array<{ employee_code: string }>).map((r) => String(r.employee_code)).filter(Boolean),
+    all_employee_codes: (allCodeRows as Array<{ employee_code: string }>)
+      .map((r) => String(r.employee_code))
+      .filter(Boolean),
     user_roles: assignments,
     role_permissions: rolePerms,
     role_history: roleHistory,
@@ -842,8 +853,7 @@ async function leaderBootAction(
              lower(ar.status::text) as status, ar.day_code,
              to_char(ar.work_date, 'YYYY-MM-DD') as work_date,
              to_char(ar.check_in_time, 'HH24:MI:SS') as check_in_time,
-             to_char(ar.check_out_time, 'HH24:MI:SS') as check_out_time,
-             0 as overtime_hours, null as notes
+             to_char(ar.check_out_time, 'HH24:MI:SS') as check_out_time
       from public.attendance_records ar
       where ar.employee_id = any(${sql.array(ids)}::uuid[])
         and ar.work_date >= ${`${month}-01`}::date
@@ -1202,7 +1212,9 @@ async function employeeSaveAction(
       let employeeId = id;
 
       if (!employeeId) {
-        const code = requestedEmployeeCode || `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+        const code =
+          requestedEmployeeCode ||
+          `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
         const [created] = await tx`
           insert into public.employees
             (employee_code, full_name, email, hire_date, current_position_id,
@@ -1220,7 +1232,7 @@ async function employeeSaveAction(
             (employee_id, username, password_hash, is_active)
           values
             (${employeeId}::uuid, ${email},
-             extensions.crypt(${submittedPassword || '123456'}, extensions.gen_salt('bf', 10)),
+             extensions.crypt(${submittedPassword || "123456"}, extensions.gen_salt('bf', 10)),
              true)`;
       } else {
         await tx`
@@ -1484,7 +1496,7 @@ async function leaveReviewAction(
           (employee_id, status, effective_date, reason, recorded_by)
         values
           (${leave.employee_id}::uuid, 'OnLeave', ${leave.start_date}::date,
-           ${leave.reason || 'Nghỉ phép'}, ${actor.employee_id}::uuid)`;
+           ${leave.reason || "Nghỉ phép"}, ${actor.employee_id}::uuid)`;
     }
   } catch (err) {
     return dbError(err);
@@ -1548,7 +1560,10 @@ async function leaderLeaveReviewAction(
     return dbError(err);
   }
 
-  return json({ ok: true, status: statusInput === "rejected" ? "rejected" : "pending" });
+  return json({
+    ok: true,
+    status: statusInput === "rejected" ? "rejected" : "pending",
+  });
 }
 
 async function attendanceSaveAction(
@@ -1558,14 +1573,10 @@ async function attendanceSaveAction(
   const employeeId = str(body.employee_id);
   const workDate = str(body.work_date);
   const statusInput = str(body.status).toLowerCase();
-  const overtimeHours = Number(body.overtime_hours ?? 0);
-  const notes = str(body.notes) || null;
   if (!UUID_RE.test(employeeId) || !isRealDate(workDate))
     return json({ ok: false, error: "invalid_request" }, 400);
   if (!(statusInput in ATTENDANCE_STATUS))
     return json({ ok: false, error: "invalid_status" }, 400);
-  if (!Number.isFinite(overtimeHours) || overtimeHours < 0)
-    return json({ ok: false, error: "invalid_request" }, 400);
   if (!(await employeeInScope(actor, employeeId)))
     return json({ ok: false, error: "forbidden" }, 403);
 
@@ -1579,9 +1590,8 @@ async function attendanceSaveAction(
       return json({ ok: false, error: "invalid_day_code" }, 400);
   }
   // day_code keeps status in sync on write; the code sheet owns the mapping.
-  const statusInputForDb = hasDayCode && dayCode
-    ? DAY_CODE_STATUS[dayCode].status
-    : statusInput;
+  const statusInputForDb =
+    hasDayCode && dayCode ? DAY_CODE_STATUS[dayCode].status : statusInput;
   // Clearing ("") removes the day entirely: a deleted entry must not linger
   // in the Time-Clock list (bug fix 2026-11-07).
   if (hasDayCode && !dayCode) {
@@ -1601,30 +1611,19 @@ async function attendanceSaveAction(
         select attendance_id from public.attendance_records
         where employee_id = ${employeeId}::uuid and work_date = ${workDate}::date
         limit 1`;
-      // Live constraints: overtime_hours > 0 requires a type (Weekday capped
-      // at 4h, Holiday uncapped) plus consent.
-      const overtimeType =
-        overtimeHours === 0 ? null : overtimeHours <= 4 ? "Weekday" : "Holiday";
-      const overtimeConsent = overtimeHours === 0 ? null : true;
       if (existing) {
         await tx`
           update public.attendance_records
           set day_code = ${dayCode},
-              status = ${ATTENDANCE_STATUS[statusInputForDb]},
-              overtime_hours = ${overtimeHours},
-              overtime_type = ${overtimeType},
-              ot_consent = ${overtimeConsent},
-              notes = ${notes}
+              status = ${ATTENDANCE_STATUS[statusInputForDb]}
           where attendance_id = ${existing.attendance_id}`;
       } else {
         await tx`
           insert into public.attendance_records
-            (employee_id, work_date, status, day_code, overtime_hours, night_hours,
-             overtime_type, ot_consent, notes)
+            (employee_id, work_date, status, day_code)
           values (${employeeId}::uuid, ${workDate}::date,
                   ${ATTENDANCE_STATUS[statusInputForDb]},
-                  ${dayCode}, ${overtimeHours}, 0,
-                  ${overtimeType}, ${overtimeConsent}, ${notes})`;
+                  ${dayCode})`;
       }
       if (dayCode === "X") {
         await tx`
@@ -1648,31 +1647,54 @@ async function attendanceBulkSaveAction(
 ): Promise<Response> {
   const ym = str(body.ym);
   const items = Array.isArray(body.items) ? body.items : [];
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym) || !items.length || items.length > 1200) {
+  if (
+    !/^\d{4}-(0[1-9]|1[0-2])$/.test(ym) ||
+    !items.length ||
+    items.length > 1200
+  ) {
     return json({ ok: false, error: "invalid_request" }, 400);
   }
 
   // Validate every item before touching the database (all-or-nothing batch).
-  const prepared: { employeeId: string; workDate: string; dayCode: string | null }[] = [];
+  const prepared: {
+    employeeId: string;
+    workDate: string;
+    dayCode: string | null;
+  }[] = [];
   const seenDays = new Set<string>();
   for (const item of items) {
-    const employeeId = item && typeof item === "object" ? str((item as Record<string, unknown>).employee_id) : "";
-    const workDate = item && typeof item === "object" ? str((item as Record<string, unknown>).work_date) : "";
-    const dayCodeRaw = item && typeof item === "object" ? str((item as Record<string, unknown>).day_code).toUpperCase() : "";
-    if (!UUID_RE.test(employeeId) || !isRealDate(workDate) || !workDate.startsWith(`${ym}-`)) {
+    const employeeId =
+      item && typeof item === "object"
+        ? str((item as Record<string, unknown>).employee_id)
+        : "";
+    const workDate =
+      item && typeof item === "object"
+        ? str((item as Record<string, unknown>).work_date)
+        : "";
+    const dayCodeRaw =
+      item && typeof item === "object"
+        ? str((item as Record<string, unknown>).day_code).toUpperCase()
+        : "";
+    if (
+      !UUID_RE.test(employeeId) ||
+      !isRealDate(workDate) ||
+      !workDate.startsWith(`${ym}-`)
+    ) {
       return json({ ok: false, error: "invalid_request" }, 400);
     }
     const dayCode = dayCodeRaw || null; // "" → NULL = clear
     if (dayCode && !(dayCode in DAY_CODE_STATUS))
       return json({ ok: false, error: "invalid_day_code" }, 400);
     const dayKey = `${employeeId}:${workDate}`;
-    if (seenDays.has(dayKey)) return json({ ok: false, error: "duplicate_attendance_day" }, 400);
+    if (seenDays.has(dayKey))
+      return json({ ok: false, error: "duplicate_attendance_day" }, 400);
     seenDays.add(dayKey);
     prepared.push({ employeeId, workDate, dayCode });
   }
 
   if (actor.is_leader) {
-    if (!actor.department_id) return json({ ok: false, error: "forbidden" }, 403);
+    if (!actor.department_id)
+      return json({ ok: false, error: "forbidden" }, 403);
     const inputRows = prepared.map((item) => ({
       employee_id: item.employeeId,
       work_date: item.workDate,
@@ -1719,7 +1741,8 @@ async function attendanceBulkSaveAction(
             )
           order by e.employee_id
           for update of e`;
-        if (lockedEmployees.length !== employeeIds.length + 1) throw makeError("forbidden");
+        if (lockedEmployees.length !== employeeIds.length + 1)
+          throw makeError("forbidden");
 
         await tx`
           select pg_advisory_xact_lock(
@@ -1835,7 +1858,6 @@ async function attendanceBulkSaveAction(
               where employee_id = ${it.employeeId}::uuid and work_date = ${it.workDate}::date`;
           }
         } else if (it.dayCode) {
-          // Fresh painted day: overtime_hours/night_hours default to 0.
           await tx`
             insert into public.attendance_records
               (employee_id, work_date, status, day_code, check_in_time, check_out_time)
@@ -1967,18 +1989,32 @@ Deno.serve(async (req) => {
   if (action === "ping") {
     if (!token) return json({ ok: false, error: "unauthorized" }, 401);
     try {
-      const { payload } = await jwtVerify(token, JWT_KEY, { algorithms: ["HS256"] });
-      const employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
-      if (!UUID_RE.test(employeeId)) return json({ ok: false, error: "unauthorized" }, 401);
+      const { payload } = await jwtVerify(token, JWT_KEY, {
+        algorithms: ["HS256"],
+      });
+      const employeeId =
+        typeof payload.employee_id === "string" ? payload.employee_id : "";
+      if (!UUID_RE.test(employeeId))
+        return json({ ok: false, error: "unauthorized" }, 401);
       const [acc] = await sql`
         select is_active, deleted_at, pending_notice
         from public.employee_accounts
         where employee_id = ${employeeId}::uuid
         limit 1`;
       if (!acc || acc.deleted_at || !acc.is_active) {
-        return json({ ok: false, error: "unauthorized", pending_notice: parseNotice(acc?.pending_notice) }, 401);
+        return json(
+          {
+            ok: false,
+            error: "unauthorized",
+            pending_notice: parseNotice(acc?.pending_notice),
+          },
+          401,
+        );
       }
-      return json({ ok: true, pending_notice: parseNotice(acc.pending_notice) });
+      return json({
+        ok: true,
+        pending_notice: parseNotice(acc.pending_notice),
+      });
     } catch {
       return json({ ok: false, error: "unauthorized" }, 401);
     }
@@ -1998,8 +2034,11 @@ Deno.serve(async (req) => {
     let pendingNotice: unknown = null;
     if (token) {
       try {
-        const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
-        const employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
+        const { payload } = await jwtVerify(token, JWT_KEY!, {
+          algorithms: ["HS256"],
+        });
+        const employeeId =
+          typeof payload.employee_id === "string" ? payload.employee_id : "";
         if (UUID_RE.test(employeeId)) {
           const [roleRow] = await sql!`
             select
@@ -2066,7 +2105,16 @@ Deno.serve(async (req) => {
         // ignore
       }
     }
-    return json({ ok: false, error: "unauthorized", role: activeRole, redirect_url: redirectUrl, pending_notice: pendingNotice }, 401);
+    return json(
+      {
+        ok: false,
+        error: "unauthorized",
+        role: activeRole,
+        redirect_url: redirectUrl,
+        pending_notice: pendingNotice,
+      },
+      401,
+    );
   }
 
   const sharedActions = [
@@ -2083,11 +2131,22 @@ Deno.serve(async (req) => {
     "leader_attendance_clock",
   ];
   if (
-    (actor.is_leader && ![...sharedActions, ...leaderExclusiveActions].includes(action)) ||
+    (actor.is_leader &&
+      ![...sharedActions, ...leaderExclusiveActions].includes(action)) ||
     (!actor.is_leader && leaderExclusiveActions.includes(action)) ||
-    (!actor.is_admin && !actor.is_manager && !actor.is_leader && !["ping", "clear_notice"].includes(action))
+    (!actor.is_admin &&
+      !actor.is_manager &&
+      !actor.is_leader &&
+      !["ping", "clear_notice"].includes(action))
   ) {
-    return json({ ok: false, error: "forbidden", pending_notice: actor.pending_notice || null }, 403);
+    return json(
+      {
+        ok: false,
+        error: "forbidden",
+        pending_notice: actor.pending_notice || null,
+      },
+      403,
+    );
   }
 
   try {

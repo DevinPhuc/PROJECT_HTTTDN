@@ -1,8 +1,7 @@
 // Bảng chấm công (manager): monthly code sheet X/N/CT/P/L/O/KP, ported from
 // the standalone chấm công app. Codes persist through hr-portal
 // attendance_bulk into attendance_records.day_code; day_code is the source
-// of truth, status stays synced server-side. OT column is read-only
-// (sum of per-day overtime_hours) — OT data comes from a separate flow.
+// of truth, status stays synced server-side.
 (function () {
   const CODES = {
     X: { n: "Đi làm cả ngày", lv: 1, hl: 1, kl: 0, bg: "#dcfce7", c: "#15803d" },
@@ -108,13 +107,6 @@
     return sums;
   }
 
-  function rowOvertime(eid) {
-    // Read-only: sum of per-day overtime_hours recorded by the clock/overtime flow.
-    return rowsForMonth(month)
-      .filter((row) => row.employee_id === eid)
-      .reduce((total, row) => total + (Number(row.overtime_hours) || 0), 0);
-  }
-
   /* ---------- Eligible employees (mirrors source app rules) ---------- */
   // Admin role holders never appear on the code sheet (any viewer, any dept).
   function isAdminHolder(eid) {
@@ -203,9 +195,7 @@
           employee_id: item.employee_id,
           work_date: item.work_date,
           status: STATUS_BY_CODE[item.day_code] || null,
-          day_code: item.day_code,
-          overtime_hours: 0,
-          notes: null
+          day_code: item.day_code
         });
       }
       changed = true;
@@ -329,7 +319,6 @@
     const body = document.getElementById("mgrCcBody");
     body.innerHTML = emps.map((e) => {
       const eid = e.employee_id;
-      const ot = rowOvertime(eid);
       return `<tr><td class="cc-nm"><b>${esc(e.full_name)}</b><br><small class="cc-muted">${esc(e.employee_code || "")} · ${esc(departmentNameOf(e))}</small></td>`
         + days.map((d) => {
           const k = overlayCode(eid, d);
@@ -337,13 +326,13 @@
           return `<td class="cc-d ${isOff(ym, d) ? "we" : ""}" data-e="${eid}" data-d="${d}" style="${c ? `background:${c.bg};color:${c.c}` : ""}">${k}</td>`;
         }).join("")
         + sumsHTML(eid)
-        + `<td class="cc-ot">${ot ? numFmt(ot) : ""}</td></tr>`;
+        + `</tr>`;
     }).join("") || `<tr><td class="cc-nm">Chưa có nhân viên</td></tr>`;
 
     const head = document.getElementById("mgrCcHead");
     head.innerHTML = `<tr><th class="cc-nm">Nhân viên<br><small style="font-weight:500">${monthLabel(ym)}</small></th>`
       + days.map((d) => `<th class="${`${ym}-${pad(d)}` === today ? "td" : isOff(ym, d) ? "we" : ""}">${d}<br>${DOW_NAMES[dow(ym, d)]}</th>`).join("")
-      + "<th>Công<br>làm</th><th>Phép<br>+Lễ</th><th>Nghỉ<br>KL</th><th>Công<br>hưởng</th><th>Giờ<br>OT</th></tr>";
+      + "<th>Công<br>làm</th><th>Phép<br>+Lễ</th><th>Nghỉ<br>KL</th><th>Công<br>hưởng</th></tr>";
 
     document.getElementById("mgrCcPager").innerHTML = pagerHTML(all.length);
   }
@@ -458,8 +447,7 @@
       { label: "Công làm", type: "num", sum: true, width: 8 },
       { label: "Phép + Lễ", type: "num", sum: true, width: 8 },
       { label: "Nghỉ KL", type: "num", sum: true, width: 8 },
-      { label: "Công hưởng", type: "num", sum: true, width: 9 },
-      { label: "Giờ OT", type: "num", sum: true, width: 8 }
+      { label: "Công hưởng", type: "num", sum: true, width: 9 }
     ];
   }
 
@@ -471,7 +459,7 @@
       return [
         e.employee_code || "", e.full_name, departmentNameOf(e),
         ...Array.from({ length: n }, (_, i) => overlayCode(eid, i + 1)),
-        +(s.lv.toFixed(1)), s.P + s.L, +(s.kl.toFixed(1)), +(s.hl.toFixed(1)), +(rowOvertime(eid).toFixed(1))
+        +(s.lv.toFixed(1)), s.P + s.L, +(s.kl.toFixed(1)), +(s.hl.toFixed(1))
       ];
     });
   }
