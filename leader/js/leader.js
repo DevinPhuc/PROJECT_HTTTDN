@@ -128,7 +128,7 @@ function renderTeamAttendance() {
       ));
   if (!rows.length) {
     const row = document.createElement("tr");
-    addCell(row, "Chưa có dữ liệu chấm công trong tháng.", "td").colSpan = 6;
+    addCell(row, "Chưa có dữ liệu chấm công trong tháng.", "td").colSpan = 5;
     body.append(row);
     return;
   }
@@ -139,7 +139,6 @@ function renderTeamAttendance() {
     addCell(row, timeLabel(record.check_in_time));
     addCell(row, timeLabel(record.check_out_time));
     addCell(row, STATUS_LABEL[String(record.status || "").toLowerCase()] || record.status || "-");
-    addCell(row, `${Number(record.overtime_hours || 0)} giờ`);
     body.append(row);
   });
 }

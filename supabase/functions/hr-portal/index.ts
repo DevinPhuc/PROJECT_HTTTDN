@@ -655,7 +655,7 @@ async function bootAction(actor: Actor): Promise<Response> {
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by pay_year desc nulls last, pay_month desc nulls last`,
     sql!`
-      select attendance_id, employee_id, work_date, status, day_code, overtime_hours, notes
+      select attendance_id, employee_id, work_date, status, day_code
       from public.attendance_records
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by work_date desc`,
@@ -752,8 +752,7 @@ async function leaderBootAction(
              lower(ar.status::text) as status, ar.day_code,
              to_char(ar.work_date, 'YYYY-MM-DD') as work_date,
              to_char(ar.check_in_time, 'HH24:MI:SS') as check_in_time,
-             to_char(ar.check_out_time, 'HH24:MI:SS') as check_out_time,
-             ar.overtime_hours, ar.notes
+             to_char(ar.check_out_time, 'HH24:MI:SS') as check_out_time
       from public.attendance_records ar
       where ar.employee_id = any(${sql.array(ids)}::uuid[])
         and ar.work_date >= ${`${month}-01`}::date
@@ -1468,14 +1467,10 @@ async function attendanceSaveAction(
   const employeeId = str(body.employee_id);
   const workDate = str(body.work_date);
   const statusInput = str(body.status).toLowerCase();
-  const overtimeHours = Number(body.overtime_hours ?? 0);
-  const notes = str(body.notes) || null;
   if (!UUID_RE.test(employeeId) || !isRealDate(workDate))
     return json({ ok: false, error: "invalid_request" }, 400);
   if (!(statusInput in ATTENDANCE_STATUS))
     return json({ ok: false, error: "invalid_status" }, 400);
-  if (!Number.isFinite(overtimeHours) || overtimeHours < 0)
-    return json({ ok: false, error: "invalid_request" }, 400);
   if (!(await employeeInScope(actor, employeeId)))
     return json({ ok: false, error: "forbidden" }, 403);
 
@@ -1511,30 +1506,19 @@ async function attendanceSaveAction(
         select attendance_id from public.attendance_records
         where employee_id = ${employeeId}::uuid and work_date = ${workDate}::date
         limit 1`;
-      // Live constraints: overtime_hours > 0 requires a type (Weekday capped
-      // at 4h, Holiday uncapped) plus consent.
-      const overtimeType =
-        overtimeHours === 0 ? null : overtimeHours <= 4 ? "Weekday" : "Holiday";
-      const overtimeConsent = overtimeHours === 0 ? null : true;
       if (existing) {
         await tx`
           update public.attendance_records
           set day_code = ${dayCode},
-              status = ${ATTENDANCE_STATUS[statusInputForDb]},
-              overtime_hours = ${overtimeHours},
-              overtime_type = ${overtimeType},
-              ot_consent = ${overtimeConsent},
-              notes = ${notes}
+              status = ${ATTENDANCE_STATUS[statusInputForDb]}
           where attendance_id = ${existing.attendance_id}`;
       } else {
         await tx`
           insert into public.attendance_records
-            (employee_id, work_date, status, day_code, overtime_hours, night_hours,
-             overtime_type, ot_consent, notes)
+            (employee_id, work_date, status, day_code)
           values (${employeeId}::uuid, ${workDate}::date,
                   ${ATTENDANCE_STATUS[statusInputForDb]},
-                  ${dayCode}, ${overtimeHours}, 0,
-                  ${overtimeType}, ${overtimeConsent}, ${notes})`;
+                  ${dayCode})`;
       }
       if (dayCode === "X") {
         await tx`
@@ -1745,7 +1729,6 @@ async function attendanceBulkSaveAction(
               where employee_id = ${it.employeeId}::uuid and work_date = ${it.workDate}::date`;
           }
         } else if (it.dayCode) {
-          // Fresh painted day: overtime_hours/night_hours default to 0.
           await tx`
             insert into public.attendance_records
               (employee_id, work_date, status, day_code, check_in_time, check_out_time)

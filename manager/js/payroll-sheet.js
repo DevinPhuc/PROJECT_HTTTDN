@@ -118,7 +118,7 @@
     const o = { hl: 0, lv: 0, kl: 0, phep: 0, ot: 0, has: false };
     const leaves = ctx.leaves.get(id) || [];
     for (const r of ctx.recs.get(id) || []) {
-      o.has = true; o.ot += Number(r.overtime_hours) || 0;
+      o.has = true;
       const day = d10(r.work_date);
       switch (String(r.status).toLowerCase()) {
         case "present": case "late": o.lv += 1; o.hl += 1; break;

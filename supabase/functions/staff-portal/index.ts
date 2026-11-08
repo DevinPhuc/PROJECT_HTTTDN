@@ -653,7 +653,6 @@ async function attendanceClockAction(actor: Actor): Promise<Response> {
       and work_date = (now() at time zone 'Asia/Ho_Chi_Minh')::date
     limit 1`;
   if (!existing) {
-    // overtime_hours/night_hours default to 0, satisfying the check constraints.
     try {
       await sql!`
         insert into public.attendance_records
