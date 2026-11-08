@@ -15,8 +15,6 @@ const LEAVE_STATUSES = {
 const ATTENDANCE_CODES = [
   ["", "—"],
   ["X", "X · Có mặt"],
-  ["CT", "CT · Công tác"],
-  ["N", "N · Nửa ngày"],
   ["P", "P · Nghỉ phép"],
   ["L", "L · Nghỉ lễ"],
   ["O", "O · Nghỉ ốm"],
@@ -25,7 +23,6 @@ const ATTENDANCE_CODES = [
 const STATUS_CODE = {
   present: "X",
   late: "X",
-  halfday: "N",
   on_leave: "P",
   absent: "KP",
 };

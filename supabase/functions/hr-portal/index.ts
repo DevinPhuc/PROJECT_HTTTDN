@@ -90,7 +90,6 @@ const ATTENDANCE_STATUS: Record<string, string> = {
 // Code sheet values mapped to attendance status; day_code remains the source of truth.
 const DAY_CODE_STATUS: Record<string, { status: string }> = {
   X: { status: "present" },
-  CT: { status: "present" },
   P: { status: "on_leave" },
   L: { status: "on_leave" },
   O: { status: "absent" },
@@ -1655,7 +1654,7 @@ async function attendanceBulkSaveAction(
             and ar.work_date = input.work_date`;
 
         const codeGroups = [
-          { codes: ["X", "CT"], status: "Present" },
+          { codes: ["X"], status: "Present" },
           { codes: ["P", "L"], status: "OnLeave" },
           { codes: ["O", "KP"], status: "Absent" },
         ];
