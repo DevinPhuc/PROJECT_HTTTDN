@@ -380,11 +380,41 @@ body:has(.admin-page) {
 .logout-modal-actions {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .logout-modal-actions button {
   min-width: 90px;
+  min-height: 38px;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.logout-modal-actions .admin-secondary-btn {
+  border: 1px solid #d7ddd7;
+  background: #ffffff;
+  color: #252b27;
+}
+
+.logout-modal-actions .admin-secondary-btn:hover {
+  border-color: #aebbb1;
+  background: #f8faf7;
+}
+
+.logout-modal-actions .admin-logout-btn {
+  border: 1px solid #a5483f;
+  background: #a5483f;
+  color: #ffffff;
+}
+
+.logout-modal-actions .admin-logout-btn:hover {
+  background: #8e3d35;
+  border-color: #8e3d35;
+  color: #ffffff;
 }
 .button-icon {
   width: 16px;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đăng nhập quản lý / trưởng nhóm - Jewels</title>
+  <title>Đăng nhập quản lý - Jewels</title>
   <link rel="stylesheet" href="../shared/css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -287,8 +287,8 @@
 
     <section class="login-form-wrap">
       <p class="eyebrow">Cổng quản lý nhân sự</p>
-      <h2>Đăng nhập quản lý / trưởng nhóm</h2>
-      <p>Tài khoản sẽ được chuyển đến cổng phù hợp với vai trò được cấp.</p>
+      <h2>Đăng nhập quản lý</h2>
+      <p>Dành riêng cho Quản lý nhân sự.</p>
 
       <form class="login-form" id="adminLoginForm" novalidate>
         <label class="field">
@@ -315,6 +315,10 @@
         </div>
 
         <button class="login-submit" type="submit">Đăng nhập</button>
+
+        <div style="margin-top: 14px; text-align: center; font-size: 0.92rem; color: var(--admin-muted);">
+          Bạn là Trưởng nhóm? <a href="../leader/login.html" class="helper-link" style="font-weight: 600;">Đăng nhập Cổng Trưởng nhóm</a>
+        </div>
       </form>
 
     </section>
@@ -332,7 +336,6 @@
     const portal = window.jewelsPortal;
 
     if (portal.validSession("manager")) window.location.replace("dashboard.html");
-    else if (portal.validSession("leader")) window.location.replace("../leader/leader-dashboard.html");
 
     const toast = document.getElementById("adminLoginToast");
     const passwordInput = document.getElementById("adminPassword");
@@ -341,8 +344,8 @@
 
     const ERROR_MESSAGES = {
       invalid_credentials: "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
-      account_locked: "Tài khoản đang tạm khóa. Vui lòng thử lại sau 15 phút.",
-      forbidden: "Tài khoản này không có quyền quản lý hoặc trưởng nhóm."
+      account_locked: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+      forbidden: "Tài khoản này không có quyền quản lý."
     };
 
     let toastTimer;
@@ -362,7 +365,7 @@
       passwordInput.focus();
     });
 
-    // Fire-and-forget: warms the function connection while the user types.
+    // Fire-and-forget: warms the admin-login function connection while the user types.
     window.sbInvoke?.("admin-login", { body: { warm: true } })?.catch(() => {});
 
     loginForm.addEventListener("submit", async (event) => {
@@ -380,9 +383,12 @@
       submitButton.disabled = true;
 
       try {
-        const result = await portal.signIn("hr", { username, password });
+        const result = await portal.signIn("manager", { username, password });
         if (result.error) {
-          if (result.error === "network_error") {
+          if (result.error === "account_locked") {
+            portal.showNoticeModal({ type: "account_locked" }, "manager");
+            showToast(ERROR_MESSAGES.account_locked);
+          } else if (result.error === "network_error") {
             showToast("Không kết nối được máy chủ. Kiểm tra mạng (VPN/proxy) rồi thử lại.");
           } else {
             showToast(ERROR_MESSAGES[result.error] || "Đăng nhập thất bại. Vui lòng thử lại.");
@@ -391,9 +397,20 @@
           passwordInput.focus();
           return;
         }
-        window.location.href = result.activePortal === "leader"
-          ? "../leader/leader-dashboard.html"
-          : "dashboard.html";
+
+        // Đánh thức hr-portal bằng token hợp lệ vừa nhận được trước khi chuyển trang để tránh lỗi 503
+        submitButton.textContent = "Đang chuyển hướng...";
+        const session = portal.getSession("manager");
+        if (session?.token) {
+          try {
+            await window.sbInvoke("hr-portal", {
+              headers: { "x-admin-token": session.token },
+              body: { action: "ping" },
+            });
+          } catch (_) {}
+        }
+
+        window.location.href = "dashboard.html";
       } catch (err) {
         console.error(err);
         showToast("Không thể kết nối máy chủ. Vui lòng thử lại sau.");

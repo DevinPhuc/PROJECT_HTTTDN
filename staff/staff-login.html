@@ -400,7 +400,7 @@
         invalid_credentials:
           "Email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
         account_locked:
-          "Tài khoản đang tạm khóa. Vui lòng thử lại sau 15 phút.",
+          "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
         forbidden: "Tài khoản không được phép truy cập cổng nhân viên.",
         network_error: "Không thể kết nối máy chủ. Vui lòng thử lại sau.",
         server_error: "Máy chủ gặp lỗi. Vui lòng thử lại sau.",
@@ -421,6 +421,9 @@
           password,
         });
         if (result.error) {
+          if (result.error === "account_locked") {
+            portal.showNoticeModal({ type: "account_locked" }, "staff");
+          }
           feedback.textContent =
             MESSAGES[result.error] || "Đã xảy ra lỗi. Vui lòng thử lại.";
           return;

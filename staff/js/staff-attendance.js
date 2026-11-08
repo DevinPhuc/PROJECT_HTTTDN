@@ -131,25 +131,24 @@ function attendanceButton(phase) {
 function refreshAttendanceUI() {
   const activeRecord = activeTodayRecord();
 
-  // Có lượt mở: hiện giờ vào của lượt đó. Giờ ra luôn --:-- cho tới khi bấm Ra về,
-  // sau đó cả hai ô reset về --:-- cho lượt tiếp theo.
   document.getElementById("attendanceCheckIn").textContent = activeRecord ? timeShort(activeRecord.check_in) : NOT_CHECKED;
   document.getElementById("attendanceCheckOut").textContent = NOT_CHECKED;
 
-  // Nút không bao giờ bị khóa vĩnh viễn: chỉ khóa trong lúc yêu cầu đang chạy.
-  ["in", "out"].forEach((buttonPhase) => {
-    const button = attendanceButton(buttonPhase);
-    button.disabled = button.dataset.loading === "1";
-  });
+  const inBtn = attendanceButton("in");
+  const outBtn = attendanceButton("out");
+  if (inBtn) inBtn.disabled = Boolean(activeRecord) || inBtn.dataset.loading === "1";
+  if (outBtn) outBtn.disabled = !activeRecord || outBtn.dataset.loading === "1";
 
   const summary = document.getElementById("attendanceSummary");
   const sessions = todayRecords().filter((item) => item.check_in);
-  if (activeRecord) {
-    summary.innerHTML = `Hôm nay: đang trong ca (lượt ${sessions.length})</strong>`;
-  } else if (sessions.length > 0) {
-    summary.textContent = `Hôm nay đã hoàn thành ${sessions.length} lượt chấm công.`;
-  } else {
-    summary.textContent = "Chưa chấm công hôm nay";
+  if (summary) {
+    if (activeRecord) {
+      summary.innerHTML = `Hôm nay đang trong ca · vào <strong>${timeShort(activeRecord.check_in)}</strong>`;
+    } else if (sessions.length > 0) {
+      summary.textContent = `Hôm nay đã hoàn thành ${sessions.length} lượt chấm công.`;
+    } else {
+      summary.textContent = "Chưa chấm công hôm nay";
+    }
   }
 }
 
@@ -238,7 +237,7 @@ function attendanceGuard(clicked) {
 
 async function performClock(phase) {
   const button = attendanceButton(phase);
-  const label = button.querySelector(".staff-clock-btn-label");
+  const label = button.querySelector(".staff-clock-btn-label") || button;
   const originalLabel = label.textContent;
   button.dataset.loading = "1";
   refreshAttendanceUI();

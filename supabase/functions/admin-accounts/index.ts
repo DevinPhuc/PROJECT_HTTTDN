@@ -210,6 +210,9 @@ function getLoginUrlForRole(roleName: string): string {
   if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(norm)) {
     return "../manager/login.html";
   }
+  if (["leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom"].includes(norm)) {
+    return "../leader/login.html";
+  }
   return "../staff/staff-login.html";
 }
 
@@ -786,6 +789,24 @@ async function updateAction(
       set is_active = ${isActive}
       where employee_id = ${employeeId}::uuid
       returning employee_id`;
+    if (!isActive) {
+      await tx`
+        update public.employee_accounts
+        set pending_notice = ${JSON.stringify({
+          type: "account_locked",
+          message: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+          redirect_url: getLoginUrlForRole(roleChanged ? newRoleName : beforeEmp.old_role_name),
+        })}::jsonb
+        where employee_id = ${employeeId}::uuid`;
+    } else {
+      await tx`
+        update public.employee_accounts
+        set pending_notice = case
+          when pending_notice->>'type' = 'account_locked' then null
+          else pending_notice
+        end
+        where employee_id = ${employeeId}::uuid`;
+    }
     if (!account) return { error: "account_not_found" } as const;
 
     if (body.phone_number !== undefined) {
@@ -891,12 +912,28 @@ async function setActiveAction(
     return json({ ok: false, error: "invalid_employee" }, 400);
 
   const isActive = body.is_active !== false;
-  const rows = await sql!`
-    update public.employee_accounts
-    set is_active = ${isActive}
-    where employee_id = ${employeeId}::uuid
-      and deleted_at is null
-    returning employee_id, is_active`;
+  const lockNotice = {
+    type: "account_locked",
+    message: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+  };
+  const rows = isActive
+    ? await sql!`
+        update public.employee_accounts
+        set is_active = true,
+            pending_notice = case
+              when pending_notice->>'type' = 'account_locked' then null
+              else pending_notice
+            end
+        where employee_id = ${employeeId}::uuid
+          and deleted_at is null
+        returning employee_id, is_active`
+    : await sql!`
+        update public.employee_accounts
+        set is_active = false,
+            pending_notice = ${JSON.stringify(lockNotice)}::jsonb
+        where employee_id = ${employeeId}::uuid
+          and deleted_at is null
+        returning employee_id, is_active`;
   if (rows.length === 0) return json({ ok: false, error: "not_found" }, 400);
 
   return json({
@@ -913,9 +950,15 @@ async function deleteAction(body: Record<string, unknown>): Promise<Response> {
   if (!UUID_RE.test(employeeId))
     return json({ ok: false, error: "invalid_employee" }, 400);
 
+  const lockNotice = {
+    type: "account_locked",
+    message: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+  };
   const rows = await sql!`
     update public.employee_accounts
-    set deleted_at = now(), is_active = false
+    set deleted_at = now(),
+        is_active = false,
+        pending_notice = ${JSON.stringify(lockNotice)}::jsonb
     where employee_id = ${employeeId}::uuid
       and deleted_at is null
     returning employee_id`;
@@ -932,7 +975,12 @@ async function restoreAction(body: Record<string, unknown>): Promise<Response> {
 
   const rows = await sql!`
     update public.employee_accounts
-    set deleted_at = null, is_active = true
+    set deleted_at = null,
+        is_active = true,
+        pending_notice = case
+          when pending_notice->>'type' = 'account_locked' then null
+          else pending_notice
+        end
     where employee_id = ${employeeId}::uuid
       and deleted_at is not null
     returning employee_id, is_active`;
@@ -1141,6 +1189,8 @@ Deno.serve(async (req) => {
               redirectUrl = "login.html";
             } else if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(lower)) {
               redirectUrl = "../manager/login.html";
+            } else if (["leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom"].includes(lower)) {
+              redirectUrl = "../leader/login.html";
             } else {
               redirectUrl = "../staff/staff-login.html";
             }

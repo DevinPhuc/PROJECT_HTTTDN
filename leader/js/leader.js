@@ -1,6 +1,20 @@
+let leaderToastTimer;
+function showLeaderToast(type, message) {
+  const toast = document.getElementById(type === "error" ? "leaderErrorToast" : "leaderSuccessToast");
+  if (!toast) return;
+  if (message) {
+    const span = toast.querySelector("span");
+    if (span) span.textContent = message;
+  }
+  clearTimeout(leaderToastTimer);
+  document.querySelectorAll(".leader-toast").forEach((el) => el.classList.remove("show"));
+  toast.classList.add("show");
+  leaderToastTimer = setTimeout(() => toast.classList.remove("show"), 3500);
+}
+
 const portal = window.jewelsPortal;
 const callLeader = (body) =>
-  portal.callPortal("leader", "hr-portal", body, { loginUrl: "../manager/login.html" });
+  portal.callPortal("leader", "leader-portal", body, { loginUrl: "login.html" });
 
 const LEAVE_TYPES = {
   annual: "Nghỉ phép",
@@ -100,7 +114,7 @@ function renderProfile() {
 
 async function loadTeamData(month = currentMonth) {
   const result = await callLeader({ action: "leader_boot", month });
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) throw new Error(result.message || result.error);
   const data = result.data;
   employees = data.employees || [];
   attendance = data.attendance || [];
@@ -409,7 +423,8 @@ function setView(name) {
 }
 
 async function refresh() {
-  await Promise.all([loadTeamData(currentMonth), loadOwnAttendance()]);
+  await loadTeamData(currentMonth);
+  await loadOwnAttendance();
 }
 
 function tickClock() {
@@ -424,7 +439,8 @@ function tickClock() {
 }
 
 async function initLeaderPortal() {
-  if (!portal.requireSession("leader", "../manager/login.html")) return;
+  if (!portal.requireSession("leader", "login.html")) return;
+  renderProfile();
   currentMonth = localMonth();
   document.getElementById("leaderClockMonth").value = currentMonth;
   document.getElementById("leaderSheetMonth").value = currentMonth.slice(5, 7);
@@ -433,9 +449,15 @@ async function initLeaderPortal() {
     await refresh();
   } catch (error) {
     console.error(error);
-    document.getElementById("leaderLoading").textContent = error.message === "forbidden"
+    const msg = error.message === "forbidden"
       ? "Tài khoản không có quyền truy cập cổng trưởng nhóm."
       : "Không tải được dữ liệu nhóm. Vui lòng thử lại.";
+    const loadingEl = document.getElementById("leaderLoading");
+    loadingEl.innerHTML = `<span>${msg}</span> <button type="button" class="leader-button leader-button-secondary" id="leaderRetryBtn" style="margin-left: 12px; display: inline-flex; vertical-align: middle; padding: 4px 12px; font-size: 13px;">Thử lại</button>`;
+    document.getElementById("leaderRetryBtn")?.addEventListener("click", () => {
+      loadingEl.textContent = "Đang tải dữ liệu nhóm...";
+      initLeaderPortal();
+    });
     return;
   }
   document.getElementById("leaderLoading").hidden = true;
@@ -452,18 +474,22 @@ document.querySelectorAll("[data-leader-view]").forEach((link) => {
   });
 });
 window.addEventListener("hashchange", () => setView(location.hash.slice(1)));
-document.getElementById("leaderRefreshBtn").addEventListener("click", () => {
-  refresh().catch((error) => {
+document.getElementById("leaderRefreshBtn").addEventListener("click", async () => {
+  try {
+    await refresh();
+    document.getElementById("leaderLoading").hidden = true;
+    document.getElementById("leaderApp").hidden = false;
+  } catch (error) {
     console.error(error);
     window.alert("Không thể làm mới dữ liệu. Vui lòng thử lại.");
-  });
+  }
 });
 document.getElementById("leaderClockMonth").addEventListener("change", async (event) => {
   try {
     await loadTeamData(event.target.value);
   } catch (error) {
     console.error(error);
-    window.alert("Không tải được lịch sử chấm công trong tháng này.");
+    showLeaderToast("error", "Không tải được lịch sử chấm công trong tháng này.");
   }
 });
 document.getElementById("leaderSheetMonth").addEventListener("change", async (event) => {
@@ -472,7 +498,7 @@ document.getElementById("leaderSheetMonth").addEventListener("change", async (ev
     await loadTeamData(`${year}-${event.target.value}`);
   } catch (error) {
     console.error(error);
-    window.alert("Không tải được bảng chấm công trong tháng này.");
+    showLeaderToast("error", "Không tải được bảng chấm công trong tháng này.");
   }
 });
 document.getElementById("leaderSheetYear").addEventListener("change", async (event) => {
@@ -520,10 +546,59 @@ document.addEventListener("click", (event) => {
     profileMenu.classList.remove("show-menu");
   }
 });
-document.getElementById("leaderLogoutBtn").addEventListener("click", () => {
-  if (!window.confirm("Bạn có muốn đăng xuất không?")) return;
+const logoutModal = document.getElementById("logoutModal");
+const cancelLogoutBtn = document.getElementById("cancelLogoutBtn");
+const confirmLogoutBtn = document.getElementById("confirmLogoutBtn");
+
+function setLogoutModalOpen(open) {
+  if (logoutModal) logoutModal.hidden = !open;
+}
+
+document.getElementById("leaderLogoutBtn")?.addEventListener("click", () => {
+  profileMenu.classList.remove("show-menu");
+  profileToggle.setAttribute("aria-expanded", "false");
+  setLogoutModalOpen(true);
+  cancelLogoutBtn?.focus();
+});
+
+cancelLogoutBtn?.addEventListener("click", () => {
+  setLogoutModalOpen(false);
+});
+
+confirmLogoutBtn?.addEventListener("click", () => {
   portal.clearSession("leader");
-  window.location.replace("../manager/login.html");
+  window.location.replace("login.html");
+});
+
+logoutModal?.addEventListener("click", (event) => {
+  if (event.target === logoutModal) setLogoutModalOpen(false);
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && logoutModal && !logoutModal.hidden) {
+    setLogoutModalOpen(false);
+  }
 });
 
 initLeaderPortal();
+
+// Periodic check for account/role/password changes from admin.
+// Only runs when the tab is visible to prevent connection exhaustion.
+let lastLeaderPing = Date.now();
+async function pingLeaderStatus() {
+  if (portal.validSession("leader") && !document.hidden) {
+    try {
+      lastLeaderPing = Date.now();
+      await callLeader({ action: "ping" });
+    } catch (_) {
+      // background polling for account changes
+    }
+  }
+}
+
+setInterval(pingLeaderStatus, 15000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Date.now() - lastLeaderPing > 10000) {
+    pingLeaderStatus();
+  }
+});

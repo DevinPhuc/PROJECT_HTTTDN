@@ -18,7 +18,7 @@
   // Network failures are returned as { error } (never thrown) for the callers.
   window.sbInvoke = async function (name, options) {
     let lastError = null;
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
       try {
         const result = await window.sb.functions.invoke(name, options);
         if (result?.error?.name !== "FunctionsFetchError") return result;
@@ -27,7 +27,7 @@
         if (err?.name !== "FunctionsFetchError") throw err;
         lastError = err;
       }
-      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 600));
     }
     return { data: null, error: lastError };
   };

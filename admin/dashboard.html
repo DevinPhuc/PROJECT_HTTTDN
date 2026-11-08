@@ -23,6 +23,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/admin.css" />
+    <link rel="stylesheet" href="../shared/css/portal-unified-ui.css?v=20261108-v3" />
     <style>
       /* admin.css is shared with the login page, so overrides live here. */
 
@@ -155,7 +156,7 @@
       </symbol>
     </svg>
 
-    <main class="admin-page">
+    <main class="admin-page" data-portal="admin">
       <aside class="admin-sidebar">
         <div class="admin-brand-block">
           <div class="admin-brand-mark">J</div>
@@ -201,6 +202,7 @@
           </div>
         </div>
 
+        <p class="leader-nav-label">HỆ THỐNG QUẢN TRỊ</p>
         <nav class="admin-nav" aria-label="Menu quản lý">
           <a class="admin-nav-item is-active" href="#overview"
             ><svg class="admin-nav-icon" aria-hidden="true">
@@ -218,6 +220,7 @@
             >Vai trò & Phân quyền</a
           >
         </nav>
+        <div class="leader-sidebar-note"><span class="leader-live-dot"></span>Không gian quản trị</div>
       </aside>
 
       <section class="admin-main">

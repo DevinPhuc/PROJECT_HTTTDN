@@ -913,23 +913,31 @@ Deno.serve(async (req) => {
   if (!actor) {
     let redirectUrl = "staff-login.html";
     let activeRole = "";
+    let pendingNotice: unknown = null;
     if (token) {
       try {
         const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
         const employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
         if (UUID_RE.test(employeeId)) {
+          const [acc] = await sql!`
+            select pending_notice from public.employee_accounts where employee_id = ${employeeId}::uuid limit 1`;
+          if (acc?.pending_notice) {
+            pendingNotice = parseNotice(acc.pending_notice);
+          }
           activeRole = await activePortalRole(employeeId);
           if (activeRole === "Admin") {
             redirectUrl = "../admin/login.html";
-          } else if (activeRole === "Manager" || activeRole === "Leader") {
+          } else if (activeRole === "Manager") {
             redirectUrl = "../manager/login.html";
+          } else if (activeRole === "Leader") {
+            redirectUrl = "../leader/login.html";
           }
         }
       } catch {
         // ignore
       }
     }
-    return json({ ok: false, error: "unauthorized", role: activeRole, redirect_url: redirectUrl }, 401);
+    return json({ ok: false, error: "unauthorized", role: activeRole, redirect_url: redirectUrl, pending_notice: pendingNotice }, 401);
   }
 
   let body: Record<string, unknown>;

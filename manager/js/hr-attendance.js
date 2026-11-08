@@ -1,5 +1,5 @@
 // Chấm công (manager): same clock card as the staff portal, reusing the
-// staff-portal edge actions with the manager token. Manager and employee
+// hr-portal edge actions with the manager token. Manager and employee
 // tokens carry the same employee_id claim, so staff actions authenticate
 // the manager's own attendance.
 (function () {
@@ -25,7 +25,7 @@
   let attendanceClockTimer = 0;
   let attendanceFeedbackTimer = 0;
 
-  const callStaff = (body) => portal.callPortal("manager", "staff-portal", body, { loginUrl: "login.html" });
+  const callHrAttendance = (body) => portal.callPortal("manager", "hr-portal", body, { loginUrl: "login.html" });
 
   // Month/week options come from the system clock, built once per page load.
   (function initAttendancePickerOptions() {
@@ -124,30 +124,29 @@
   function refreshAttendanceUI() {
     const activeRecord = activeTodayRecord();
 
-    // Có lượt mở: hiện giờ vào của lượt đó. Giờ ra luôn --:-- cho tới khi bấm Ra về,
-    // sau đó cả hai ô reset về --:-- cho lượt tiếp theo.
     document.getElementById("mgrAttendanceCheckIn").textContent = activeRecord ? timeShort(activeRecord.check_in) : NOT_CHECKED;
     document.getElementById("mgrAttendanceCheckOut").textContent = NOT_CHECKED;
 
-    // Nút không bao giờ bị khóa vĩnh viễn: chỉ khóa trong lúc yêu cầu đang chạy.
-    ["in", "out"].forEach((buttonPhase) => {
-      const button = attendanceButton(buttonPhase);
-      button.disabled = button.dataset.loading === "1";
-    });
+    const inBtn = attendanceButton("in");
+    const outBtn = attendanceButton("out");
+    if (inBtn) inBtn.disabled = Boolean(activeRecord) || inBtn.dataset.loading === "1";
+    if (outBtn) outBtn.disabled = !activeRecord || outBtn.dataset.loading === "1";
 
     const summary = document.getElementById("mgrAttendanceSummary");
     const sessions = todayRecords().filter((item) => item.check_in);
-    if (activeRecord) {
-      summary.innerHTML = `Hôm nay: đang trong ca (lượt ${sessions.length}), vào <strong>${timeShort(activeRecord.check_in)}</strong> · ra —`;
-    } else if (sessions.length > 0) {
-      summary.textContent = `Hôm nay đã hoàn thành ${sessions.length} lượt chấm công. Sẵn sàng cho lượt mới.`;
-    } else {
-      summary.textContent = "Chưa chấm công hôm nay";
+    if (summary) {
+      if (activeRecord) {
+        summary.innerHTML = `Hôm nay đang trong ca · vào <strong>${timeShort(activeRecord.check_in)}</strong>`;
+      } else if (sessions.length > 0) {
+        summary.textContent = `Hôm nay đã hoàn thành ${sessions.length} lượt chấm công.`;
+      } else {
+        summary.textContent = "Chưa chấm công hôm nay";
+      }
     }
   }
 
   async function renderAttendancePanel(preloaded) {
-    const result = preloaded || await callStaff({ action: "attendance_list" });
+    const result = preloaded || await callHrAttendance({ action: "attendance_list" });
     if (!result.ok) throw new Error(result.error);
     attendanceState = { today: result.data.today, records: result.data.records || [] };
     // Defaults so the pickers are usable the first time week/month is chosen.
@@ -231,7 +230,7 @@
 
   async function performClock(phase) {
     const button = attendanceButton(phase);
-    const label = button.querySelector(".mgr-clock-btn-label");
+    const label = button.querySelector(".mgr-clock-btn-label") || button;
     const originalLabel = label.textContent;
     button.dataset.loading = "1";
     refreshAttendanceUI();
@@ -240,7 +239,7 @@
     let result;
     try {
       // "phase" cho server biết đây là lượt vào hay lượt ra.
-      result = await callStaff({ action: "attendance_clock", phase });
+      result = await callHrAttendance({ action: "attendance_clock", phase });
     } finally {
       label.textContent = originalLabel;
       delete button.dataset.loading;

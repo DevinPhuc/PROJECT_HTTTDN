@@ -6,8 +6,14 @@
     <meta name="description" content="Cổng trưởng nhóm Jewels." />
     <title>Leader Portal - Jewels</title>
     <link rel="icon" type="image/svg+xml" href="../shared/images/brand-logo-1.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="../shared/css/style.css" />
-    <link rel="stylesheet" href="css/leader.css" />
+    <link rel="stylesheet" href="css/leader.css?v=20261108-font-v2" />
   </head>
   <body>
     <main class="leader-shell">
@@ -143,9 +149,58 @@
       </section>
     </main>
 
+    <div
+      class="logout-modal"
+      id="passwordChangedModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="passwordChangedTitle"
+      hidden
+    >
+      <div class="logout-modal-content" style="width: min(100%, 460px); max-width: 460px;">
+        <h2 id="passwordChangedTitle" style="font-size: 23px; line-height: 1.4; margin: 0 0 24px; font-weight: 500;">
+          Mật khẩu bạn đã bị thay đổi,<br />
+          Sau đây là mật khẩu mới của bạn: <span id="passwordChangedValue" style="color: #278a4b; font-weight: 600;"></span>
+        </h2>
+        <div class="logout-modal-actions" style="display: flex; justify-content: center;">
+          <button
+            type="button"
+            class="admin-secondary-btn"
+            id="confirmPasswordChangeBtn"
+            style="min-width: 100px; padding: 8px 24px;"
+          >
+            Đồng ý
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="logout-modal" id="logoutModal" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle" hidden>
+      <div class="logout-modal-content">
+        <h2 id="logoutModalTitle">Bạn có muốn đăng xuất không?</h2>
+        <div class="logout-modal-actions">
+          <button type="button" class="admin-secondary-btn" id="cancelLogoutBtn">
+            Không
+          </button>
+          <button type="button" class="admin-logout-btn" id="confirmLogoutBtn">
+            Có
+          </button>
+        </div>
+      </div>
+    </div>
+
+        <div id="leaderSuccessToast" class="leader-toast leader-success-toast" role="status" aria-live="polite">
+      <img src="../shared/images/check.png" alt="" class="toast-icon" />
+      <span>Dữ liệu đã được làm mới!</span>
+    </div>
+    <div id="leaderErrorToast" class="leader-toast leader-error-toast" role="status" aria-live="polite">
+      <img src="../shared/images/x.png" alt="" class="toast-icon" />
+      <span>Không thể làm mới dữ liệu. Vui lòng thử lại.</span>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../shared/js/supabase-client.js"></script>
-    <script src="../shared/js/portal-api.js"></script>
-    <script src="js/leader.js"></script>
+    <script src="../shared/js/portal-api.js?v=20261108-fix-v5"></script>
+    <script src="js/leader.js?v=20261108-leaderportal-v6"></script>
   </body>
 </html>

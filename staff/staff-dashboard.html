@@ -8,6 +8,7 @@
       content="Không gian làm việc dành cho nhân viên Jewels."
     />
     <title>Staff Dashboard - Jewels</title>
+    <link rel="icon" type="image/svg+xml" href="../shared/images/brand-logo-1.svg" />
     <link rel="stylesheet" href="../shared/css/vendor/bootstrap.min.css" />
     <link rel="stylesheet" href="../shared/css/style.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,6 +20,7 @@
     <link rel="stylesheet" href="css/staff-base.css" />
     <link rel="stylesheet" href="css/staff-legacy.css" />
     <link rel="stylesheet" href="css/staff-portal.css" />
+    <link rel="stylesheet" href="../shared/css/portal-unified-ui.css?v=20261108-v3" />
   </head>
   <body>
     <svg xmlns="http://www.w3.org/2000/svg" class="d-none" aria-hidden="true">
@@ -135,7 +137,7 @@
       </symbol>
     </svg>
 
-    <main class="admin-page">
+    <main class="admin-page" data-portal="staff">
       <aside class="admin-sidebar">
         <div class="admin-brand-block">
           <div class="admin-brand-mark">J</div>
@@ -177,7 +179,7 @@
             </div>
           </div>
         </div>
-
+        <p class="leader-nav-label">KHÔNG GIAN NHÂN VIÊN</p>
         <nav class="admin-nav" aria-label="Chức năng nhân viên">
           <a
             class="admin-nav-item"
@@ -231,10 +233,7 @@
           >
         </nav>
 
-        <div class="admin-system-status">
-          <span>Trạng thái hệ thống</span>
-          <strong>Hoạt động bình thường</strong>
-        </div>
+        <div class="leader-sidebar-note"><span class="leader-live-dot"></span>Không gian nhân viên</div>
       </aside>
 
       <section class="admin-main">
@@ -546,7 +545,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../shared/js/supabase-client.js"></script>
-  <script src="../shared/js/portal-api.js"></script>
+  <script src="../shared/js/portal-api.js?v=20261108-fix-v2"></script>
   <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
   <script src="js/staff-core.js"></script>
   <script src="js/staff-profile.js?v=20261107-dob-password-v1"></script>

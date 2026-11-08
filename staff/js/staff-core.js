@@ -459,7 +459,7 @@ async function loadStaffPortal() {
         // silent background refresh
       }
     }
-  }, 3000);
+  }, 10000);
 }
 
 // Toast feedback (section 9): same bottom-right pattern as the manager

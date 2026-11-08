@@ -91,6 +91,18 @@ Deno.serve(async (req) => {
     }
 
     if (portalResult.ok !== true) {
+      try {
+        const [accCheck] = await sql`
+          select a.is_active
+          from public.employee_accounts a
+          left join public.employees e on e.employee_id = a.employee_id
+          where (lower(a.username) = lower(trim(${username})) or lower(e.email) = lower(trim(${username})))
+            and a.deleted_at is null
+          limit 1`;
+        if (accCheck && !accCheck.is_active) {
+          return json({ ok: false, error: "account_locked" }, 401);
+        }
+      } catch (_) {}
       return json({ ok: false, error: portalResult.error ?? "invalid_credentials" }, 401);
     }
 

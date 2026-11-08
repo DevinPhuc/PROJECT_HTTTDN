@@ -263,7 +263,7 @@ document.querySelectorAll("[data-hr-view]").forEach((link) =>
 
 async function loadLookups() {
   const result = await callHr({ action: "boot" });
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) throw new Error(result.message || result.error);
   const data = result.data;
   employees = (data.employees || []).map((employee) => ({
     ...employee,
@@ -2401,8 +2401,23 @@ initHrPortal().catch((error) => {
   console.error(error);
   showError("Không thể kết nối máy chủ.");
 });
-setInterval(async () => {
-  if (currentActor) {
-    await callHr({ action: "ping" });
+// Periodic check for account/role/password changes from admin.
+// Only runs when the tab is visible to avoid exhausting connection pools.
+let lastManagerPing = Date.now();
+async function pingManagerStatus() {
+  if (currentActor && !document.hidden) {
+    try {
+      lastManagerPing = Date.now();
+      await callHr({ action: "ping" });
+    } catch (_) {
+      // background polling for account changes
+    }
   }
-}, 5000);
+}
+
+setInterval(pingManagerStatus, 15000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Date.now() - lastManagerPing > 10000) {
+    pingManagerStatus();
+  }
+});
