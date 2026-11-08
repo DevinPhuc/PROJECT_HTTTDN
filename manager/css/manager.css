@@ -1391,16 +1391,29 @@ body:has(.admin-page) {
 
 #employeeForm input:disabled,
 #employeeForm select:disabled,
-#employeeForm input:read-only {
-  background: #f1f3f1;
-  color: #78827c;
-  cursor: not-allowed;
+#employeeForm input:read-only,
+#employeeForm input[readonly] {
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  cursor: not-allowed !important;
 }
 
-/* Keep native select dropdown indicator on disabled selects */
+/* Remove native select dropdown indicator on disabled/locked status selects */
+#employeeStatus,
+#employeeForm select[name="employmentStatus"],
 #employeeForm select:disabled {
-  appearance: auto;
-  -webkit-appearance: auto;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: none !important;
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  cursor: not-allowed !important;
+  padding-right: 12px !important;
 }
 
 .form-subgrid-2 {
@@ -1414,10 +1427,12 @@ body:has(.admin-page) {
   min-width: 0;
 }
 
-#employeeForm input[name="employeeCode"]:read-only {
-  background: #e9f1eb;
-  color: var(--admin-green-dark);
-  font-weight: 500;
+#employeeForm input[name="employeeCode"]:read-only,
+#employeeForm input[name="employeeCode"][readonly] {
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
 }
 
 .modal-footer {
@@ -2116,8 +2131,10 @@ body.manager-ready .manager-loading {
 
 .cc-tools #mgrCcSearch {
   margin-left: auto;
-  padding-left: 38px;
-  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394a3b8' stroke-width='1.4' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='4.8'/%3E%3Cpath d='M10.6 10.6L14 14'/%3E%3C/svg%3E") no-repeat 12px center / 16px;
+  padding-left: 42px !important;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394a3b8' stroke-width='1.4' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='4.8'/%3E%3Cpath d='M10.6 10.6L14 14'/%3E%3C/svg%3E") no-repeat 14px center / 16px !important;
+  box-sizing: border-box !important;
+  text-indent: 0 !important;
 }
 
 .cc-tools #mgrCcDept {
@@ -2457,4 +2474,51 @@ body.manager-ready .manager-loading {
   font-weight: 600;
   letter-spacing: 0.02em;
   display: inline-block;
+}
+
+/* Reset and align embedded month picker inside period control badges */
+.hr-period-control,
+.cc-head-tools .hr-period-control,
+.pl-mp {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  border: 1px solid #d7ddd7 !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: var(--admin-ink, #23272f) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+}
+
+.hr-period-control input,
+.hr-period-control input[type="month"],
+.cc-head-tools .hr-period-control input,
+.cc-head-tools .hr-period-control input[type="month"],
+.pl-mp input,
+.pl-mp input[type="month"] {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 0 0 4px !important;
+  min-height: auto !important;
+  height: auto !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  outline: none !important;
+  font: inherit !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+}
+
+.hr-period-control:focus-within,
+.cc-head-tools .hr-period-control:focus-within,
+.pl-mp:focus-within {
+  border-color: var(--admin-green, #16766d) !important;
+  box-shadow: 0 0 0 2px rgb(52 91 74 / 12%) !important;
 }

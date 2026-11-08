@@ -579,7 +579,7 @@ async function listRows() {
            e.full_name,
            e.email,
            e.gender,
-           contact.phone_number,
+           e.phone_number,
            to_char(e.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
            to_char(e.hire_date, 'YYYY-MM-DD') as hire_date,
            coalesce(e.current_department_id, position_department.department_id) as department_id,
@@ -593,12 +593,6 @@ async function listRows() {
            active_role.role_id,
            active_role.role_name
     from public.employees e
-    left join lateral (
-      select c.phone_number
-      from public.employee_contacts c
-      where c.employee_id = e.employee_id
-      limit 1
-    ) contact on true
     left join lateral (
       select dp.department_id
       from public.department_positions dp
@@ -690,18 +684,13 @@ async function createAction(
     const [employee] = await tx`
       insert into public.employees
         (employee_code, full_name, date_of_birth, gender, email, hire_date,
-         current_position_id, current_department_id, employment_status)
+         current_position_id, current_department_id, employment_status, phone_number)
       values
         (${fields.employee_code}, ${fields.full_name}, ${fields.date_of_birth}, ${fields.gender},
          ${fields.email}, ${fields.hire_date}, ${(fields.position_id || null)}::uuid,
-         ${fields.department_id}::uuid, 'Active')
+         ${fields.department_id}::uuid, 'Active', ${fields.phone_number || null})
       returning employee_id`;
 
-    if (fields.phone_number) {
-      await tx`
-        insert into public.employee_contacts (employee_id, phone_number)
-        values (${employee.employee_id}::uuid, ${fields.phone_number})`;
-    }
 
     await tx`
       insert into public.employee_accounts (employee_id, username, password_hash, is_active)
@@ -810,19 +799,10 @@ async function updateAction(
     if (!account) return { error: "account_not_found" } as const;
 
     if (body.phone_number !== undefined) {
-      const [existingContact] = await tx`
-        select employee_id from public.employee_contacts
-        where employee_id = ${employeeId}::uuid limit 1`;
-      if (existingContact) {
-        await tx`
-          update public.employee_contacts
-          set phone_number = ${fields.phone_number || null}
-          where employee_id = ${employeeId}::uuid`;
-      } else if (fields.phone_number) {
-        await tx`
-          insert into public.employee_contacts (employee_id, phone_number)
-          values (${employeeId}::uuid, ${fields.phone_number})`;
-      }
+      await tx`
+        update public.employees
+        set phone_number = ${fields.phone_number || null}
+        where employee_id = ${employeeId}::uuid`;
     }
 
     let roleChanged = false;
@@ -1093,10 +1073,6 @@ async function permanentDeleteAction(
         delete from public.employee_qualifications
         where employee_id = ${employeeId}::uuid`;
 
-      // 9. Delete employee_contacts
-      await tx`
-        delete from public.employee_contacts
-        where employee_id = ${employeeId}::uuid`;
 
       // 10. Nullify user_roles assigned_by, then delete employee's user_roles
       await tx`

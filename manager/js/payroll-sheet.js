@@ -217,7 +217,7 @@
     }
     return `<span>Hiển thị <b>${from}-${to}</b> / ${total} dòng · dòng Tổng cộng tính cho tất cả</span>
       <span class="pl-pg">Số dòng/trang <select class="pl-inp sm" data-psize>${PAGE_SIZES.map((s) => `<option ${s === st.size ? "selected" : ""}>${s}</option>`).join("")}</select>
-      ${pages > 1 ? `<button type="button" class="pl-pgn" data-pg="${p - 1}" ${p ? "" : "disabled"}>‹</button>${nums.join("")}<button type="button" class="pl-pgn" data-pg="${p + 1}" ${p < pages - 1 ? "" : "disabled"}>›</button>` : ""}</span>`;
+      <button type="button" class="pl-pgn" data-pg="${p - 1}" ${p > 0 ? "" : "disabled"}>‹</button>${nums.join("")}<button type="button" class="pl-pgn" data-pg="${p + 1}" ${p < pages - 1 ? "" : "disabled"}>›</button></span>`;
   }
 
   function draw() {
@@ -231,7 +231,7 @@
 
     const LEFT = [0, 44, 116], WID = [44, 72];
     const sk = (i, extra = "") => i <= 2
-      ? ` class="stk ${extra}" style="left:${LEFT[i]}px;${i < 2 ? `min-width:${WID[i]}px;max-width:${WID[i]}px;` : "min-width:170px;"}${i === 2 ? "box-shadow:inset -1px 0 0 #dfe7e5" : ""}"`
+      ? ` class="stk ${extra}" style="left:${LEFT[i]}px;${i < 2 ? `min-width:${WID[i]}px;max-width:${WID[i]}px;width:${WID[i]}px;` : "min-width:170px;width:170px;"}${i === 2 ? "box-shadow:inset -1px 0 0 #dfe7e5;" : ""}"`
       : (extra ? ` class="${extra}"` : "");
     const fmtv = (c, v) => (c.t === "num" ? num(v) : c.t === "text" ? esc(v) : fmt(v));
     const al = (c) => (c.t !== "text" ? "r" : "");
@@ -240,7 +240,7 @@
     COLS.forEach((c, i) => {
       if (!c.g) r1 += `<th${sk(i + 1, al(c))} rowspan="2">${c.l}</th>`;
       else {
-        if (!i || COLS[i - 1].g !== c.g) r1 += `<th class="grp" colspan="${COLS.filter((x) => x.g === c.g).length}">${c.g}</th>`;
+        if (!i || COLS[i - 1].g !== c.g) r1 += `<th class="grp" colspan="${COLS.filter((x) => x.g === c.g).length}" style="top:0">${c.g}</th>`;
         r2 += `<th class="${al(c)}" style="top:33px">${c.l}</th>`;
       }
     });
@@ -251,10 +251,10 @@
       || '<tr><td colspan="30"><div class="pl-empty">Không có nhân viên trong kỳ này</div></td></tr>';
 
     const foot = L.length
-      ? `<tfoot><tr><td${sk(0)}></td>${COLS.map((c, i) => `<td${sk(i + 1, al(c))}>${i === 1 ? "TỔNG CỘNG" : isSumCol(c) ? (c.t === "num" ? num(sum(L, (x) => x[c.k])) : fmt(sum(L, (x) => x[c.k]))) : ""}</td>`).join("")}<td></td></tr></tfoot>`
+      ? `<tfoot><tr><td${sk(0, "c")}></td>${COLS.map((c, i) => `<td${sk(i + 1, al(c))}>${i === 1 ? "TỔNG CỘNG" : isSumCol(c) ? (c.t === "num" ? num(sum(L, (x) => x[c.k])) : fmt(sum(L, (x) => x[c.k]))) : ""}</td>`).join("")}<td></td></tr></tfoot>`
       : "";
 
-    w.innerHTML = `<table class="pl-tbl"><thead><tr style="height:33px">${r1}<th rowspan="2"></th></tr><tr>${r2}</tr></thead><tbody>${body}</tbody>${foot}</table>`;
+    w.innerHTML = `<table class="pl-tbl"><thead><tr style="height:33px">${r1}<th rowspan="2"></th></tr><tr style="height:33px">${r2}</tr></thead><tbody>${body}</tbody>${foot}</table>`;
   }
 
   // Vẽ lại nhưng giữ vị trí cuộn và ô đang nhập (sau khi sửa một ô).
@@ -300,7 +300,7 @@
   function cacheShape(x, base = {}) {
     return {
       ...base, employee_id: x.id, pay_year: Number(st.ym.slice(0, 4)), pay_month: Number(st.ym.slice(5, 7)),
-      base_salary: x.luongCB, allowance: x.pc, total_deductions: x.bhNLD + x.thue, overtime_pay: x.tienOT,
+      base_salary: x.luongCB, allowance: x.pc, total_deductions: x.bhNLD + x.thue,
       work_days: x.cong, standard_days: x.cc, insurance_amount: x.bhNLD, personal_income_tax: x.thue,
       gross_salary: x.gross, net_salary: x.thucLinh,
     };
@@ -308,7 +308,7 @@
   function payload(x) {
     return {
       action: "payroll_save", employee_id: x.id, pay_year: Number(st.ym.slice(0, 4)), pay_month: Number(st.ym.slice(5, 7)),
-      base_salary: x.luongCB, allowance: x.pc, overtime_pay: x.tienOT, work_days: x.cong, standard_days: x.cc,
+      base_salary: x.luongCB, allowance: x.pc, work_days: x.cong, standard_days: x.cc,
       insurance_amount: x.bhNLD, personal_income_tax: x.thue, total_deductions: x.bhNLD + x.thue,
       gross_salary: x.gross, net_salary: x.thucLinh,
     };

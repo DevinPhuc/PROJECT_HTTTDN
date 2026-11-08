@@ -226,16 +226,40 @@ async function ensureNoticeColumn() {
     console.error("hr-portal: ensureNoticeColumn pending_notice failed", err);
   }
   try {
+    await sql!`alter publication supabase_realtime add table public.attendance_records`;
+  } catch (_) {}
+  try {
     await sql!`
       alter table public.leave_requests
         add column if not exists leader_status text,
         add column if not exists leader_reviewed_by uuid references public.employees(employee_id) on delete set null,
-        add column if not exists leader_reviewed_at timestamptz`;
+        add column if not exists leader_reviewed_at timestamptz,
+        add column if not exists decided_at timestamptz`;
   } catch (err) {
     console.warn(
       "hr-portal: ensure leader columns on leave_requests failed",
       err,
     );
+  }
+  try {
+    await sql!`
+      alter table public.leave_requests
+        drop constraint if exists leave_requests_leader_status_check`;
+    await sql!`
+      alter table public.leave_requests
+        add constraint leave_requests_leader_status_check
+        check (leader_status is null or lower(leader_status) in ('approved', 'rejected'))`;
+  } catch (err) {
+    console.warn("hr-portal: recreate leave_requests_leader_status_check failed", err);
+  }
+  try {
+    await sql!`
+      alter table if exists public.payroll
+        drop column if exists overtime_pay cascade,
+        drop column if exists night_pay cascade,
+        drop column if exists payment_date cascade`;
+  } catch (err) {
+    console.warn("hr-portal: drop payroll columns failed", err);
   }
   noticeColumnChecked = true;
 }
@@ -405,14 +429,35 @@ const DB_ERRORS: Record<string, string> = {
 
 function dbError(err: unknown): Response {
   const code = (err as { code?: string })?.code ?? "";
-  if (code === "forbidden") return json({ ok: false, error: "forbidden" }, 403);
-  if (DB_ERRORS[code]) return json({ ok: false, error: DB_ERRORS[code] }, 400);
-  console.error("hr-portal: unhandled database error", err);
+  const anyErr = err as Record<string, unknown>;
+  const constraint = (anyErr?.constraint_name || anyErr?.constraint || "") as string;
+  const message = (err as Error)?.message || String(err);
+  const detail = (anyErr?.detail || "") as string;
+
+  console.error("hr-portal: database error:", { code, message, detail, constraint, err });
+
+  if (code === "forbidden") return json({ ok: false, error: "forbidden", message }, 403);
+  if (DB_ERRORS[code]) {
+    return json(
+      {
+        ok: false,
+        error: DB_ERRORS[code],
+        code,
+        message,
+        detail,
+        constraint,
+      },
+      400,
+    );
+  }
   return json(
     {
       ok: false,
       error: "server_error",
-      message: (err as Error)?.message || String(err),
+      code,
+      message,
+      detail,
+      constraint,
     },
     500,
   );
@@ -573,6 +618,18 @@ async function employeeHoldsAdminRole(employeeId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+
+async function employeeHoldsManagerRole(employeeId: string): Promise<boolean> {
+  const rows = await sql!`
+    select 1 from public.user_roles ur
+    join public.roles r on r.role_id = ur.role_id
+    where ur.employee_id = ${employeeId}::uuid
+      and lower(r.role_name) = any(${sql.array(MANAGER_ROLES)})
+      and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
+    limit 1`;
+  return rows.length > 0;
+}
+
 function tagged(ids: string[]): string[] {
   return ids.length ? ids : ["00000000-0000-0000-0000-000000000000"];
 }
@@ -684,9 +741,9 @@ async function bootAction(actor: Actor): Promise<Response> {
         and e.employment_status = 'Active'
       order by e.full_name`,
     sql!`
-      select c.employee_id, c.phone_number, c.address
-      from public.employee_contacts c
-      where c.employee_id = any(${sql.array(ids)}::uuid[])`,
+      select e.employee_id, e.phone_number, e.address
+      from public.employees e
+      where e.employee_id = any(${sql.array(ids)}::uuid[])`,
     sql!`
       select p.position_id, p.position_title, p.description,
              coalesce((select json_agg(dp.department_id) from public.department_positions dp
@@ -730,9 +787,9 @@ async function bootAction(actor: Actor): Promise<Response> {
     sql!`
       select payroll_id, employee_id, pay_month, pay_year, base_salary,
              total_allowance as allowance, total_deduction as total_deductions,
-             bonus, overtime_pay, night_pay, gross_salary, net_salary,
+             bonus, gross_salary, net_salary,
              work_days, standard_days, insurance_amount, personal_income_tax,
-             payment_date, payment_status, payment_method
+             payment_status, payment_method
       from public.payroll
       where employee_id = any(${sql.array(ids)}::uuid[])
       order by pay_year desc nulls last, pay_month desc nulls last`,
@@ -1000,20 +1057,11 @@ async function contactTx(
   phone: string,
   address: string | null,
 ): Promise<void> {
-  const existing = await tx`
-    select employee_id from public.employee_contacts
-    where employee_id = ${employeeId}::uuid
-    limit 1`;
-  if (existing.length) {
-    await tx`
-      update public.employee_contacts
-      set phone_number = ${phone}, address = ${address}
-      where employee_id = ${employeeId}::uuid`;
-  } else {
-    await tx`
-      insert into public.employee_contacts (employee_id, phone_number, address)
-      values (${employeeId}::uuid, ${phone}, ${address})`;
-  }
+  await tx`
+    update public.employees
+    set phone_number = ${phone || null},
+        address = coalesce(${address}, address)
+    where employee_id = ${employeeId}::uuid`;
 }
 
 async function roleAssignTx(
@@ -1388,6 +1436,8 @@ async function roleAssignAction(
     return json({ ok: false, error: "forbidden" }, 403);
   if (!actor.is_admin && (await employeeHoldsAdminRole(employeeId)))
     return json({ ok: false, error: "forbidden" }, 403);
+  if (!actor.is_admin && (await employeeHoldsManagerRole(employeeId)))
+    return json({ ok: false, error: "forbidden_target_is_manager" }, 403);
 
   try {
     await sql!.begin(async (tx) => {
@@ -1517,47 +1567,119 @@ async function leaderLeaveReviewAction(
     return json({ ok: false, error: "invalid_status" }, 400);
 
   try {
-    const updated = await sql!`
-      update public.leave_requests as lr
-      set leader_status = ${statusInput},
-          leader_reviewed_by = ${actor.employee_id}::uuid,
-          leader_reviewed_at = now(),
-          status = case when ${statusInput} = 'rejected' then 'Rejected' else status end,
-          decided_at = case when ${statusInput} = 'rejected' then now() else decided_at end
-      where lr.leave_request_id = ${requestId}::uuid
-        and lower(lr.status::text) = 'pending'
-        and lr.leader_status is null
-        and lr.employee_id <> ${actor.employee_id}::uuid
-        and exists (
-          select 1
-          from public.employees e
-          left join lateral (
-            select (array_agg(distinct dp.department_id))[1] as department_id
-            from public.department_positions dp
-            where dp.position_id = e.current_position_id
-            having count(distinct dp.department_id) = 1
-          ) position_department on true
-          where e.employee_id = lr.employee_id
-            and e.employment_status = 'Active'
-            and (
-              e.current_department_id = ${actor.department_id}::uuid
-              or (
-                e.current_department_id is null
-                and position_department.department_id = ${actor.department_id}::uuid
-              )
-            )
-            and exists (
-              select 1 from public.employee_accounts a
-              where a.employee_id = e.employee_id
-                and a.is_active is true
-                and a.deleted_at is null
-            )
-        )
-      returning leave_request_id`;
-    if (!updated.length)
-      return json({ ok: false, error: "forbidden_or_already_decided" }, 400);
+    let leaveRow: {
+      leave_request_id: string;
+      employee_id: string;
+      status: string;
+      leader_status: string | null;
+    } | null = null;
+
+    try {
+      const rows = await sql!`
+        select lr.leave_request_id, lr.employee_id, lower(lr.status::text) as status, lr.leader_status
+        from public.leave_requests lr
+        where lr.leave_request_id = ${requestId}::uuid
+        limit 1`;
+      leaveRow = (rows[0] as typeof leaveRow) || null;
+    } catch (err) {
+      const code = (err as { code?: string })?.code ?? "";
+      if (code === "42703") {
+        const rows = await sql!`
+          select lr.leave_request_id, lr.employee_id, lower(lr.status::text) as status, null as leader_status
+          from public.leave_requests lr
+          where lr.leave_request_id = ${requestId}::uuid
+          limit 1`;
+        leaveRow = (rows[0] as typeof leaveRow) || null;
+      } else {
+        throw err;
+      }
+    }
+
+    if (!leaveRow) {
+      return json({ ok: false, error: "not_found" }, 404);
+    }
+
+    if (String(leaveRow.employee_id) === actor.employee_id) {
+      return json({ ok: false, error: "forbidden" }, 403);
+    }
+
+    const scopedIds = await scopedEmployeeIds(actor);
+    if (!scopedIds.includes(String(leaveRow.employee_id))) {
+      return json({ ok: false, error: "forbidden" }, 403);
+    }
+
+    if (leaveRow.status !== "pending" || leaveRow.leader_status != null) {
+      return json({ ok: false, error: "already_decided" }, 400);
+    }
+
+    if (statusInput === "approved") {
+      try {
+        await sql!`
+          update public.leave_requests
+          set leader_status = 'approved',
+              leader_reviewed_by = ${actor.employee_id}::uuid,
+              leader_reviewed_at = now()
+          where leave_request_id = ${requestId}::uuid`;
+      } catch (appErr) {
+        const code = (appErr as { code?: string })?.code ?? "";
+        if (code === "23514") {
+          await sql!`
+            update public.leave_requests
+            set leader_status = 'Approved',
+                leader_reviewed_by = ${actor.employee_id}::uuid,
+                leader_reviewed_at = now()
+            where leave_request_id = ${requestId}::uuid`;
+        } else {
+          throw appErr;
+        }
+      }
+    } else {
+      try {
+        await sql!`
+          update public.leave_requests
+          set leader_status = 'rejected',
+              leader_reviewed_by = ${actor.employee_id}::uuid,
+              leader_reviewed_at = now(),
+              status = 'Rejected',
+              decided_at = now()
+          where leave_request_id = ${requestId}::uuid`;
+      } catch (rejectErr) {
+        const code = (rejectErr as { code?: string })?.code ?? "";
+        if (code === "23514") {
+          await sql!`
+            update public.leave_requests
+            set leader_status = 'Rejected',
+                leader_reviewed_by = ${actor.employee_id}::uuid,
+                leader_reviewed_at = now(),
+                status = 'Rejected',
+                decided_at = now()
+            where leave_request_id = ${requestId}::uuid`;
+        } else if (code === "42703") {
+          await sql!`
+            update public.leave_requests
+            set leader_status = 'rejected',
+                leader_reviewed_by = ${actor.employee_id}::uuid,
+                leader_reviewed_at = now(),
+                status = 'Rejected'
+            where leave_request_id = ${requestId}::uuid`;
+        } else {
+          throw rejectErr;
+        }
+      }
+    }
   } catch (err) {
-    return dbError(err);
+    const anyErr = err as Record<string, unknown>;
+    const constraintName = (anyErr?.constraint_name || anyErr?.constraint || "") as string;
+    const message = (err as Error)?.message || String(err);
+    console.error("hr-portal: leave review update error:", { constraintName, message, err });
+    return json({
+      ok: false,
+      error: DB_ERRORS[anyErr?.code as string] || "rule_violation",
+      code: anyErr?.code,
+      message,
+      constraint: constraintName,
+      detail: anyErr?.detail,
+    }, 400);
   }
 
   return json({
@@ -1824,6 +1946,41 @@ async function attendanceBulkSaveAction(
       return json({ ok: false, error: "forbidden" }, 403);
   }
 
+  // Quản lý không được phép chỉnh sửa chấm công của quản lý khác ngoại trừ bản thân
+  if (!actor.is_admin) {
+    const otherEmployeeIds = [...new Set(prepared.map((it) => it.employeeId))].filter(
+      (id) => id !== actor.employee_id
+    );
+    if (otherEmployeeIds.length > 0) {
+      const otherManagerRows = await sql!`
+        select e.employee_id
+        from public.employees e
+        where e.employee_id = any(${sql.array(otherEmployeeIds)}::uuid[])
+          and exists (
+            select 1 from public.user_roles er
+            join public.roles r on r.role_id = er.role_id
+            where er.employee_id = e.employee_id
+              and (
+                lower(r.role_name) like '%quản lý%'
+                or lower(r.role_name) like '%quan ly%'
+                or lower(r.role_name) like '%manager%'
+                or lower(r.role_name) like '%admin%'
+              )
+          )
+        limit 1`;
+      if (otherManagerRows.length > 0) {
+        return json(
+          {
+            ok: false,
+            error: "forbidden",
+            message: "Quản lý không được phép chỉnh sửa chấm công của quản lý khác ngoại trừ bản thân.",
+          },
+          403
+        );
+      }
+    }
+  }
+
   try {
     await sql!.begin(async (tx) => {
       for (const it of prepared) {
@@ -1910,7 +2067,6 @@ async function payrollSaveAction(
   const inputs = [
     baseSalary,
     allowance,
-    overtimePay,
     workDays,
     standardDays,
     insuranceAmount,
@@ -1933,13 +2089,10 @@ async function payrollSaveAction(
         where employee_id = ${employeeId}::uuid and pay_year = ${year} and pay_month = ${month}
         limit 1`;
       if (existing) {
-        // night_pay is NOT NULL without a default in the live schema; every
-        // save must set it or new-month inserts fail (bug fix 2026-11-07).
         await tx`
           update public.payroll
           set base_salary = ${baseSalary}, total_allowance = ${allowance},
               total_deduction = ${totalDeductions}, bonus = ${allowance},
-              overtime_pay = ${overtimePay}, night_pay = 0,
               work_days = ${workDays}, standard_days = ${standardDays},
               insurance_amount = ${insuranceAmount},
               personal_income_tax = ${tax},
@@ -1949,10 +2102,10 @@ async function payrollSaveAction(
         await tx`
           insert into public.payroll
             (employee_id, pay_year, pay_month, base_salary, total_allowance,
-             total_deduction, bonus, overtime_pay, night_pay, work_days, standard_days,
+             total_deduction, bonus, work_days, standard_days,
              insurance_amount, personal_income_tax, gross_salary, net_salary)
           values (${employeeId}::uuid, ${year}, ${month}, ${baseSalary}, ${allowance},
-                  ${totalDeductions}, ${allowance}, ${overtimePay}, 0,
+                  ${totalDeductions}, ${allowance},
                   ${workDays}, ${standardDays},
                   ${insuranceAmount}, ${tax}, ${grossSalary}, ${netSalary})`;
       }

@@ -132,10 +132,38 @@
     return false;
   }
 
+  function isSelfManager(e) {
+    if (!e) return false;
+    const selfId = currentActor?.employee_id || portal?.getSession("manager")?.user?.employee_id;
+    if (selfId && e.employee_id === selfId) return true;
+    const selfEmail = (currentActor?.email || portal?.getSession("manager")?.user?.email || portal?.getSession("manager")?.user?.username || "").trim().toLowerCase();
+    if (selfEmail && e.email && e.email.trim().toLowerCase() === selfEmail) return true;
+    return false;
+  }
+
   function visibleEmployees() {
     const q = searchQ.trim().toLowerCase();
-    return eligibleEmployees().filter((e) =>
+    const filtered = eligibleEmployees().filter((e) =>
       !q || `${e.full_name} ${e.employee_code}`.toLowerCase().includes(q));
+    return filtered.sort((a, b) => {
+      const aSelf = isSelfManager(a) ? 0 : 1;
+      const bSelf = isSelfManager(b) ? 0 : 1;
+      if (aSelf !== bSelf) return aSelf - bSelf;
+      return (a.full_name || "").localeCompare(b.full_name || "", "vi");
+    });
+  }
+
+  function sheetFeedback(text, isError = false) {
+    const el = document.getElementById("mgrCcFeedback");
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = isError ? "#dc2626" : "#166534";
+    clearTimeout(sheetFeedback.timer);
+    if (text) {
+      sheetFeedback.timer = setTimeout(() => {
+        if (el.textContent === text) el.textContent = "";
+      }, 4000);
+    }
   }
 
   /* ---------- Persist ---------- */
@@ -167,16 +195,16 @@
         savedCount += chunk.length;
       }
       if (lastError) {
-        feedback("mgrCcFeedback", lastError === "forbidden"
+        sheetFeedback(lastError === "forbidden"
           ? "Bạn không có quyền chấm công cho một số nhân sự trong danh sách."
           : "Không lưu được bảng chấm công. Kiểm tra kết nối rồi thử lại.", true);
         rebuildOverlay();
         render();
         return;
       }
-      feedback("mgrCcFeedback", `Đã lưu ${savedCount} ngày chấm công.`);
+      sheetFeedback("Đã lưu chấm công thành công!");
     } catch {
-      feedback("mgrCcFeedback", "Không lưu được bảng chấm công.", true);
+      sheetFeedback("Không lưu được bảng chấm công.", true);
       rebuildOverlay();
       render();
     } finally {
@@ -208,6 +236,7 @@
     let count = 0;
     const today = isoNow();
     for (const employee of eligibleEmployees()) {
+      if (!isEditableForManager(employee.employee_id)) continue;
       let perEmp = overlay.get(employee.employee_id);
       if (!perEmp) overlay.set(employee.employee_id, (perEmp = new Map()));
       for (let d = 1; d <= daysIn(month); d++) {
@@ -218,7 +247,7 @@
       }
     }
     render();
-    feedback("mgrCcFeedback", `Đã điền ${count} ô "X" (bỏ qua ngày nghỉ tuần và ngày chưa tới).`);
+    sheetFeedback(`Đã điền ${count} ô "X" (bỏ qua ngày nghỉ tuần và ngày chưa tới).`);
     persistChanges().then(render);
   }
 
@@ -227,7 +256,7 @@
     const inScope = new Set(eligibleEmployees().map((e) => e.employee_id));
     if (!confirm(`Xóa toàn bộ chấm công ${monthLabel(month)}${scope}?`)) return;
     for (const [eid, perEmp] of overlay) {
-      if (!inScope.has(eid)) continue; // only the filtered department(s)
+      if (!inScope.has(eid) || !isEditableForManager(eid)) continue; // only the filtered department(s) and editable
       for (const [day, code] of [...perEmp]) {
         if (code) perEmp.set(day, ""); // clear cell = delete the row (bug fix)
       }
@@ -261,9 +290,9 @@
       add(pages - 1);
     }
     return `<span>Hiển thị <b>${from}-${to}</b> / ${total} dòng</span><span class="pg">Số dòng/trang `
-      + `<select data-psize style="width:auto">${PAGE_SIZES.map((s) => `<option ${s === pg.size ? "selected" : ""}>${s}</option>`).join("")}</select>`
-      + (pages > 1 ? `<button type="button" class="pg-n" data-pg="${p - 1}" ${p ? "" : "disabled"}>‹</button>${nums.join("")}`
-        + `<button type="button" class="pg-n" data-pg="${p + 1}" ${p < pages - 1 ? "" : "disabled"}>›</button>` : "")
+      + `<select data-psize>${PAGE_SIZES.map((s) => `<option ${s === pg.size ? "selected" : ""}>${s}</option>`).join("")}</select>`
+      + `<button type="button" class="pg-n" data-pg="${p - 1}" ${p > 0 ? "" : "disabled"}>‹</button>${nums.join("")}`
+      + `<button type="button" class="pg-n" data-pg="${p + 1}" ${p < pages - 1 ? "" : "disabled"}>›</button>`
       + `</span>`;
   }
 
@@ -275,8 +304,31 @@
       + `<button type="button" class="cc-brush ${brush === "" ? "on" : ""}" style="background:#f1f5f9;color:#475569" data-k="">Tẩy <small>xóa ô</small></button>`;
   }
 
+  function isEditableForManager(eid) {
+    if (!eid) return false;
+    // Bản thân manager đang đăng nhập -> cho phép sửa
+    if (eid === currentActor?.employee_id) return true;
+    const emp = employees.find((e) => e.employee_id === eid);
+    if (!emp) return true;
+    // Kiểm tra chức vụ / vai trò quản lý khác
+    if (typeof isManagerEmployee === "function" && isManagerEmployee(emp)) {
+      return false;
+    }
+    const currentRoles = (roleAssignments.get(eid) || []).map(
+      (id) => roles.find((r) => r.role_id === id)?.role_name || ""
+    );
+    const hasManagerRole = currentRoles.some((r) => {
+      const lower = r.toLowerCase();
+      return lower.includes("quản lý") || lower.includes("quan ly") || lower.includes("manager");
+    });
+    if (hasManagerRole) return false;
+    return true;
+  }
+
   function paintCell(td) {
+    if (!td) return;
     const eid = td.dataset.e, day = +td.dataset.d;
+    if (!isEditableForManager(eid)) return;
     if (overlayCode(eid, day) === brush) return;
     setOverlayCode(eid, day, brush);
     const c = CODES[brush];
@@ -284,8 +336,14 @@
     td.style.background = c ? c.bg : "";
     td.style.color = c ? c.c : "";
     const tr = td.parentElement;
+    if (!tr) return;
     tr.querySelectorAll("td.cc-sum").forEach((x) => x.remove());
-    tr.querySelector("td.cc-ot").insertAdjacentHTML("beforebegin", sumsHTML(eid));
+    const ot = tr.querySelector("td.cc-ot");
+    if (ot) {
+      ot.insertAdjacentHTML("beforebegin", sumsHTML(eid));
+    } else {
+      tr.insertAdjacentHTML("beforeend", sumsHTML(eid));
+    }
     dirty = true;
   }
 
@@ -319,11 +377,14 @@
     const body = document.getElementById("mgrCcBody");
     body.innerHTML = emps.map((e) => {
       const eid = e.employee_id;
-      return `<tr><td class="cc-nm"><b>${esc(e.full_name)}</b><br><small class="cc-muted">${esc(e.employee_code || "")} · ${esc(departmentNameOf(e))}</small></td>`
+      const editable = isEditableForManager(eid);
+      const isSelf = isSelfManager(e);
+      const tag = isSelf ? " (Bạn)" : !editable ? " · Quản lý (Chỉ xem)" : "";
+      return `<tr><td class="cc-nm"><b>${esc(e.full_name)}</b><br><small class="cc-muted">${esc(e.employee_code || "")} · ${esc(departmentNameOf(e))}${tag}</small></td>`
         + days.map((d) => {
           const k = overlayCode(eid, d);
           const c = CODES[k];
-          return `<td class="cc-d ${isOff(ym, d) ? "we" : ""}" data-e="${eid}" data-d="${d}" style="${c ? `background:${c.bg};color:${c.c}` : ""}">${k}</td>`;
+          return `<td class="cc-d ${isOff(ym, d) ? "we" : ""} ${!editable ? "cc-locked" : ""}" data-e="${eid}" data-d="${d}" ${!editable ? 'title="Không thể chỉnh sửa chấm công của Quản lý khác"' : ""} style="${c ? `background:${c.bg};color:${c.c}` : ""}">${k}</td>`;
         }).join("")
         + sumsHTML(eid)
         + `</tr>`;
@@ -475,7 +536,7 @@
       freezeCols: 2,
       footer: [legend()]
     }]);
-    feedback("mgrCcFeedback", "Đã xuất file Excel.");
+    sheetFeedback("Đã xuất file Excel.");
   }
 
   /* ---------- Print (landscape, legend, signature slots) ---------- */
@@ -522,9 +583,14 @@
   }
 
   /* ---------- Static listeners (bound once) ---------- */
-  document.getElementById("mgrSheetMonth").addEventListener("change", (event) => {
+  document.getElementById("mgrSheetMonth").addEventListener("change", async (event) => {
     month = event.target.value || month;
     pg.page = 0;
+    if (typeof loadLookups === "function") {
+      try {
+        await loadLookups();
+      } catch (_) {}
+    }
     rebuildOverlay();
     render();
   });
@@ -558,7 +624,7 @@
   const grid = document.getElementById("mgrCcBody");
   grid.addEventListener("mousedown", (event) => {
     const td = event.target.closest("td.cc-d");
-    if (!td) return;
+    if (!td || td.classList.contains("cc-locked") || !isEditableForManager(td.dataset.e)) return;
     event.preventDefault();
     painting = true;
     paintCell(td);
@@ -566,7 +632,7 @@
   grid.addEventListener("mouseover", (event) => {
     if (!painting) return;
     const td = event.target.closest("td.cc-d");
-    if (td) paintCell(td);
+    if (td && !td.classList.contains("cc-locked") && isEditableForManager(td.dataset.e)) paintCell(td);
   });
   document.addEventListener("mouseup", () => {
     if (!painting) return;
@@ -598,8 +664,15 @@
     rebuildOverlay();
     render();
   };
-  document.addEventListener("hr:view", (event) => {
-    if (event.detail.view === "attendance-sheet") load();
+  document.addEventListener("hr:view", async (event) => {
+    if (event.detail.view === "attendance-sheet") {
+      if (typeof loadLookups === "function") {
+        try {
+          await loadLookups();
+        } catch (_) {}
+      }
+      load();
+    }
   });
   document.addEventListener("hr:refresh", () => {
     rebuildOverlay();
@@ -608,4 +681,49 @@
   // Direct-hash loads: setView fires after async boot, but cover the rare
   // already-active case synchronously.
   if (document.querySelector('[data-hr-panel="attendance-sheet"].active')) load();
+
+  /* ---------- Realtime Two-Way Sync with Leader & other clients ---------- */
+  if (window.sb) {
+    let syncTimer = null;
+    try {
+      window.sb
+        .channel("mgr-attendance-realtime-sync")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "attendance_records" },
+          () => {
+            if (saving > 0) return;
+            clearTimeout(syncTimer);
+            syncTimer = setTimeout(async () => {
+              if (saving > 0) return;
+              try {
+                if (typeof loadLookups === "function") {
+                  await loadLookups();
+                  rebuildOverlay();
+                  render();
+                }
+              } catch (e) {
+                console.warn("Realtime manager attendance sync error:", e);
+              }
+            }, 400);
+          }
+        )
+        .subscribe();
+    } catch (e) {
+      console.warn("Manager realtime attendance subscription failed:", e);
+    }
+  }
+
+  // Refresh when switching back to this window tab if on attendance-sheet
+  window.addEventListener("focus", () => {
+    const panel = document.querySelector('[data-hr-panel="attendance-sheet"]');
+    if (panel && panel.classList.contains("active") && saving === 0) {
+      if (typeof loadLookups === "function") {
+        loadLookups().then(() => {
+          rebuildOverlay();
+          render();
+        }).catch(() => {});
+      }
+    }
+  });
 })();

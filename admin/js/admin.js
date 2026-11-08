@@ -1264,7 +1264,7 @@ function hideAccountForm() {
   const form = document.getElementById("accountForm");
   if (!form) return;
   form.hidden = true;
-  if (form.elements.is_active) form.elements.is_active.disabled = false;
+  if (form.elements.is_active) form.elements.is_active.disabled = true;
   if (form.elements.role_id) form.elements.role_id.disabled = false;
   resetForm("accountForm");
   const message = document.getElementById("accountFormMessage");
@@ -1326,8 +1326,8 @@ async function openAccountEdit(employeeId) {
   const isAdminAccount = String(account.role_name).toLowerCase() === "admin";
   fillRoleOptions(account.role_id || "", !isAdminAccount);
   form.elements.role_id.disabled = isSelf || isAdminAccount;
-  form.elements.is_active.disabled = false;
   form.elements.is_active.value = account.is_active ? "true" : "false";
+  form.elements.is_active.disabled = true;
   form.elements.employee_code.readOnly = true;
   form.querySelector(".admin-form-header h3").textContent =
     "Cập nhật tài khoản";

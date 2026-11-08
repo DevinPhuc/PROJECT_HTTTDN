@@ -30,19 +30,23 @@
 .pl-feedback{margin:8px 2px 0;color:var(--admin-muted,#747b74);font-size:12px}
 .pl-feedback.is-error{color:var(--admin-red,#a5483f)}
 .pl-wrap{min-height:180px;max-height:calc(100vh - 330px);overflow:auto}
+.pl-tbl,.pl-tbl th,.pl-tbl td{box-sizing:border-box}
 .pl-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
-.pl-tbl th{position:sticky;top:0;z-index:2;padding:8px 10px;border-bottom:1px solid #dfe7e5;background:#f4f8f7;color:#475569;font-size:11.5px;font-weight:700;letter-spacing:.03em;text-align:left;text-transform:uppercase;white-space:nowrap}
+.pl-tbl thead{position:sticky;top:0;z-index:10}
+.pl-tbl thead tr{height:33px}
+.pl-tbl th{position:sticky;top:0;z-index:10;padding:8px 10px;border-bottom:1px solid #dfe7e5;background:#f4f8f7;color:#475569;font-size:11.5px;font-weight:700;letter-spacing:.03em;text-align:left;text-transform:uppercase;white-space:nowrap;height:33px;line-height:1.2}
 .pl-tbl td{padding:7px 10px;border-bottom:1px solid #eef2f1;vertical-align:middle;white-space:nowrap}
 .pl-tbl tbody tr:hover td{background:var(--pl-p50)}
 .pl-tbl th.r,.pl-tbl td.r{text-align:right;font-variant-numeric:tabular-nums}
 .pl-tbl th.c,.pl-tbl td.c{text-align:center}
 .pl-tbl td.act{width:1%;text-align:right}
-.pl-tbl tfoot td{position:sticky;bottom:0;z-index:2;border-top:2px solid #dfe7e5;background:#f4f8f7;font-weight:700}
-.pl-tbl th.stk,.pl-tbl td.stk{position:sticky;z-index:1;background:#fff}
-.pl-tbl thead th.stk{z-index:3;background:#f4f8f7}
-.pl-tbl tfoot td.stk{z-index:3;background:#f4f8f7}
+.pl-tbl tfoot td{position:sticky;bottom:0;z-index:6;border-top:2px solid #dfe7e5;background:#f4f8f7;font-weight:700}
+.pl-tbl th.stk,.pl-tbl td.stk{position:sticky;z-index:2;background:#fff}
+.pl-tbl thead th.stk{z-index:12;background:#f4f8f7}
+.pl-tbl tfoot td.stk{z-index:8;background:#f4f8f7}
 .pl-tbl tbody tr:hover td.stk{background:var(--pl-p50)}
-.pl-tbl th.grp{background:var(--pl-p50);color:var(--pl-pd);text-align:center}
+.pl-tbl th.grp{position:sticky;top:0;z-index:10;background:var(--pl-p50);color:var(--pl-pd);text-align:center}
+.pl-tbl thead tr:nth-child(2) th{top:33px;z-index:10}
 .pl-tbl td.in input{width:104px;height:30px;padding:0 7px;border:1px solid #cbd5d3;border-radius:7px;background:#fffbeb;font:inherit;font-variant-numeric:tabular-nums;text-align:right}
 .pl-tbl td.in input:focus{outline:none;border-color:var(--pl-p);box-shadow:0 0 0 3px var(--pl-p100)}
 .pl-tbl td.net{color:var(--pl-pd);font-weight:700}

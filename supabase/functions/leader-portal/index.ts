@@ -72,11 +72,12 @@ const MANAGER_PERMISSIONS = [
 ];
 
 const DAY_CODE_STATUS: Record<string, { status: string }> = {
-  X: { status: "present" },
-  P: { status: "on_leave" },
-  L: { status: "on_leave" },
-  O: { status: "absent" },
-  KP: { status: "absent" },
+  X: { status: "Present" },
+  CT: { status: "Present" },
+  P: { status: "OnLeave" },
+  L: { status: "OnLeave" },
+  O: { status: "Absent" },
+  KP: { status: "Absent" },
 };
 
 type LeaderActor = {
@@ -117,14 +118,35 @@ const DB_ERRORS: Record<string, string> = {
 
 function dbError(err: unknown): Response {
   const code = (err as { code?: string })?.code ?? "";
-  if (code === "forbidden") return json({ ok: false, error: "forbidden" }, 403);
-  if (DB_ERRORS[code]) return json({ ok: false, error: DB_ERRORS[code] }, 400);
-  console.error("leader-portal: unhandled database error", err);
+  const anyErr = err as Record<string, unknown>;
+  const constraint = (anyErr?.constraint_name || anyErr?.constraint || "") as string;
+  const message = (err as Error)?.message || String(err);
+  const detail = (anyErr?.detail || "") as string;
+
+  console.error("leader-portal: database error:", { code, message, detail, constraint, err });
+
+  if (code === "forbidden") return json({ ok: false, error: "forbidden", message }, 403);
+  if (DB_ERRORS[code]) {
+    return json(
+      {
+        ok: false,
+        error: DB_ERRORS[code],
+        code,
+        message,
+        detail,
+        constraint,
+      },
+      400,
+    );
+  }
   return json(
     {
       ok: false,
       error: "server_error",
-      message: (err as Error)?.message || String(err),
+      code,
+      message,
+      detail,
+      constraint,
     },
     500,
   );
@@ -259,19 +281,23 @@ async function scopedEmployeeIds(actor: LeaderActor): Promise<string[]> {
       where dp.position_id = e.current_position_id
       having count(distinct dp.department_id) = 1
     ) position_department on true
-    where e.employee_id <> ${actor.employee_id}::uuid
-      and e.employment_status = 'Active'
-      and exists (
-        select 1 from public.employee_accounts a
-        where a.employee_id = e.employee_id
-          and a.is_active is true
-          and a.deleted_at is null
-      )
+    where e.employment_status = 'Active'
       and (
-        e.current_department_id = ${actor.department_id}::uuid
+        e.employee_id = ${actor.employee_id}::uuid
         or (
-          e.current_department_id is null
-          and position_department.department_id = ${actor.department_id}::uuid
+          exists (
+            select 1 from public.employee_accounts a
+            where a.employee_id = e.employee_id
+              and a.is_active is true
+              and a.deleted_at is null
+          )
+          and (
+            e.current_department_id = ${actor.department_id}::uuid
+            or (
+              e.current_department_id is null
+              and position_department.department_id = ${actor.department_id}::uuid
+            )
+          )
         )
       )`;
   return rows.map((r) => String(r.employee_id));
@@ -317,7 +343,15 @@ async function leaderBootAction(
       select e.employee_id, e.employee_code, e.full_name, e.email,
              e.employment_status, e.current_position_id as position_id,
              coalesce(e.current_department_id, position_department.department_id) as department_id,
-             p.position_title
+             d.department_name,
+             p.position_title,
+             coalesce(
+               (select array_agg(r.role_name)
+                from public.user_roles er
+                join public.roles r on r.role_id = er.role_id
+                where er.employee_id = e.employee_id),
+               array[]::text[]
+             ) as role_names
       from public.employees e
       left join lateral (
         select (array_agg(distinct dp.department_id))[1] as department_id
@@ -325,23 +359,25 @@ async function leaderBootAction(
         where dp.position_id = e.current_position_id
         having count(distinct dp.department_id) = 1
       ) position_department on true
+      left join public.departments d on d.department_id = coalesce(e.current_department_id, position_department.department_id)
       left join public.positions p on p.position_id = e.current_position_id
       left join public.employee_accounts a on a.employee_id = e.employee_id
       where e.employee_id = any(${sql.array(ids)}::uuid[])
-        and a.deleted_at is null
-        and a.is_active is true
+        and (e.employee_id = ${actor.employee_id}::uuid or (a.deleted_at is null and a.is_active is true))
         and e.employment_status = 'Active'
-      order by e.full_name`;
+      order by (case when e.employee_id = ${actor.employee_id}::uuid then 0 else 1 end), e.full_name`;
   } catch (err) {
     console.warn("leader-portal: teamEmployees query fallback", err);
     teamEmployees = await sql!`
       select e.employee_id, e.employee_code, e.full_name, e.email,
              e.employment_status, e.current_position_id as position_id,
              e.current_department_id as department_id,
+             d.department_name,
              '' as position_title
       from public.employees e
+      left join public.departments d on d.department_id = e.current_department_id
       where e.employee_id = any(${sql.array(ids)}::uuid[])
-      order by e.full_name`;
+      order by (case when e.employee_id = ${actor.employee_id}::uuid then 0 else 1 end), e.full_name`;
   }
 
   let attendanceRows: Record<string, unknown>[] = [];
@@ -406,7 +442,7 @@ async function leaderBootAction(
       from public.leave_requests lr
       join public.employees e on e.employee_id = lr.employee_id
       left join public.leave_types lt on lt.leave_type_id = lr.leave_type_id
-      where lr.employee_id = any(${sql.array(ids)}::uuid[])
+      where lr.employee_id = any(${sql.array(ids)}::uuid[]) and lr.employee_id <> ${actor.employee_id}::uuid
       order by lr.requested_at desc nulls last, lr.start_date desc`;
   } catch (err) {
     const code = (err as { code?: string })?.code ?? "";
@@ -569,49 +605,120 @@ async function leaderLeaveReviewAction(
   }
 
   try {
-    const updated = await sql!`
-      update public.leave_requests as lr
-      set leader_status = ${statusInput},
-          leader_reviewed_by = ${actor.employee_id}::uuid,
-          leader_reviewed_at = now(),
-          status = case when ${statusInput} = 'rejected' then 'Rejected' else status end,
-          decided_at = case when ${statusInput} = 'rejected' then now() else decided_at end
-      where lr.leave_request_id = ${requestId}::uuid
-        and lower(lr.status::text) = 'pending'
-        and lr.leader_status is null
-        and lr.employee_id <> ${actor.employee_id}::uuid
-        and exists (
-          select 1
-          from public.employees e
-          left join lateral (
-            select (array_agg(distinct dp.department_id))[1] as department_id
-            from public.department_positions dp
-            where dp.position_id = e.current_position_id
-            having count(distinct dp.department_id) = 1
-          ) position_department on true
-          where e.employee_id = lr.employee_id
-            and e.employment_status = 'Active'
-            and (
-              (${actor.department_id}::uuid is not null and e.current_department_id = ${actor.department_id}::uuid)
-              or (
-                ${actor.department_id}::uuid is not null
-                and e.current_department_id is null
-                and position_department.department_id = ${actor.department_id}::uuid
-              )
-            )
-            and exists (
-              select 1 from public.employee_accounts a
-              where a.employee_id = e.employee_id
-                and a.is_active is true
-                and a.deleted_at is null
-            )
-        )
-      returning leave_request_id`;
-    if (!updated.length) {
-      return json({ ok: false, error: "forbidden_or_already_decided" }, 400);
+    let leaveRow: {
+      leave_request_id: string;
+      employee_id: string;
+      status: string;
+      leader_status: string | null;
+    } | null = null;
+
+    try {
+      const rows = await sql!`
+        select lr.leave_request_id, lr.employee_id, lower(lr.status::text) as status, lr.leader_status
+        from public.leave_requests lr
+        where lr.leave_request_id = ${requestId}::uuid
+        limit 1`;
+      leaveRow = (rows[0] as typeof leaveRow) || null;
+    } catch (err) {
+      const code = (err as { code?: string })?.code ?? "";
+      if (code === "42703") {
+        const rows = await sql!`
+          select lr.leave_request_id, lr.employee_id, lower(lr.status::text) as status, null as leader_status
+          from public.leave_requests lr
+          where lr.leave_request_id = ${requestId}::uuid
+          limit 1`;
+        leaveRow = (rows[0] as typeof leaveRow) || null;
+      } else {
+        throw err;
+      }
+    }
+
+    if (!leaveRow) {
+      return json({ ok: false, error: "not_found" }, 404);
+    }
+
+    if (String(leaveRow.employee_id) === actor.employee_id) {
+      return json({ ok: false, error: "forbidden" }, 403);
+    }
+
+    const scopedIds = await scopedEmployeeIds(actor);
+    if (!scopedIds.includes(String(leaveRow.employee_id))) {
+      return json({ ok: false, error: "forbidden" }, 403);
+    }
+
+    if (leaveRow.status !== "pending" || leaveRow.leader_status != null) {
+      return json({ ok: false, error: "already_decided" }, 400);
+    }
+
+    if (statusInput === "approved") {
+      try {
+        await sql!`
+          update public.leave_requests
+          set leader_status = 'approved',
+              leader_reviewed_by = ${actor.employee_id}::uuid,
+              leader_reviewed_at = now()
+          where leave_request_id = ${requestId}::uuid`;
+      } catch (appErr) {
+        const code = (appErr as { code?: string })?.code ?? "";
+        if (code === "23514") {
+          // If check constraint requires 'Approved'
+          await sql!`
+            update public.leave_requests
+            set leader_status = 'Approved',
+                leader_reviewed_by = ${actor.employee_id}::uuid,
+                leader_reviewed_at = now()
+            where leave_request_id = ${requestId}::uuid`;
+        } else {
+          throw appErr;
+        }
+      }
+    } else {
+      try {
+        await sql!`
+          update public.leave_requests
+          set leader_status = 'rejected',
+              leader_reviewed_by = ${actor.employee_id}::uuid,
+              leader_reviewed_at = now(),
+              status = 'Rejected',
+              decided_at = now()
+          where leave_request_id = ${requestId}::uuid`;
+      } catch (rejectErr) {
+        const code = (rejectErr as { code?: string })?.code ?? "";
+        if (code === "23514") {
+          await sql!`
+            update public.leave_requests
+            set leader_status = 'Rejected',
+                leader_reviewed_by = ${actor.employee_id}::uuid,
+                leader_reviewed_at = now(),
+                status = 'Rejected',
+                decided_at = now()
+            where leave_request_id = ${requestId}::uuid`;
+        } else if (code === "42703") {
+          await sql!`
+            update public.leave_requests
+            set leader_status = 'rejected',
+                leader_reviewed_by = ${actor.employee_id}::uuid,
+                leader_reviewed_at = now(),
+                status = 'Rejected'
+            where leave_request_id = ${requestId}::uuid`;
+        } else {
+          throw rejectErr;
+        }
+      }
     }
   } catch (err) {
-    return dbError(err);
+    const anyErr = err as Record<string, unknown>;
+    const constraintName = (anyErr?.constraint_name || anyErr?.constraint || "") as string;
+    const message = (err as Error)?.message || String(err);
+    console.error("leader-portal: leave review update error:", { constraintName, message, err });
+    return json({
+      ok: false,
+      error: DB_ERRORS[anyErr?.code as string] || "rule_violation",
+      code: anyErr?.code,
+      message,
+      constraint: constraintName,
+      detail: anyErr?.detail,
+    }, 400);
   }
 
   return json({ ok: true });
@@ -647,7 +754,7 @@ async function leaderAttendanceBulkSaveAction(
     if (!scoped.has(employeeId)) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
-    const mapped = DAY_CODE_STATUS[dayCode] ?? { status: "absent" };
+    const mapped = DAY_CODE_STATUS[dayCode] ?? { status: "Absent" };
     clean.push({
       employee_id: employeeId,
       work_date: workDate,
@@ -657,6 +764,39 @@ async function leaderAttendanceBulkSaveAction(
   }
 
   if (!clean.length) return json({ ok: true, count: 0 });
+
+  // Trưởng nhóm chỉ được phép chấm công cho nhân viên và bản thân, không được chấm công cho các trưởng nhóm khác hoặc quản lý
+  const otherEmployeeIds = [...new Set(clean.map((it) => it.employee_id))].filter(
+    (id) => id !== actor.employee_id
+  );
+  if (otherEmployeeIds.length > 0) {
+    const forbiddenRows = await sql!`
+      select e.employee_id
+      from public.employees e
+      where e.employee_id = any(${sql.array(otherEmployeeIds)}::uuid[])
+        and exists (
+          select 1 from public.user_roles er
+          join public.roles r on r.role_id = er.role_id
+          where er.employee_id = e.employee_id
+            and (
+              lower(r.role_name) like '%trưởng nhóm%'
+              or lower(r.role_name) like '%truong nhom%'
+              or lower(r.role_name) like '%leader%'
+              or lower(r.role_name) like '%quản lý%'
+              or lower(r.role_name) like '%quan ly%'
+              or lower(r.role_name) like '%manager%'
+              or lower(r.role_name) like '%admin%'
+            )
+        )
+      limit 1`;
+    if (forbiddenRows.length > 0) {
+      return json({
+        ok: false,
+        error: "forbidden",
+        message: "Trưởng nhóm chỉ được phép sửa chấm công cho nhân viên và bản thân, không được sửa chấm công cho trưởng nhóm khác."
+      }, 403);
+    }
+  }
 
   try {
     await sql!.begin(async (tx) => {
@@ -668,15 +808,37 @@ async function leaderAttendanceBulkSaveAction(
               and work_date = ${item.work_date}::date`;
           continue;
         }
-        await tx`
-          insert into public.attendance_records
-            (employee_id, work_date, status, day_code)
-          values
-            (${item.employee_id}::uuid, ${item.work_date}::date,
-             ${item.status}::attendance_status, ${item.day_code})
-          on conflict (employee_id, work_date) do update
-            set day_code = excluded.day_code,
-                status = excluded.status`;
+
+        const existing = await tx`
+          select attendance_id from public.attendance_records
+          where employee_id = ${item.employee_id}::uuid
+            and work_date = ${item.work_date}::date
+          limit 1`;
+
+        if (existing.length > 0) {
+          await tx`
+            update public.attendance_records
+            set day_code = ${item.day_code},
+                status = ${item.status},
+                check_in_time = case
+                  when ${item.day_code} = 'X' then coalesce(check_in_time, '07:00:00'::time)
+                  else check_in_time
+                end,
+                check_out_time = case
+                  when ${item.day_code} = 'X' then coalesce(check_out_time, '17:00:00'::time)
+                  else check_out_time
+                end
+            where attendance_id = ${existing[0].attendance_id}`;
+        } else {
+          await tx`
+            insert into public.attendance_records
+              (employee_id, work_date, status, day_code, check_in_time, check_out_time)
+            values
+              (${item.employee_id}::uuid, ${item.work_date}::date,
+               ${item.status}, ${item.day_code},
+               case when ${item.day_code} = 'X' then '07:00:00'::time else null end,
+               case when ${item.day_code} = 'X' then '17:00:00'::time else null end)`;
+        }
       }
     });
   } catch (err) {
@@ -693,12 +855,27 @@ async function ensureLeaderSchema() {
     await sql!`alter table public.employee_accounts add column if not exists pending_notice jsonb`;
   } catch (_) {}
   try {
+    await sql!`alter publication supabase_realtime add table public.attendance_records`;
+  } catch (_) {}
+  try {
     await sql!`
       alter table public.leave_requests
         add column if not exists leader_status text,
         add column if not exists leader_reviewed_by uuid references public.employees(employee_id) on delete set null,
-        add column if not exists leader_reviewed_at timestamptz`;
+        add column if not exists leader_reviewed_at timestamptz,
+        add column if not exists decided_at timestamptz`;
   } catch (_) {}
+  try {
+    await sql!`
+      alter table public.leave_requests
+        drop constraint if exists leave_requests_leader_status_check`;
+    await sql!`
+      alter table public.leave_requests
+        add constraint leave_requests_leader_status_check
+        check (leader_status is null or lower(leader_status) in ('approved', 'rejected'))`;
+  } catch (err) {
+    console.warn("leader-portal: recreate leave_requests_leader_status_check failed", err);
+  }
   leaderSchemaChecked = true;
 }
 

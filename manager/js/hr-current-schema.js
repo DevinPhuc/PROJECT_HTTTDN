@@ -168,6 +168,50 @@ function renderPagination(containerId, total, pagination, onChange) {
   container.append(summary, sizeLabel, controls);
 }
 
+function renderTablePager(containerId, total, pagination, onChange) {
+  const pager = document.getElementById(containerId);
+  if (!pager) return;
+  const pageCount = Math.max(1, Math.ceil(total / pagination.size));
+  if (pagination.page > pageCount) pagination.page = pageCount;
+  if (pagination.page < 1) pagination.page = 1;
+  const p = pagination.page;
+  const from = total ? (p - 1) * pagination.size + 1 : 0;
+  const to = Math.min(p * pagination.size, total);
+  const nums = [];
+  const add = (i) => nums.push(`<button type="button" class="pg-n ${i === p ? "on" : ""}" data-pg="${i}">${i}</button>`);
+  if (pageCount <= 7) {
+    for (let i = 1; i <= pageCount; i++) add(i);
+  } else {
+    add(1);
+    const a = Math.max(2, p - 1), b = Math.min(pageCount - 1, p + 1);
+    if (a > 2) nums.push('<span class="pg-dot" style="padding:0 4px;color:#94a3b8">…</span>');
+    for (let i = a; i <= b; i++) add(i);
+    if (b < pageCount - 1) nums.push('<span class="pg-dot" style="padding:0 4px;color:#94a3b8">…</span>');
+    add(pageCount);
+  }
+  pager.innerHTML = `<span>Hiển thị <b>${from}-${to}</b> / ${total} dòng</span>`
+    + `<span class="pg">Số dòng/trang `
+    + `<select data-psize>${[10, 20, 50, 100].map((s) => `<option value="${s}" ${s === pagination.size ? "selected" : ""}>${s}</option>`).join("")}</select>`
+    + `<button type="button" class="pg-n" data-pg="${p - 1}" ${p > 1 ? "" : "disabled"}>‹</button>${nums.join("")}`
+    + `<button type="button" class="pg-n" data-pg="${p + 1}" ${p < pageCount ? "" : "disabled"}>›</button>`
+    + `</span>`;
+
+  pager.querySelector("select[data-psize]")?.addEventListener("change", (e) => {
+    pagination.size = Number(e.target.value) || 10;
+    pagination.page = 1;
+    onChange();
+  });
+  pager.querySelectorAll("button[data-pg]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetPage = Number(btn.dataset.pg);
+      if (targetPage >= 1 && targetPage <= pageCount && targetPage !== pagination.page) {
+        pagination.page = targetPage;
+        onChange();
+      }
+    });
+  });
+}
+
 function feedback(id, message, error = false) {
   const element = document.getElementById(id);
   element.textContent = message;
@@ -1604,6 +1648,7 @@ function monthlyStatus(employee, range) {
 
 let monthlyReportRows = [];
 let visibleMonthlyReportRows = [];
+const monthlyReportPagination = { page: 1, size: 10 };
 
 function renderMonthlyReport() {
   const monthInput = document.getElementById("staffReportMonth").value;
@@ -1644,6 +1689,14 @@ function renderMonthlyReport() {
       );
     },
   );
+
+  const total = visibleMonthlyReportRows.length;
+  const pageCount = Math.max(1, Math.ceil(total / monthlyReportPagination.size));
+  if (monthlyReportPagination.page > pageCount) monthlyReportPagination.page = pageCount;
+  if (monthlyReportPagination.page < 1) monthlyReportPagination.page = 1;
+  const off = (monthlyReportPagination.page - 1) * monthlyReportPagination.size;
+  const pageRows = visibleMonthlyReportRows.slice(off, off + monthlyReportPagination.size);
+
   if (!visibleMonthlyReportRows.length) {
     const row = document.createElement("tr");
     addCell(
@@ -1654,7 +1707,7 @@ function renderMonthlyReport() {
     ).colSpan = 5;
     body.append(row);
   }
-  visibleMonthlyReportRows.forEach(({ employee, statuses, note }) => {
+  pageRows.forEach(({ employee, statuses, note }) => {
     const row = document.createElement("tr");
     addCell(row, employee.full_name);
     addCell(row, departmentName(employee));
@@ -1667,6 +1720,8 @@ function renderMonthlyReport() {
     addCell(row, note || "-");
     body.append(row);
   });
+  renderTablePager("monthlyStaffPager", total, monthlyReportPagination, renderMonthlyReport);
+
   const summary = document.getElementById("monthlyStaffSummary");
   summary.replaceChildren();
   [
@@ -1693,13 +1748,22 @@ document.getElementById("staffReportMonth").value = vietnamDateISO().slice(
 document.getElementById("staffReportMonth").max = vietnamDateISO().slice(0, 7);
 document
   .getElementById("staffReportMonth")
-  .addEventListener("change", renderMonthlyReport);
+  .addEventListener("change", () => {
+    monthlyReportPagination.page = 1;
+    renderMonthlyReport();
+  });
 document
   .getElementById("monthlyStaffSearch")
-  .addEventListener("input", renderMonthlyReport);
+  .addEventListener("input", () => {
+    monthlyReportPagination.page = 1;
+    renderMonthlyReport();
+  });
 document
   .getElementById("monthlyStaffFilter")
-  .addEventListener("change", renderMonthlyReport);
+  .addEventListener("change", () => {
+    monthlyReportPagination.page = 1;
+    renderMonthlyReport();
+  });
 
 function vietnamDateISO(date = new Date()) {
   const parts = Object.fromEntries(
@@ -1823,6 +1887,7 @@ function renderDistribution(containerId, entries) {
 }
 
 let visibleStaffStats = [];
+const staffStatsPagination = { page: 1, size: 10 };
 
 function renderStaffStats() {
   const employeesWithStats = employees.map((employee) => ({
@@ -1938,6 +2003,13 @@ function renderStaffStats() {
       (selectedEducation === "all" || education === selectedEducation)
     );
   });
+  const total = visibleStaffStats.length;
+  const pageCount = Math.max(1, Math.ceil(total / staffStatsPagination.size));
+  if (staffStatsPagination.page > pageCount) staffStatsPagination.page = pageCount;
+  if (staffStatsPagination.page < 1) staffStatsPagination.page = 1;
+  const off = (staffStatsPagination.page - 1) * staffStatsPagination.size;
+  const pageStats = visibleStaffStats.slice(off, off + staffStatsPagination.size);
+
   const body = document.getElementById("staffStatsBody");
   body.replaceChildren();
   if (!visibleStaffStats.length) {
@@ -1950,7 +2022,7 @@ function renderStaffStats() {
     ).colSpan = 6;
     body.append(row);
   }
-  visibleStaffStats.forEach(({ employee, salary, education }) => {
+  pageStats.forEach(({ employee, salary, education }) => {
     const row = document.createElement("tr");
     const identity = document.createElement("td");
     const name = document.createElement("strong");
@@ -1972,14 +2044,21 @@ function renderStaffStats() {
     addCell(row, tenureLabel(employee));
     body.append(row);
   });
+  renderTablePager("staffStatsPager", total, staffStatsPagination, renderStaffStats);
 }
 
 document
   .getElementById("staffStatsSearch")
-  .addEventListener("input", renderStaffStats);
+  .addEventListener("input", () => {
+    staffStatsPagination.page = 1;
+    renderStaffStats();
+  });
 document
   .getElementById("staffStatsEducationFilter")
-  .addEventListener("change", renderStaffStats);
+  .addEventListener("change", () => {
+    staffStatsPagination.page = 1;
+    renderStaffStats();
+  });
 
 function csvCell(value) {
   const text = String(value ?? "");
@@ -2062,9 +2141,32 @@ document.getElementById("exportStaffStatsBtn").addEventListener("click", () => {
   downloadCsv("thong-ke-ho-so-nhan-su.csv", rows);
 });
 
+function canManagerAssignRoleTo(employee) {
+  if (!employee) return false;
+  if (isCurrentActorEmployee(employee)) return false;
+  if (isManagerEmployee(employee)) return false;
+  const currentRoleIds = roleAssignments.get(employee.employee_id) || [];
+  const roleNames = currentRoleIds.map(
+    (id) => roles.find((r) => r.role_id === id)?.role_name || "",
+  );
+  const isManagerOrAdmin = roleNames.some((raw) => {
+    const lower = raw.toLowerCase();
+    const norm = normalizeFilterText(raw);
+    return (
+      lower === "admin" ||
+      MANAGER_ROLE_NAMES.includes(lower) ||
+      norm.includes("quan ly") ||
+      lower.includes("manager")
+    );
+  });
+  if (isManagerOrAdmin) return false;
+  return isLeaderEmployee(employee) || isStaffEmployee(employee) || currentRoleIds.length === 0;
+}
+
 function renderEmployeeSelects() {
+  const assignableEmployees = employees.filter(canManagerAssignRoleTo);
   const previousPermissions = document.getElementById("permissionEmployee").value;
-  fillSelect(document.getElementById("permissionEmployee"), employees, "employee_id", (employee) => `${employee.full_name} · ${employee.email}`, previousPermissions);
+  fillSelect(document.getElementById("permissionEmployee"), assignableEmployees, "employee_id", (employee) => `${employee.full_name} · ${employee.email}`, previousPermissions);
   fillRoleSelect(
     document.getElementById("permissionRole"),
     roleAssignments.get(document.getElementById("permissionEmployee").value)
@@ -2084,13 +2186,16 @@ function selectedPermissionEmployee() {
   );
 }
 
+const roleHistoryPagination = { page: 1, size: 10 };
+
 function renderRoleHistory(employee) {
   const body = document.getElementById("roleHistoryBody");
   body.replaceChildren();
   const entries = roleHistory.filter(
     (assignment) => assignment.employee_id === employee?.employee_id,
   );
-  if (!entries.length) {
+  const total = entries.length;
+  if (!total) {
     const row = document.createElement("tr");
     addCell(
       row,
@@ -2099,9 +2204,16 @@ function renderRoleHistory(employee) {
         : "Chọn nhân sự để xem lịch sử.",
     ).colSpan = 4;
     body.append(row);
+    renderTablePager("roleHistoryPager", 0, roleHistoryPagination, () => renderRoleHistory(employee));
     return;
   }
-  entries.forEach((assignment) => {
+  const pageCount = Math.max(1, Math.ceil(total / roleHistoryPagination.size));
+  if (roleHistoryPagination.page > pageCount) roleHistoryPagination.page = pageCount;
+  if (roleHistoryPagination.page < 1) roleHistoryPagination.page = 1;
+  const off = (roleHistoryPagination.page - 1) * roleHistoryPagination.size;
+  const pageEntries = entries.slice(off, off + roleHistoryPagination.size);
+
+  pageEntries.forEach((assignment) => {
     const row = document.createElement("tr");
     addCell(row, assignment.role_name);
     addCell(row, dateLabel(assignment.valid_from));
@@ -2116,6 +2228,7 @@ function renderRoleHistory(employee) {
     addCell(row, assignment.assigned_by_name || "-");
     body.append(row);
   });
+  renderTablePager("roleHistoryPager", total, roleHistoryPagination, () => renderRoleHistory(employee));
 }
 
 function renderPermissions() {
@@ -2135,12 +2248,14 @@ function renderPermissions() {
   const cannotChangeOwnRole =
     employee?.employee_id === currentActor?.employee_id &&
     !currentActor?.is_admin;
+  const notAssignable = !canManagerAssignRoleTo(employee);
   saveBtn.disabled =
     !employee ||
     !roleId ||
     alreadyOnlyHasTarget ||
     targetRole?.assignable === false ||
-    cannotChangeOwnRole;
+    cannotChangeOwnRole ||
+    notAssignable;
   const currentRoleNames = currentRoleIds.map(
     (id) =>
       roles.find((role) => role.role_id === id)?.role_name ||
@@ -2161,7 +2276,13 @@ function renderPermissions() {
       !nextRolePermissions.has(permission.permission_id),
   );
   const changeSummary = document.getElementById("permissionChangeSummary");
-  if (!employee || !targetRole) {
+  if (!employee) {
+    changeSummary.textContent =
+      "Không có nhân sự phù hợp để phân quyền (chỉ được phân quyền cho nhân viên và trưởng nhóm).";
+  } else if (cannotChangeOwnRole || notAssignable) {
+    changeSummary.textContent =
+      "Quản lý chỉ được phân quyền cho nhân viên và trưởng nhóm (không được phân quyền cho chính mình hoặc quản lý khác).";
+  } else if (!targetRole) {
     changeSummary.textContent =
       "Chọn nhân sự và vai trò để xem các quyền được kế thừa.";
   } else if (!currentRoleIds.length) {
@@ -2240,6 +2361,7 @@ function renderPermissions() {
 }
 
 document.getElementById("permissionEmployee").addEventListener("change", () => {
+  roleHistoryPagination.page = 1;
   const employee = selectedPermissionEmployee();
   fillRoleSelect(
     document.getElementById("permissionRole"),
@@ -2259,6 +2381,14 @@ document
     const employee = selectedPermissionEmployee();
     const roleId = document.getElementById("permissionRole").value;
     if (!employee || !roleId) return;
+    if (!canManagerAssignRoleTo(employee)) {
+      feedback(
+        "permissionFeedback",
+        "Chỉ được phân quyền cho nhân viên và trưởng nhóm (không được phân quyền cho quản lý hoặc chính mình).",
+        true,
+      );
+      return;
+    }
     const button = document.getElementById("savePermissionsBtn");
     button.disabled = true;
     try {
