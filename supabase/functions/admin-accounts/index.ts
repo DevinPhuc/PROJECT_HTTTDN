@@ -1011,14 +1011,14 @@ async function permanentDeleteAction(
         delete from public.leave_requests
         where employee_id = ${employeeId}::uuid`;
 
-      // 5. Nullify career_history approved_by, then delete career_history
-      await tx`
-        update public.career_history
-        set approved_by = null
-        where approved_by = ${employeeId}::uuid`;
-      await tx`
-        delete from public.career_history
-        where employee_id = ${employeeId}::uuid`;
+      // // 5. Nullify career_history approved_by, then delete career_history
+      // await tx`
+      //   update public.career_history
+      //   set approved_by = null
+      //   where approved_by = ${employeeId}::uuid`;
+      // await tx`
+      //   delete from public.career_history
+      //   where employee_id = ${employeeId}::uuid`;
 
       // 6. Nullify employee_status_history recorded_by, then delete employee_status_history
       await tx`
