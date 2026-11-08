@@ -1,0 +1,1511 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap");
+
+/* ==========================================================================
+   Portal Unified Design System
+   Matches Leader Portal UI (List views, Sidebar elements, 18px icons, Gold Active)
+   while PRESERVING distinct Sidebar Backgrounds:
+   - Admin:   Đen (Dark/Black #181e1b)
+   - Manager: Vàng (Rich Golden Amber #3a270f)
+   - Staff:   Xanh đậm (Deep Ocean Cyan/Teal #102a30)
+   ========================================================================== */
+
+/* 1. TYPOGRAPHY & HEADINGS */
+h1, h2, h3,
+.admin-topbar h1,
+.panel-heading h2,
+.panel-heading h3,
+.staff-section-heading h2,
+.staff-section-heading h3,
+.admin-section-heading h2,
+.account-form-header h2,
+.modal-header h2,
+.modal-header h3,
+.mgr-clock-date,
+.staff-clock-date {
+  font-family: "Cormorant Upright", Georgia, serif !important;
+  font-weight: 500 !important;
+  color: #193536 !important;
+}
+
+.admin-topbar h1,
+#adminPageTitle,
+#staffPageTitle {
+  margin: 0 !important;
+  font-size: clamp(26px, 3vw, 35px) !important;
+  letter-spacing: normal !important;
+  line-height: 1.15 !important;
+}
+
+.panel-heading h2,
+.staff-section-heading h2 {
+  font-size: clamp(22px, 2.4vw, 28px) !important;
+}
+
+/* Eyebrows */
+.account-eyebrow,
+.admin-eyebrow,
+.staff-eyebrow {
+  margin: 0 0 8px !important;
+  color: #6b8180 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+/* 2. SIDEBAR STRUCTURE & DISTINCT PORTAL COLORS */
+.admin-sidebar {
+  position: sticky !important;
+  top: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 27px !important;
+  height: 100vh !important;
+  min-height: 640px !important;
+  padding: 27px 18px 22px !important;
+  overflow-y: auto !important;
+  color: #f6fbf7 !important;
+  border-right: none !important;
+}
+
+/* Admin: Đen */
+[data-portal="admin"] .admin-sidebar,
+.portal-admin .admin-sidebar {
+  background:
+    radial-gradient(ellipse at 0 0, rgb(60 72 66 / 35%), transparent 24rem),
+    #181e1b !important;
+}
+
+/* Manager: Vàng (Warm Rich Golden Amber) */
+[data-portal="manager"] .admin-sidebar,
+.portal-manager .admin-sidebar {
+  background:
+    radial-gradient(ellipse at 0 0, rgb(190 140 50 / 30%), transparent 24rem),
+    #3a270f !important;
+}
+
+/* Staff: Xanh đậm (Deep Dark Cyan / Ocean Teal) */
+[data-portal="staff"] .admin-sidebar,
+.portal-staff .admin-sidebar {
+  background:
+    radial-gradient(ellipse at 0 0, rgb(30 95 105 / 35%), transparent 24rem),
+    #102a30 !important;
+}
+
+/* Brand block */
+.admin-brand-block {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 0 8px 23px !important;
+  border-bottom: 1px solid rgb(255 255 255 / 13%) !important;
+}
+
+.admin-brand-mark {
+  display: grid !important;
+  width: 43px !important;
+  height: 43px !important;
+  aspect-ratio: 1 !important;
+  flex: 0 0 auto !important;
+  place-items: center !important;
+  border: 1px solid #d9b874 !important;
+  border-radius: 15px 15px 15px 4px !important;
+  color: #f1d89e !important;
+  font-family: "Cormorant Upright", Georgia, serif !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+}
+
+.admin-brand-label {
+  color: #fff !important;
+  font-family: "Cormorant Upright", Georgia, serif !important;
+  font-size: 18px !important;
+  line-height: 1.1 !important;
+}
+
+.admin-brand-block strong {
+  display: block !important;
+  margin-top: 4px !important;
+  color: #a9d0c3 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  font-family: "Sofia Sans", Arial, sans-serif !important;
+}
+
+[data-portal="manager"] .admin-brand-block strong {
+  color: #ebd7a2 !important;
+}
+
+/* Profile card */
+.admin-profile-card {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 11px !important;
+  padding: 0 8px !important;
+}
+
+.admin-avatar {
+  display: grid !important;
+  width: 39px !important;
+  height: 39px !important;
+  aspect-ratio: 1 !important;
+  flex: 0 0 auto !important;
+  place-items: center !important;
+  border: 1px solid rgb(255 255 255 / 20%) !important;
+  border-radius: 50% !important;
+  background: #d7ece3 !important;
+  color: #10584f !important;
+  font-size: 12px !important;
+  font-weight: 750 !important;
+}
+
+[data-portal="manager"] .admin-avatar {
+  background: #f7e6c0 !important;
+  color: #5c3c12 !important;
+}
+
+.admin-profile-toggle strong {
+  color: #fff !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+}
+
+.admin-profile-toggle span {
+  color: #acc3bd !important;
+  font-size: 11px !important;
+}
+
+[data-portal="manager"] .admin-profile-toggle span {
+  color: #d8c3a1 !important;
+}
+
+/* Logout button */
+.admin-logout-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding: 9px 12px !important;
+  border: 1px solid #ffffff !important;
+  border-radius: 9px !important;
+  background: #ffffff !important;
+  color: #a5483f !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  transition: background-color 160ms ease, border-color 160ms ease !important;
+}
+
+.admin-logout-btn:hover {
+  background: #fdf5f4 !important;
+  border-color: #f3dcd9 !important;
+}
+
+/* Section label in sidebar */
+.leader-nav-label {
+  margin: 4px 8px -15px !important;
+  color: #8eb6aa !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  font-family: "Sofia Sans", Arial, sans-serif !important;
+}
+
+[data-portal="manager"] .leader-nav-label {
+  color: #c9b183 !important;
+}
+
+/* Nav items */
+.admin-nav {
+  display: grid !important;
+  gap: 7px !important;
+}
+
+.admin-nav-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 45px !important;
+  padding: 10px 12px !important;
+  border: 1px solid transparent !important;
+  border-radius: 11px !important;
+  color: #d2e3dd !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease !important;
+}
+
+[data-portal="manager"] .admin-nav-item {
+  color: #ebd9b8 !important;
+}
+
+/* 18px Monochrome Icons */
+.admin-nav-item .nav-png-icon {
+  width: 18px !important;
+  height: 18px !important;
+  object-fit: contain !important;
+  filter: brightness(0) invert(1) !important;
+  opacity: 0.85 !important;
+  flex: 0 0 auto !important;
+  margin-right: 0 !important;
+}
+
+.admin-nav-item .admin-nav-icon,
+.admin-nav-item svg {
+  width: 18px !important;
+  height: 18px !important;
+  flex: 0 0 auto !important;
+  fill: currentColor !important;
+  color: inherit !important;
+  opacity: 0.85 !important;
+  margin-right: 0 !important;
+}
+
+.admin-nav-item:hover {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+/* Active Nav Item with Gold Inset Indicator */
+.admin-nav-item.is-active {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  box-shadow: inset 3px 0 #e6c982 !important;
+}
+
+/* Sidebar footer note */
+.leader-sidebar-note {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  margin-top: auto !important;
+  padding: 13px 10px 0 !important;
+  border-top: 1px solid rgb(255 255 255 / 12%) !important;
+  color: #b7d0c8 !important;
+  font-size: 11px !important;
+  background: transparent !important;
+}
+
+[data-portal="manager"] .leader-sidebar-note {
+  color: #dccdb3 !important;
+}
+
+.leader-live-dot {
+  display: inline-block !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #89d3a9 !important;
+  box-shadow: 0 0 0 4px rgb(137 211 169 / 12%) !important;
+  flex: 0 0 auto !important;
+}
+
+[data-portal="manager"] .leader-live-dot {
+  background: #e9be65 !important;
+  box-shadow: 0 0 0 4px rgb(233 190 101 / 18%) !important;
+}
+
+/* 3. GIAO DIỆN DANH SÁCH (TABLES & LISTS) */
+.admin-table-wrap,
+.hr-table-wrap,
+.staff-table-wrap,
+.admin-list,
+.attendance-table-wrap,
+.payroll-sheet-wrap,
+.table-wrap {
+  border: 1px solid #e0eae5 !important;
+  border-radius: 11px !important;
+  overflow: auto !important;
+  background: #ffffff !important;
+}
+
+table,
+.admin-table,
+.hr-table,
+.staff-table,
+.table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  color: #193536 !important;
+  font-size: 13px !important;
+}
+
+table th,
+.admin-table th,
+.hr-table th,
+.staff-table th,
+.admin-row-header,
+.table thead th {
+  background: #f3f8f5 !important;
+  color: #56716b !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  padding: 12px 14px !important;
+  border-bottom: 1px solid #e7efeb !important;
+  border-top: none !important;
+  white-space: nowrap !important;
+}
+
+table td,
+.admin-table td,
+.hr-table td,
+.staff-table td,
+.admin-row:not(.admin-row-header),
+.table tbody td {
+  padding: 12px 14px !important;
+  border-bottom: 1px solid #e7efeb !important;
+  border-top: none !important;
+  color: #193536 !important;
+  font-size: 13px !important;
+  vertical-align: middle !important;
+}
+
+tbody tr:hover,
+.admin-row:not(.admin-row-header):hover,
+.table tbody tr:hover td {
+  background: #f8fbf9 !important;
+}
+
+/* Inputs & Filter Controls */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+input[type="month"],
+input[type="date"],
+input[type="tel"],
+input[type="number"],
+select,
+.admin-search {
+  min-height: 38px !important;
+  padding: 8px 12px !important;
+  border: 1px solid #cfdfd8 !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #193536 !important;
+  font-size: 13px !important;
+  outline: none !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease !important;
+}
+
+input:focus,
+select:focus,
+.admin-search:focus {
+  border-color: #16766d !important;
+  box-shadow: 0 0 0 3px rgb(22 118 109 / 12%) !important;
+}
+
+/* Buttons */
+.admin-primary-btn,
+.staff-primary-btn,
+button.btn-primary,
+.save-btn {
+  border-radius: 8px !important;
+  min-height: 38px !important;
+  padding: 8px 18px !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  box-shadow: none !important;
+  transition: transform 120ms ease, opacity 120ms ease !important;
+}
+
+.admin-primary-btn:hover:not(:disabled),
+.staff-primary-btn:hover:not(:disabled) {
+  opacity: 0.92 !important;
+  transform: translateY(-1px) !important;
+}
+
+.admin-secondary-btn,
+.staff-secondary-btn,
+.account-refresh-btn,
+.staff-global-refresh-btn,
+.hr-global-refresh-btn {
+  border: 1px solid #cbdcd6 !important;
+  border-radius: 8px !important;
+  background: rgb(255 255 255 / 80%) !important;
+  color: #193536 !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  min-height: 38px !important;
+  padding: 8px 14px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  transition: background 120ms ease, transform 120ms ease !important;
+}
+
+.admin-secondary-btn:hover:not(:disabled),
+.staff-secondary-btn:hover:not(:disabled) {
+  background: #f1f6f3 !important;
+  transform: translateY(-1px) !important;
+}
+
+
+/* ==========================================================================
+   COMPACT & AUTO-HIDING SCROLLBARS (Sidebars, Tables, Lists, Viewports)
+   ========================================================================== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 120, 0.25) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.2);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.35);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 120, 0.6);
+}
+
+/* Dark Sidebars: Admin (#181e1b), Manager (#3a270f), Staff (#102a30), Leader (#143b3c) */
+.admin-sidebar,
+.manager-sidebar,
+.staff-sidebar,
+.leader-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.admin-sidebar:hover,
+.manager-sidebar:hover,
+.staff-sidebar:hover,
+.leader-sidebar:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+.admin-sidebar::-webkit-scrollbar,
+.manager-sidebar::-webkit-scrollbar,
+.staff-sidebar::-webkit-scrollbar,
+.leader-sidebar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track,
+.manager-sidebar::-webkit-scrollbar-track,
+.staff-sidebar::-webkit-scrollbar-track,
+.leader-sidebar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb,
+.manager-sidebar::-webkit-scrollbar-thumb,
+.staff-sidebar::-webkit-scrollbar-thumb,
+.leader-sidebar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+.admin-sidebar:hover::-webkit-scrollbar-thumb,
+.manager-sidebar:hover::-webkit-scrollbar-thumb,
+.staff-sidebar:hover::-webkit-scrollbar-thumb,
+.leader-sidebar:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover,
+.manager-sidebar::-webkit-scrollbar-thumb:hover,
+.staff-sidebar::-webkit-scrollbar-thumb:hover,
+.leader-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Scrollable tables and lists */
+.table-responsive,
+.admin-table-wrap,
+.staff-table-wrap,
+.leader-table-wrap,
+.leader-board-wrap,
+.payroll-table-wrap,
+.admin-employee-table,
+.staff-table {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.table-responsive::-webkit-scrollbar,
+.admin-table-wrap::-webkit-scrollbar,
+.staff-table-wrap::-webkit-scrollbar,
+.leader-table-wrap::-webkit-scrollbar,
+.leader-board-wrap::-webkit-scrollbar,
+.payroll-table-wrap::-webkit-scrollbar,
+.admin-employee-table::-webkit-scrollbar,
+.staff-table::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track,
+.admin-table-wrap::-webkit-scrollbar-track,
+.staff-table-wrap::-webkit-scrollbar-track,
+.leader-table-wrap::-webkit-scrollbar-track,
+.leader-board-wrap::-webkit-scrollbar-track,
+.payroll-table-wrap::-webkit-scrollbar-track,
+.admin-employee-table::-webkit-scrollbar-track,
+.staff-table::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-responsive::-webkit-scrollbar-thumb,
+.admin-table-wrap::-webkit-scrollbar-thumb,
+.staff-table-wrap::-webkit-scrollbar-thumb,
+.leader-table-wrap::-webkit-scrollbar-thumb,
+.leader-board-wrap::-webkit-scrollbar-thumb,
+.payroll-table-wrap::-webkit-scrollbar-thumb,
+.admin-employee-table::-webkit-scrollbar-thumb,
+.staff-table::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 999px;
+}
+
+.table-responsive:hover::-webkit-scrollbar-thumb,
+.admin-table-wrap:hover::-webkit-scrollbar-thumb,
+.staff-table-wrap:hover::-webkit-scrollbar-thumb,
+.leader-table-wrap:hover::-webkit-scrollbar-thumb,
+.leader-board-wrap:hover::-webkit-scrollbar-thumb,
+.payroll-table-wrap:hover::-webkit-scrollbar-thumb,
+.admin-employee-table:hover::-webkit-scrollbar-thumb,
+.staff-table:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+/* ==========================================================================
+   UNIFIED LOGOUT MODAL STYLING (Manager, Staff, Admin, Leader)
+   ========================================================================== */
+.logout-modal {
+  position: fixed !important;
+  z-index: 10000 !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 20px !important;
+  background: rgba(20, 30, 25, 0.45) !important;
+}
+
+.logout-modal[hidden] {
+  display: none !important;
+}
+
+.logout-modal-content {
+  width: min(100%, 380px) !important;
+  padding: 28px 24px !important;
+  border: 1px solid #e6e9e3 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  box-shadow: 0 16px 40px rgba(20, 30, 25, 0.18) !important;
+}
+
+.logout-modal-content h2 {
+  margin: 0 0 24px !important;
+  color: #252b27 !important;
+  font-family: var(--heading-font, "Cormorant Upright", Georgia, serif) !important;
+  font-size: 25px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  text-align: center !important;
+}
+
+.logout-modal-actions {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 12px !important;
+}
+
+.logout-modal-actions button {
+  min-width: 90px !important;
+  min-height: 38px !important;
+  padding: 8px 20px !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 160ms ease !important;
+}
+
+.logout-modal-actions .admin-secondary-btn {
+  border: 1px solid #d7ddd7 !important;
+  background: #ffffff !important;
+  color: #252b27 !important;
+}
+
+.logout-modal-actions .admin-secondary-btn:hover {
+  border-color: #aebbb1 !important;
+  background: #f8faf7 !important;
+}
+
+.logout-modal-actions .admin-logout-btn {
+  border: 1px solid #a5483f !important;
+  background: #a5483f !important;
+  color: #ffffff !important;
+}
+
+.logout-modal-actions .admin-logout-btn:hover {
+  background: #8e3d35 !important;
+  border-color: #8e3d35 !important;
+  color: #ffffff !important;
+}
+
+/* Reset and align embedded month picker inside period control badges */
+.hr-period-control,
+.cc-head-tools .hr-period-control,
+.pl-mp {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  border: 1px solid #cfdfd8 !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #193536 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+}
+
+.hr-period-control input,
+.hr-period-control input[type="month"],
+.cc-head-tools .hr-period-control input,
+.cc-head-tools .hr-period-control input[type="month"],
+.pl-mp input,
+.pl-mp input[type="month"] {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 0 0 4px !important;
+  min-height: auto !important;
+  height: auto !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  outline: none !important;
+  font: inherit !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+}
+
+.hr-period-control:focus-within,
+.cc-head-tools .hr-period-control:focus-within,
+.pl-mp:focus-within {
+  border-color: #16766d !important;
+  box-shadow: 0 0 0 3px rgb(22 118 109 / 12%) !important;
+}
+
+/* ==========================================================================
+   Non-editable / Locked Fields in Add/Edit Employee Info Forms
+   Chỉ áp dụng cho các khung không thể sửa đổi của form thêm mới/chỉnh sửa thông tin nhân sự:
+   - Admin (#accountForm): Mã nhân viên, Mật khẩu đăng nhập, Trạng thái (khóa không chọn), Vai trò (khi khóa)
+   - Manager (#employeeForm): Mã nhân viên, Mật khẩu đăng nhập, Trạng thái (khóa không chọn), Phòng ban (khi khóa)
+   ========================================================================== */
+#accountForm input[readonly],
+#accountForm input:read-only,
+#accountForm input:disabled,
+#accountForm input[disabled],
+#accountForm select:disabled,
+#accountForm select[disabled],
+#employeeForm input[readonly],
+#employeeForm input:read-only,
+#employeeForm input:disabled,
+#employeeForm input[disabled],
+#employeeForm select:disabled,
+#employeeForm select[disabled] {
+  background-color: #cbd5e1 !important;
+  border: 1px solid #94a3b8 !important;
+  color: #0f172a !important;
+  font-weight: 500 !important;
+  cursor: not-allowed !important;
+}
+
+/* Các trường được phép chỉnh sửa trong form thêm/sửa phải giữ nguyên nền trắng và con trỏ chuẩn */
+#accountForm input:not([readonly]):not(:disabled),
+#employeeForm input:not([readonly]):not(:disabled) {
+  background-color: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  color: #111827 !important;
+  cursor: text !important;
+}
+
+#accountForm select:not(:disabled),
+#employeeForm select:not(:disabled) {
+  background-color: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  color: #111827 !important;
+  cursor: pointer !important;
+}
+
+/* Ngăn outline/focus ring trên các ô bị khóa không được sửa đổi */
+#accountForm input[readonly]:focus,
+#accountForm input:read-only:focus,
+#accountForm input:disabled:focus,
+#accountForm input[disabled]:focus,
+#accountForm select:disabled:focus,
+#accountForm select[disabled]:focus,
+#employeeForm input[readonly]:focus,
+#employeeForm input:read-only:focus,
+#employeeForm input:disabled:focus,
+#employeeForm input[disabled]:focus,
+#employeeForm select:disabled:focus,
+#employeeForm select[disabled]:focus {
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Chữ gợi ý (placeholder) trong các ô bị khóa hiển thị rõ nét trên nền xám đậm */
+#accountForm input[readonly]::placeholder,
+#accountForm input:disabled::placeholder,
+#employeeForm input[readonly]::placeholder,
+#employeeForm input:disabled::placeholder {
+  color: #475569 !important;
+  opacity: 1 !important;
+}
+
+/* Xóa biểu tượng tam giác 'v' ở khung trạng thái và các select bị khóa trong form nhân sự */
+#accountForm select[name="is_active"],
+#accountForm select[name="is_active"]:disabled,
+#employeeStatus,
+#employeeForm select[name="employmentStatus"],
+#employeeForm select[name="employmentStatus"]:disabled,
+#employeeForm select:disabled {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: none !important;
+  padding-right: 12px !important;
+}
+
+/* ==========================================================================
+   Khung bộ lọc, dropdown phân trang trên toàn bộ hệ thống (Admin, Manager, Leader, Staff)
+   Đảm bảo luôn có nền trắng, viền rõ ràng, con trỏ chuột pointer và KHÔNG có biểu tượng cấm
+   ========================================================================== */
+select.admin-search,
+.admin-search select,
+.employee-list-filters select,
+.account-filter-panel select,
+.page-size-label select,
+.hr-pagination select,
+.hr-pagination-controls select,
+.pl-pg select,
+.cc-tools select,
+.leader-filter select,
+.leader-month-selectors select,
+.leader-period-control select,
+.leader-board select,
+#employeePositionFilter,
+#requestFilter,
+#monthlyStaffFilter,
+#staffStatsEducationFilter,
+#permissionEmployee,
+#permissionRole,
+#mgrAttendanceFilter,
+#mgrCcDept,
+#accountDepartmentFilter,
+#accountStatusFilter,
+#accountRoleFilter,
+#overviewAccountsPageSize,
+#overviewStaffPageSize,
+#accountPageSize,
+#staffPageSize,
+#leaderSheetMonth,
+#leaderRequestFilter,
+#attendanceFilter,
+#salaryMonth,
+#salaryYear,
+#annualSalaryYear,
+#leaveType,
+select:not(:disabled) {
+  background-color: #ffffff !important;
+  border-color: #cfdfd8 !important;
+  color: #193536 !important;
+  cursor: pointer !important;
+}
+
+/* Bỏ icon cấm khi di chuột vào các bộ lọc và pagination dropdowns */
+.employee-list-filters,
+.employee-list-filters *,
+.account-filter-panel,
+.account-filter-panel *,
+.hr-pagination,
+.hr-pagination *,
+.page-size-label,
+.page-size-label * {
+  cursor: default;
+}
+
+.employee-list-filters select,
+.account-filter-panel select,
+.hr-pagination select,
+.page-size-label select,
+select.admin-search,
+#employeePositionFilter,
+#requestFilter,
+#monthlyStaffFilter,
+#staffStatsEducationFilter,
+#permissionEmployee,
+#permissionRole,
+#mgrAttendanceFilter,
+#mgrCcDept,
+#accountDepartmentFilter,
+#accountStatusFilter,
+#accountRoleFilter,
+#overviewAccountsPageSize,
+#overviewStaffPageSize,
+#accountPageSize,
+#staffPageSize {
+  cursor: pointer !important;
+}
+
+/* ==========================================================================
+   Shared Timesheet (Bảng chấm công) Styles for Manager & Leader
+   ========================================================================== */
+.cc-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.cc-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cc-actions {
+  display: flex;
+  flex: 1 1 520px;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cc-tools .admin-search {
+  flex: 1 1 270px;
+  width: 270px;
+  min-width: 150px;
+  min-height: 40px;
+  border-color: #d7ddd7;
+  border-radius: 10px;
+}
+
+.cc-tools #mgrCcSearch,
+.cc-tools #leaderCcSearch {
+  margin-left: auto;
+  padding-left: 42px !important;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394a3b8' stroke-width='1.4' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='4.8'/%3E%3Cpath d='M10.6 10.6L14 14'/%3E%3C/svg%3E") no-repeat 14px center / 16px !important;
+  box-sizing: border-box !important;
+  text-indent: 0 !important;
+}
+
+.cc-tools .admin-secondary-btn,
+.cc-tools .leader-button {
+  white-space: nowrap;
+}
+
+.cc-wrap {
+  overflow: auto;
+  max-height: calc(100vh - 310px);
+  background: #fff;
+  border: 1px solid #d7ddd7;
+  border-radius: 8px;
+}
+
+table.cc {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 12px;
+  user-select: none;
+}
+
+.cc th,
+.cc td {
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: center;
+  padding: 0;
+  height: 36px;
+}
+
+.cc thead th {
+  position: sticky;
+  top: 0;
+  background: #eef5f1;
+  z-index: 3;
+  font-weight: 700;
+  color: #4b6358;
+  font-size: 11px;
+  padding: 4px 2px;
+  line-height: 1.2;
+}
+
+.cc thead th.we {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.cc thead th.td {
+  background: #1b4d3e;
+  color: #fff;
+}
+
+.cc-nm {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 2;
+  text-align: left !important;
+  padding: 0 12px !important;
+  min-width: 200px;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc thead .cc-nm {
+  z-index: 4;
+  background: #eef5f1;
+}
+
+.cc td.cc-d {
+  width: 32px;
+  min-width: 32px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.cc td.cc-d:not(.cc-locked):hover {
+  outline: 2px solid #16766d;
+  outline-offset: -2px;
+}
+
+.cc td.cc-locked {
+  cursor: not-allowed !important;
+  background-color: #f8fafc !important;
+  color: #94a3b8 !important;
+}
+
+.cc td.cc-locked:hover {
+  outline: none !important;
+}
+
+.cc td.we {
+  background: #fff7f8;
+}
+
+.cc td.cc-sum {
+  min-width: 56px;
+  padding: 0 6px;
+  font-weight: 700;
+  background: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc td.cc-hl {
+  background: #eef5f1;
+  color: #1b4d3e;
+}
+
+.cc-muted {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.cc-brush {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12.5px;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.cc-brush:hover {
+  transform: translateY(-1px);
+}
+
+.cc-brush.on {
+  border-color: #0f172a;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+}
+
+.cc-brush small {
+  font-weight: 500;
+  opacity: .85;
+}
+
+.cc-btn-icon {
+  width: 15px;
+  height: 15px;
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+
+.mgr-cc-clear-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+
+.cc-head-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cc-excel-btn {
+  background: #1b4d3e !important;
+  border-color: #1b4d3e !important;
+  color: #ffffff !important;
+}
+
+.cc-excel-btn:hover {
+  background: #153e32 !important;
+  border-color: #153e32 !important;
+}
+
+#mgrCcPager,
+#leaderCcPager,
+.mgr-pager,
+.staff-pager {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 14px;
+  padding: 14px 4px 0;
+  border-top: 1px solid #e2e8f0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+#mgrCcPager b,
+#leaderCcPager b,
+.mgr-pager b,
+.staff-pager b {
+  color: #475569;
+  font-weight: 700;
+}
+
+#mgrCcPager .pg,
+#leaderCcPager .pg,
+.mgr-pager .pg,
+.staff-pager .pg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+#mgrCcPager select[data-psize],
+#leaderCcPager select[data-psize],
+.mgr-pager select[data-psize],
+.staff-pager select[data-psize],
+.pl-pager select[data-psize],
+.page-size-label select,
+.hr-pagination-controls select,
+select[data-psize] {
+  min-width: 68px !important;
+  width: 68px !important;
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 24px 0 12px !important;
+  border: 1px solid #cfdfd8 !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23193536' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 6l4.5 4.5 4.5-4.5'/%3E%3C/svg%3E") no-repeat right 9px center / 12px !important;
+  color: #193536 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+}
+
+#mgrCcPager .pg-n,
+#leaderCcPager .pg-n,
+.mgr-pager .pg-n,
+.staff-pager .pg-n,
+.pl-pager .pl-pgn,
+.hr-page-button,
+.page-btn {
+  min-width: 36px !important;
+  height: 36px !important;
+  padding: 0 10px !important;
+  border: 1px solid #d7ddd7 !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #374151 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 120ms ease !important;
+}
+
+#mgrCcPager .pg-n:hover:not(:disabled):not(.on),
+#leaderCcPager .pg-n:hover:not(:disabled):not(.on),
+.mgr-pager .pg-n:hover:not(:disabled):not(.on),
+.staff-pager .pg-n:hover:not(:disabled):not(.on),
+.pl-pager .pl-pgn:hover:not(:disabled):not(.on),
+.hr-page-button:hover:not(:disabled):not(.is-active),
+.page-btn:hover:not(:disabled):not(.is-active) {
+  border-color: #234d3d !important;
+  color: #234d3d !important;
+}
+
+#mgrCcPager .pg-n.on,
+#leaderCcPager .pg-n.on,
+.mgr-pager .pg-n.on,
+.staff-pager .pg-n.on,
+.pl-pager .pl-pgn.on,
+.hr-page-button.is-active,
+.page-btn.is-active {
+  border-color: #234d3d !important;
+  background: #234d3d !important;
+  color: #ffffff !important;
+}
+
+#mgrCcPager .pg-n:disabled,
+#leaderCcPager .pg-n:disabled,
+.mgr-pager .pg-n:disabled,
+.staff-pager .pg-n:disabled,
+.pl-pager .pl-pgn:disabled,
+.hr-page-button:disabled,
+.page-btn:disabled {
+  border-color: #e2e8f0 !important;
+  background: #ffffff !important;
+  color: #cbd5e1 !important;
+  opacity: 0.8 !important;
+  cursor: not-allowed !important;
+}
+
+/* Attendance history filter bars (Manager, Leader, Staff) */
+.mgr-att-filters,
+.staff-att-filters,
+.leader-clock-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mgr-att-filter,
+.staff-att-filter,
+.leader-period-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.mgr-att-filter select,
+.staff-att-filter select,
+.leader-period-control select {
+  min-height: 36px !important;
+  height: 36px;
+  padding: 0 30px 0 12px !important;
+  border: 1px solid #cfdfd8 !important;
+  border-radius: 8px !important;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2364748b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 10px center / 12px !important;
+  color: #193536 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   UNIFIED LOGOUT MODAL (Admin, Manager, Staff, Leader) - Exact Image 1 Style
+   ========================================================================== */
+.logout-modal {
+  position: fixed !important;
+  z-index: 10000 !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 20px !important;
+  background: rgba(20, 30, 25, 0.45) !important;
+}
+
+.logout-modal[hidden] {
+  display: none !important;
+}
+
+.logout-modal-content {
+  width: min(100%, 390px) !important;
+  padding: 32px 36px 28px !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  box-shadow: 0 16px 40px rgba(20, 30, 25, 0.18) !important;
+  text-align: center !important;
+}
+
+.logout-modal-content h2,
+#logoutModalTitle {
+  margin: 0 0 24px 0 !important;
+  color: #1f2937 !important;
+  font-family: 'Cormorant Upright', 'Cormorant Garamond', Georgia, serif !important;
+  font-size: 27px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  text-align: center !important;
+}
+
+.logout-modal-actions {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+.logout-modal-actions button,
+.logout-modal-actions #cancelLogoutBtn,
+.logout-modal-actions #confirmLogoutBtn,
+.logout-modal-actions .admin-secondary-btn,
+.logout-modal-actions .admin-logout-btn,
+.logout-modal-actions .danger-btn {
+  width: auto !important;
+  min-width: 96px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 20px !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 160ms ease !important;
+  text-decoration: none !important;
+  box-sizing: border-box !important;
+}
+
+.logout-modal-actions #cancelLogoutBtn,
+.logout-modal-actions .admin-secondary-btn {
+  border: 1px solid #d1d5db !important;
+  background: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+.logout-modal-actions #cancelLogoutBtn:hover,
+.logout-modal-actions .admin-secondary-btn:hover {
+  background: #f9fafb !important;
+  border-color: #9ca3af !important;
+  color: #111827 !important;
+}
+
+.logout-modal-actions #confirmLogoutBtn,
+.logout-modal-actions .admin-logout-btn,
+.logout-modal-actions .danger-btn {
+  border: 1px solid #a5483f !important;
+  background: #a5483f !important;
+  color: #ffffff !important;
+}
+
+.logout-modal-actions #confirmLogoutBtn:hover,
+.logout-modal-actions .admin-logout-btn:hover,
+.logout-modal-actions .danger-btn:hover {
+  background: #8e3d35 !important;
+  border-color: #8e3d35 !important;
+  color: #ffffff !important;
+}
+
+/* Feedback messages for Timesheets */
+#mgrCcFeedback,
+#leaderCcFeedback {
+  color: #166534 !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  margin: 6px 0 12px !important;
+  min-height: 20px !important;
+}
+#mgrCcFeedback.is-error,
+#leaderCcFeedback.is-error {
+  color: #dc2626 !important;
+}
+
+/* ==========================================================================
+   TIMESHEET PANEL HEADING & TOOLS (Exact Image 1 Style - Manager & Leader)
+   ========================================================================== */
+.leader-view[data-leader-panel="attendance-sheet"] .panel-heading,
+[data-hr-panel="attendance-sheet"] > .panel-heading,
+.panel-heading {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  margin-bottom: 20px !important;
+  flex-wrap: wrap !important;
+}
+
+.panel-heading > div:first-child {
+  flex: 1 1 auto !important;
+}
+
+.panel-heading h2 {
+  margin: 0 0 6px 0 !important;
+  color: var(--leader-ink, #252b27) !important;
+  font-family: 'Cormorant Upright', 'Cormorant Garamond', Georgia, serif !important;
+  font-size: 26px !important;
+  font-weight: 500 !important;
+  line-height: 1.15 !important;
+}
+
+.cc-subtitle {
+  margin: 0 !important;
+  color: #6b7280 !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+}
+
+.cc-head-tools {
+  margin-left: auto !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+}
+
+.cc-head-tools .hr-period-control {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  border: 1px solid #d7ddd7 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: var(--leader-ink, #252b27) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.cc-head-tools .hr-period-control input {
+  width: auto !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: inherit !important;
+  outline: none !important;
+}
+
+.cc-head-tools .admin-primary-btn,
+.cc-head-tools .admin-secondary-btn,
+.cc-head-tools #leaderCcExcel,
+.cc-head-tools #leaderCcPrint,
+.cc-head-tools #mgrCcExcel,
+.cc-head-tools #mgrCcPrint {
+  min-height: 40px !important;
+  height: 40px !important;
+  padding: 0 16px !important;
+  gap: 8px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  transition: all 160ms ease !important;
+  box-sizing: border-box !important;
+}
+
+.cc-head-tools .cc-excel-btn,
+.cc-head-tools #leaderCcExcel,
+.cc-head-tools #mgrCcExcel {
+  background: #166534 !important;
+  color: #fff !important;
+  border: 1px solid #166534 !important;
+}
+
+.cc-head-tools .cc-excel-btn:hover,
+.cc-head-tools #leaderCcExcel:hover,
+.cc-head-tools #mgrCcExcel:hover {
+  background: #14532d !important;
+  border-color: #14532d !important;
+}
+
+.cc-head-tools .admin-secondary-btn,
+.cc-head-tools #leaderCcPrint,
+.cc-head-tools #mgrCcPrint {
+  background: #fff !important;
+  color: #252b27 !important;
+  border: 1px solid #d7ddd7 !important;
+}
+
+.cc-head-tools .admin-secondary-btn:hover,
+.cc-head-tools #leaderCcPrint:hover,
+.cc-head-tools #mgrCcPrint:hover {
+  background: #f8faf7 !important;
+  border-color: #aebbb1 !important;
+}
+
+.cc-btn-icon {
+  width: 15px !important;
+  height: 15px !important;
+  flex: 0 0 auto !important;
+}

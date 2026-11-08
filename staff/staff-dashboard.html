@@ -8,6 +8,7 @@
       content="Không gian làm việc dành cho nhân viên Jewels."
     />
     <title>Staff Dashboard - Jewels</title>
+    <link rel="icon" type="image/svg+xml" href="../shared/images/brand-logo-1.svg" />
     <link rel="stylesheet" href="../shared/css/vendor/bootstrap.min.css" />
     <link rel="stylesheet" href="../shared/css/style.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,6 +20,7 @@
     <link rel="stylesheet" href="css/staff-base.css" />
     <link rel="stylesheet" href="css/staff-legacy.css" />
     <link rel="stylesheet" href="css/staff-portal.css" />
+    <link rel="stylesheet" href="../shared/css/portal-unified-ui.css?v=20261109-leaderui-v1" />
   </head>
   <body>
     <svg xmlns="http://www.w3.org/2000/svg" class="d-none" aria-hidden="true">
@@ -135,7 +137,7 @@
       </symbol>
     </svg>
 
-    <main class="admin-page">
+    <main class="admin-page" data-portal="staff">
       <aside class="admin-sidebar">
         <div class="admin-brand-block">
           <div class="admin-brand-mark">J</div>
@@ -177,7 +179,7 @@
             </div>
           </div>
         </div>
-
+        <p class="leader-nav-label">KHÔNG GIAN NHÂN VIÊN</p>
         <nav class="admin-nav" aria-label="Chức năng nhân viên">
           <a
             class="admin-nav-item"
@@ -231,10 +233,7 @@
           >
         </nav>
 
-        <div class="admin-system-status">
-          <span>Trạng thái hệ thống</span>
-          <strong>Hoạt động bình thường</strong>
-        </div>
+        <div class="leader-sidebar-note"><span class="leader-live-dot"></span>Không gian nhân viên</div>
       </aside>
 
       <section class="admin-main">
@@ -413,19 +412,27 @@
           <section class="staff-panel staff-history-panel">
             <div class="staff-section-heading">
               <div><p class="account-eyebrow">LỊCH SỬ</p><h3>Điểm danh gần đây</h3></div>
-              <label class="staff-att-filter">Khoảng thời gian
-                <select id="attendanceFilter">
-                  <option value="all" selected>Tất cả</option>
-                  <option value="day">Theo ngày</option>
-                  <option value="week">Theo tuần</option>
-                  <option value="month">Theo tháng</option>
-                </select>
-                <select id="attendanceMonth" hidden></select>
-                <select id="attendanceWeek" hidden></select>
-              </label>
+              <div class="staff-att-filters">
+                <label class="staff-att-filter">Khoảng thời gian
+                  <select id="attendanceFilter">
+                    <option value="all" selected>Tất cả</option>
+                    <option value="day">Theo ngày</option>
+                    <option value="week">Theo tuần</option>
+                    <option value="month">Theo tháng</option>
+                  </select>
+                  <select id="attendanceMonth" hidden></select>
+                  <select id="attendanceWeek" hidden></select>
+                </label>
+                <label class="staff-att-filter">Sắp xếp
+                  <select id="staffAttendanceSort">
+                    <option value="desc" selected>Ngày mới nhất</option>
+                    <option value="asc">Ngày cũ nhất</option>
+                  </select>
+                </label>
+              </div>
             </div>
             <div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Ngày</th><th>Giờ vào</th><th>Giờ ra</th><th>Trạng thái</th></tr></thead><tbody id="attendanceRows"></tbody></table></div>
-            <nav id="attendancePager" class="staff-pager" aria-label="Trang lịch sử chấm công" hidden></nav>
+            <nav id="attendancePager" class="staff-pager" aria-label="Trang lịch sử chấm công"></nav>
           </section>
         </section>
 
@@ -463,7 +470,7 @@
               <div class="staff-form-actions"><button type="submit" class="admin-primary-btn">Gửi đơn</button><p id="leaveFeedback" role="status" aria-live="polite"></p></div>
             </form>
           </div>
-          <section class="staff-panel staff-history-panel"><div class="staff-section-heading"><div><p class="account-eyebrow">LỊCH SỬ</p><h2>Đơn đã gửi</h2></div></div><div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Loại đơn</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th></tr></thead><tbody id="leaveRows"></tbody></table></div></section>
+          <section class="staff-panel staff-history-panel"><div class="staff-section-heading"><div><p class="account-eyebrow">LỊCH SỬ</p><h2>Đơn đã gửi</h2></div></div><div class="staff-table-wrap"><table class="staff-table"><thead><tr><th>Loại đơn</th><th>Thời gian</th><th>Lý do</th><th>Trạng thái</th></tr></thead><tbody id="leaveRows"></tbody></table></div><nav id="leavePager" class="staff-pager" aria-label="Trang đơn đã gửi"></nav></section>
         </section>
 
         <section class="staff-view" data-staff-panel="salary-month" hidden>
@@ -546,12 +553,12 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../shared/js/supabase-client.js"></script>
-  <script src="../shared/js/portal-api.js"></script>
+  <script src="../shared/js/portal-api.js?v=20261108-fix-v2"></script>
   <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
   <script src="js/staff-core.js"></script>
   <script src="js/staff-profile.js?v=20261107-dob-password-v1"></script>
-  <script src="js/staff-leave.js"></script>
-  <script src="js/staff-attendance.js"></script>
+  <script src="js/staff-leave.js?v=20261109-attfix-v2"></script>
+  <script src="js/staff-attendance.js?v=20261109-attfix-v2"></script>
   <script src="js/staff-salary-month.js"></script>
   <script src="js/staff-salary-year.js"></script>
   <script>loadStaffPortal().catch(() => showPageError("Không thể kết nối máy chủ."));</script>

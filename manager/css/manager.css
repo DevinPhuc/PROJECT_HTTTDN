@@ -349,11 +349,41 @@ body:has(.admin-page) {
 .logout-modal-actions {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .logout-modal-actions button {
   min-width: 90px;
+  min-height: 38px;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.logout-modal-actions .admin-secondary-btn {
+  border: 1px solid #d7ddd7;
+  background: #ffffff;
+  color: #252b27;
+}
+
+.logout-modal-actions .admin-secondary-btn:hover {
+  border-color: #aebbb1;
+  background: #f8faf7;
+}
+
+.logout-modal-actions .admin-logout-btn {
+  border: 1px solid #a5483f;
+  background: #a5483f;
+  color: #ffffff;
+}
+
+.logout-modal-actions .admin-logout-btn:hover {
+  background: #8e3d35;
+  border-color: #8e3d35;
+  color: #ffffff;
 }
 
 .admin-panel {
@@ -1361,16 +1391,29 @@ body:has(.admin-page) {
 
 #employeeForm input:disabled,
 #employeeForm select:disabled,
-#employeeForm input:read-only {
-  background: #f1f3f1;
-  color: #78827c;
-  cursor: not-allowed;
+#employeeForm input:read-only,
+#employeeForm input[readonly] {
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  cursor: not-allowed !important;
 }
 
-/* Keep native select dropdown indicator on disabled selects */
+/* Remove native select dropdown indicator on disabled/locked status selects */
+#employeeStatus,
+#employeeForm select[name="employmentStatus"],
 #employeeForm select:disabled {
-  appearance: auto;
-  -webkit-appearance: auto;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: none !important;
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  cursor: not-allowed !important;
+  padding-right: 12px !important;
 }
 
 .form-subgrid-2 {
@@ -1384,10 +1427,12 @@ body:has(.admin-page) {
   min-width: 0;
 }
 
-#employeeForm input[name="employeeCode"]:read-only {
-  background: #e9f1eb;
-  color: var(--admin-green-dark);
-  font-weight: 500;
+#employeeForm input[name="employeeCode"]:read-only,
+#employeeForm input[name="employeeCode"][readonly] {
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
 }
 
 .modal-footer {
@@ -1493,13 +1538,16 @@ body:has(.admin-page) {
   }
 }
 
-/* ---------- Chấm công (clock card, ported from staff portal) ---------- */
+/* ---------- Chấm công (clock card matching leader template) ---------- */
 .mgr-clock-card {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  border-top: 3px solid var(--admin-green);
-  box-shadow: 0 8px 22px rgb(52 91 74 / 10%);
+  gap: 20px;
+  padding: clamp(20px, 3vw, 28px);
+  border: 1px solid #dfebe5;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(20 30 25 / 6%);
 }
 
 .mgr-clock-face {
@@ -1512,82 +1560,86 @@ body:has(.admin-page) {
 
 .mgr-clock-date {
   margin: 0;
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 600;
+  color: #526057;
+  font-size: 13px;
+  font-weight: 650;
   text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .mgr-clock-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 14px;
+  width: 100%;
 }
 
 .mgr-clock-col {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 18px 14px 20px;
-  border: 1px solid var(--admin-line);
-  border-radius: 2px;
-  background: #fff;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 16px 20px;
+  border: 1px solid #dfebe5;
+  border-radius: 13px;
+  background: rgb(255 255 255 / 82%);
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .mgr-clock-col-label {
   margin: 0;
-  color: var(--admin-muted);
+  color: #526057;
   font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
+  font-weight: 650;
+  text-transform: none;
 }
 
 .mgr-clock-time {
-  margin: 0 0 6px;
-  color: var(--admin-ink);
-  font-family: var(--heading-font, Georgia, serif);
+  margin: 8px 0 13px;
+  color: #141e19;
+  font-family: inherit;
   font-variant-numeric: tabular-nums;
-  font-size: 30px;
-  font-weight: 500;
-  letter-spacing: 1px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 .mgr-clock-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-width: 180px;
-  padding: 13px 28px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 16px;
   border: 0;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--admin-green) 0%, var(--admin-green-dark) 100%);
-  color: #fff;
-  font: 700 15px/1.2 var(--body-font, sans-serif);
-  letter-spacing: .4px;
+  border-radius: 8px;
+  background: #105b48;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 650;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgb(52 91 74 / 22%);
-  transition: transform .15s ease, box-shadow .15s ease;
+  box-shadow: none;
+  transition: opacity 160ms ease, background-color 160ms ease;
 }
 
 .mgr-clock-btn-icon {
-  width: 17px;
-  height: 17px;
-  fill: currentColor;
-  flex: none;
+  display: none;
 }
 
 .mgr-clock-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgb(52 91 74 / 28%);
+  opacity: 0.92;
+  box-shadow: none;
+  transform: none;
 }
 
 .mgr-clock-btn:disabled {
-  background: var(--admin-green-soft);
-  color: var(--admin-muted);
-  box-shadow: none;
+  background: #7ca89a;
+  color: #ffffff;
   cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
+  transform: none;
 }
 
 .mgr-clock-btn[data-loading="1"] {
@@ -1597,7 +1649,7 @@ body:has(.admin-page) {
 .mgr-clock-feedback {
   margin: -6px 0 0;
   min-height: 16px;
-  color: var(--admin-green-dark);
+  color: #10584f;
   font-size: 12px;
   text-align: center;
 }
@@ -2079,8 +2131,10 @@ body.manager-ready .manager-loading {
 
 .cc-tools #mgrCcSearch {
   margin-left: auto;
-  padding-left: 38px;
-  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394a3b8' stroke-width='1.4' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='4.8'/%3E%3Cpath d='M10.6 10.6L14 14'/%3E%3C/svg%3E") no-repeat 12px center / 16px;
+  padding-left: 42px !important;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2394a3b8' stroke-width='1.4' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='4.8'/%3E%3Cpath d='M10.6 10.6L14 14'/%3E%3C/svg%3E") no-repeat 14px center / 16px !important;
+  box-sizing: border-box !important;
+  text-indent: 0 !important;
 }
 
 .cc-tools #mgrCcDept {
@@ -2420,4 +2474,51 @@ body.manager-ready .manager-loading {
   font-weight: 600;
   letter-spacing: 0.02em;
   display: inline-block;
+}
+
+/* Reset and align embedded month picker inside period control badges */
+.hr-period-control,
+.cc-head-tools .hr-period-control,
+.pl-mp {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  border: 1px solid #d7ddd7 !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: var(--admin-ink, #23272f) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+}
+
+.hr-period-control input,
+.hr-period-control input[type="month"],
+.cc-head-tools .hr-period-control input,
+.cc-head-tools .hr-period-control input[type="month"],
+.pl-mp input,
+.pl-mp input[type="month"] {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 0 0 4px !important;
+  min-height: auto !important;
+  height: auto !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  outline: none !important;
+  font: inherit !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+}
+
+.hr-period-control:focus-within,
+.cc-head-tools .hr-period-control:focus-within,
+.pl-mp:focus-within {
+  border-color: var(--admin-green, #16766d) !important;
+  box-shadow: 0 0 0 2px rgb(52 91 74 / 12%) !important;
 }

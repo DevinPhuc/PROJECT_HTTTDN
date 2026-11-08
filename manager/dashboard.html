@@ -18,8 +18,9 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/manager.css" />
-    <link rel="stylesheet" href="css/payroll-sheet.css" />
+    <link rel="stylesheet" href="css/manager.css?v=20261109-attfix-v1" />
+    <link rel="stylesheet" href="css/payroll-sheet.css?v=20261109-colfix-v1" />
+    <link rel="stylesheet" href="../shared/css/portal-unified-ui.css?v=20261109-leaderui-v1" />
   </head>
   <body>
     <svg xmlns="http://www.w3.org/2000/svg" class="d-none" aria-hidden="true">
@@ -62,7 +63,7 @@
       </symbol>
     </svg>
 
-    <main class="admin-page">
+    <main class="admin-page" data-portal="manager">
       <aside class="admin-sidebar">
         <div class="admin-brand-block">
           <div class="admin-brand-mark">J</div>
@@ -104,7 +105,7 @@
             </div>
           </div>
         </div>
-
+        <p class="leader-nav-label">KHÔNG GIAN QUẢN LÝ</p>
         <nav class="admin-nav" aria-label="Quản trị nhân sự">
           <a
             class="admin-nav-item"
@@ -191,6 +192,7 @@
             Thống kê hồ sơ</a
           >
         </nav>
+        <div class="leader-sidebar-note"><span class="leader-live-dot"></span>Không gian quản lý</div>
       </aside>
 
       <section class="admin-main">
@@ -575,6 +577,7 @@
                   <tbody id="monthlyStaffBody"></tbody>
                 </table>
               </div>
+              <nav id="monthlyStaffPager" class="mgr-pager" aria-label="Trang tình hình nhân sự"></nav>
             </section>
           </section>
 
@@ -644,6 +647,7 @@
                   <tbody id="staffStatsBody"></tbody>
                 </table>
               </div>
+              <nav id="staffStatsPager" class="mgr-pager" aria-label="Trang thống kê nhân sự"></nav>
             </section>
           </section>
 
@@ -704,6 +708,7 @@
                   <tbody id="roleHistoryBody"></tbody>
                 </table>
               </div>
+              <nav id="roleHistoryPager" class="mgr-pager" aria-label="Trang lịch sử phân công"></nav>
             </section>
             <p class="hr-demo-note">
               Nhân viên và trưởng nhóm nhận các quyền đã cấu hình cho vai trò.
@@ -745,7 +750,6 @@
                   <p class="mgr-clock-col-label">Giờ vào</p>
                   <p class="mgr-clock-time" id="mgrAttendanceCheckIn">--:--</p>
                   <button type="button" class="mgr-clock-btn" id="mgrAttendanceCheckInBtn">
-                    <svg class="mgr-clock-btn-icon" aria-hidden="true"><use href="#staff-login"></use></svg>
                     <span class="mgr-clock-btn-label">Vào làm</span>
                   </button>
                 </div>
@@ -753,7 +757,6 @@
                   <p class="mgr-clock-col-label">Giờ ra</p>
                   <p class="mgr-clock-time" id="mgrAttendanceCheckOut">--:--</p>
                   <button type="button" class="mgr-clock-btn" id="mgrAttendanceCheckOutBtn">
-                    <svg class="mgr-clock-btn-icon" aria-hidden="true"><use href="#staff-logout"></use></svg>
                     <span class="mgr-clock-btn-label">Ra về</span>
                   </button>
                 </div>
@@ -766,19 +769,27 @@
                   <p class="account-eyebrow">LỊCH SỬ</p>
                   <h3>Điểm danh gần đây</h3>
                 </div>
-                <label class="mgr-att-filter">Khoảng thời gian
-                  <select id="mgrAttendanceFilter">
-                    <option value="all" selected>Tất cả</option>
-                    <option value="day">Theo ngày</option>
-                    <option value="week">Theo tuần</option>
-                    <option value="month">Theo tháng</option>
-                  </select>
-                  <select id="mgrAttendanceMonth" hidden></select>
-                  <select id="mgrAttendanceWeek" hidden></select>
-                </label>
+                <div class="mgr-att-filters">
+                  <label class="mgr-att-filter">Khoảng thời gian
+                    <select id="mgrAttendanceFilter">
+                      <option value="all" selected>Tất cả</option>
+                      <option value="day">Theo ngày</option>
+                      <option value="week">Theo tuần</option>
+                      <option value="month">Theo tháng</option>
+                    </select>
+                    <select id="mgrAttendanceMonth" hidden></select>
+                    <select id="mgrAttendanceWeek" hidden></select>
+                  </label>
+                  <label class="mgr-att-filter">Sắp xếp
+                    <select id="mgrAttendanceSort">
+                      <option value="desc" selected>Ngày mới nhất</option>
+                      <option value="asc">Ngày cũ nhất</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <div class="hr-table-wrap"><table class="hr-table"><thead><tr><th>Ngày</th><th>Giờ vào</th><th>Giờ ra</th><th>Trạng thái</th></tr></thead><tbody id="mgrAttendanceRows"></tbody></table></div>
-              <nav id="mgrAttendancePager" class="mgr-pager" aria-label="Trang lịch sử chấm công" hidden></nav>
+              <nav id="mgrAttendancePager" class="mgr-pager" aria-label="Trang lịch sử chấm công"></nav>
             </section>
           </section>
 
@@ -938,11 +949,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../shared/js/supabase-client.js"></script>
-    <script src="../shared/js/portal-api.js"></script>
+    <script src="../shared/js/portal-api.js?v=20261108-fix-v5"></script>
     <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
-    <script src="js/payroll-sheet.js?v=20261105-1"></script>
-    <script src="js/hr-current-schema.js?v=20261105-1"></script>
-    <script src="js/hr-attendance.js?v=20261105-1"></script>
-    <script src="js/hr-sheet.js?v=20261105-1"></script>
+    <script src="js/payroll-sheet.js?v=20261109-colfix-v1"></script>
+    <script src="js/hr-current-schema.js?v=20261109-pager-v1"></script>
+    <script src="js/hr-attendance.js?v=20261109-attfix-v2"></script>
+    <script src="js/hr-sheet.js?v=20261109-attfix-v4"></script>
   </body>
 </html>

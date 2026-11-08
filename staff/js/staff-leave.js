@@ -6,26 +6,108 @@ function statusLabel(status) {
   return LEAVE_STATUS_LABELS[String(status || "").toLowerCase()] || status;
 }
 
+let staffLeaveView = { page: 1, pageSize: 10 };
+let currentLeaveRequests = [];
+
 async function renderLeaveRequests(data) {
   if (!data) {
     const result = await callStaff({ action: "leave_list" });
     if (!result.ok) throw new Error(result.error);
     data = result.data;
   }
-  const rows = document.getElementById("leaveRows"); rows.replaceChildren();
-  const requests = data.requests || [];
-  if (!requests.length) {
-    const row = document.createElement("tr"); const cell = document.createElement("td"); cell.colSpan = 4; cell.className = "staff-empty-cell"; cell.textContent = "Bạn chưa gửi đơn nào."; row.append(cell); rows.append(row); return;
-  }
-  requests.forEach((request) => {
+  currentLeaveRequests = data.requests || [];
+  drawLeaveSlice();
+}
+
+function drawLeaveSlice() {
+  const rows = document.getElementById("leaveRows");
+  rows.replaceChildren();
+  const total = currentLeaveRequests.length;
+  const size = staffLeaveView.pageSize || 10;
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  staffLeaveView.page = Math.min(Math.max(1, staffLeaveView.page), totalPages);
+
+  if (!total) {
     const row = document.createElement("tr");
-    // Card navigation matches rows through these read-only markers.
-    row.dataset.leaveId = String(request.leave_request_id ?? "");
-    row.dataset.leaveType = String(request.leave_type ?? "");
-    row.dataset.leaveStatus = String(request.status ?? "pending").toLowerCase();
-    const period = request.leave_type === "resignation" ? `Ngày dự kiến cuối: ${dateLabel(request.start_date)}` : `${dateLabel(request.start_date)} - ${dateLabel(request.end_date)}`;
-    [LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type_label || "Chưa phân loại", period, request.reason].forEach((value) => { const cell = document.createElement("td"); cell.textContent = value; row.append(cell); });
-    const statusCell = document.createElement("td"); const badge = document.createElement("span"); badge.className = `staff-status staff-status-${String(request.status || "pending").toLowerCase()}`; badge.textContent = statusLabel(request.status); statusCell.append(badge); row.append(statusCell); rows.append(row);
+    const cell = document.createElement("td");
+    cell.colSpan = 4;
+    cell.className = "staff-empty-cell";
+    cell.textContent = "Bạn chưa gửi đơn nào.";
+    row.append(cell);
+    rows.append(row);
+  } else {
+    const p = staffLeaveView.page - 1;
+    const slice = currentLeaveRequests.slice(p * size, (p + 1) * size);
+    slice.forEach((request) => {
+      const row = document.createElement("tr");
+      row.dataset.leaveId = String(request.leave_request_id ?? "");
+      row.dataset.leaveType = String(request.leave_type ?? "");
+      row.dataset.leaveStatus = String(request.status ?? "pending").toLowerCase();
+      const period = request.leave_type === "resignation"
+        ? `Ngày dự kiến cuối: ${dateLabel(request.start_date)}`
+        : `${dateLabel(request.start_date)} - ${dateLabel(request.end_date)}`;
+      [LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type_label || "Chưa phân loại", period, request.reason].forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.append(cell);
+      });
+      const statusCell = document.createElement("td");
+      const badge = document.createElement("span");
+      badge.className = `staff-status staff-status-${String(request.status || "pending").toLowerCase()}`;
+      badge.textContent = statusLabel(request.status);
+      statusCell.append(badge);
+      row.append(statusCell);
+      rows.append(row);
+    });
+  }
+  renderStaffLeavePager(total, totalPages);
+}
+
+function renderStaffLeavePager(total, totalPages) {
+  const pager = document.getElementById("leavePager");
+  if (!pager) return;
+  const size = staffLeaveView.pageSize || 10;
+  const p = staffLeaveView.page - 1;
+  const from = total ? p * size + 1 : 0;
+  const to = Math.min(total, (p + 1) * size);
+  const nums = [];
+  const add = (i) => nums.push(`<button type="button" class="pg-n ${i === p ? "on" : ""}" data-pg="${i}">${i + 1}</button>`);
+  if (totalPages <= 7) {
+    for (let i = 0; i < totalPages; i++) add(i);
+  } else {
+    add(0);
+    const a = Math.max(1, p - 1), b = Math.min(totalPages - 2, p + 1);
+    if (a > 1) nums.push('<span class="pg-dot">…</span>');
+    for (let i = a; i <= b; i++) add(i);
+    if (b < totalPages - 2) nums.push('<span class="pg-dot">…</span>');
+    add(totalPages - 1);
+  }
+
+  pager.innerHTML = `<span>Hiển thị <b>${from}-${to}</b> / ${total} dòng</span><span class="pg">Số dòng/trang `
+    + `<select data-psize>${[10, 20, 50, 100].map((s) => `<option value="${s}" ${s === size ? "selected" : ""}>${s}</option>`).join("")}</select>`
+    + `<button type="button" class="pg-n" data-pg="${p - 1}" ${p > 0 ? "" : "disabled"}>‹</button>${nums.join("")}`
+    + `<button type="button" class="pg-n" data-pg="${p + 1}" ${p < totalPages - 1 ? "" : "disabled"}>›</button>`
+    + `</span>`;
+}
+
+const staffLeavePagerEl = document.getElementById("leavePager");
+if (staffLeavePagerEl) {
+  staffLeavePagerEl.addEventListener("click", (event) => {
+    const btn = event.target.closest("button.pg-n");
+    if (!btn || btn.disabled) return;
+    const targetPg = Number(btn.dataset.pg);
+    if (!Number.isNaN(targetPg)) {
+      staffLeaveView.page = targetPg + 1;
+      drawLeaveSlice();
+    }
+  });
+  staffLeavePagerEl.addEventListener("change", (event) => {
+    const sel = event.target.closest("select[data-psize]");
+    if (sel) {
+      staffLeaveView.pageSize = Number(sel.value) || 10;
+      staffLeaveView.page = 1;
+      drawLeaveSlice();
+    }
   });
 }
 

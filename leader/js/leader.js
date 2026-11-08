@@ -1,6 +1,20 @@
+let leaderToastTimer;
+function showLeaderToast(type, message) {
+  const toast = document.getElementById(type === "error" ? "leaderErrorToast" : "leaderSuccessToast");
+  if (!toast) return;
+  if (message) {
+    const span = toast.querySelector("span");
+    if (span) span.textContent = message;
+  }
+  clearTimeout(leaderToastTimer);
+  document.querySelectorAll(".leader-toast").forEach((el) => el.classList.remove("show"));
+  toast.classList.add("show");
+  leaderToastTimer = setTimeout(() => toast.classList.remove("show"), 3500);
+}
+
 const portal = window.jewelsPortal;
 const callLeader = (body) =>
-  portal.callPortal("leader", "hr-portal", body, { loginUrl: "../manager/login.html" });
+  portal.callPortal("leader", "leader-portal", body, { loginUrl: "login.html" });
 
 const LEAVE_TYPES = {
   annual: "Nghỉ phép",
@@ -100,7 +114,7 @@ function renderProfile() {
 
 async function loadTeamData(month = currentMonth) {
   const result = await callLeader({ action: "leader_boot", month });
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) throw new Error(result.message || result.error);
   const data = result.data;
   employees = data.employees || [];
   attendance = data.attendance || [];
@@ -108,39 +122,86 @@ async function loadTeamData(month = currentMonth) {
   actor = data.actor || actor;
   currentMonth = data.month;
   document.getElementById("leaderClockMonth").value = currentMonth;
-  document.getElementById("leaderSheetMonth").value = currentMonth.slice(5, 7);
-  document.getElementById("leaderSheetYear").value = currentMonth.slice(0, 4);
+  const sheetMonthInput = document.getElementById("leaderSheetMonthInput");
+  if (sheetMonthInput) sheetMonthInput.value = currentMonth;
   renderProfile();
   renderTeamAttendance();
-  renderAttendanceSheet();
+  if (window.leaderSheet?.reload) {
+    window.leaderSheet.reload();
+  } else if (typeof renderAttendanceSheet === "function") {
+    renderAttendanceSheet();
+  }
   renderRequests();
 }
+
+let leaderClockView = { page: 1, pageSize: 10, sort: "desc" };
+const LEADER_PAGE_SIZES = [10, 20, 50, 100];
 
 function renderTeamAttendance() {
   const body = document.getElementById("leaderClockRows");
   body.replaceChildren();
   const names = new Map(employees.map((employee) => [employee.employee_id, employee]));
-  const rows = [...attendance].sort((a, b) =>
-    String(b.work_date).localeCompare(String(a.work_date))
-      || String(names.get(a.employee_id)?.full_name || "").localeCompare(
-        String(names.get(b.employee_id)?.full_name || ""),
-        "vi",
-      ));
+  const mult = leaderClockView.sort === "asc" ? 1 : -1;
+  const rows = [...attendance].sort((a, b) => {
+    const cmp = String(a.work_date || "").localeCompare(String(b.work_date || "")) * mult;
+    if (cmp !== 0) return cmp;
+    const nameA = String(names.get(a.employee_id)?.full_name || "");
+    const nameB = String(names.get(b.employee_id)?.full_name || "");
+    return nameA.localeCompare(nameB, "vi");
+  });
+
+  const total = rows.length;
+  const size = leaderClockView.pageSize || 10;
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  leaderClockView.page = Math.min(Math.max(1, leaderClockView.page), totalPages);
+
   if (!rows.length) {
     const row = document.createElement("tr");
     addCell(row, "Chưa có dữ liệu chấm công trong tháng.", "td").colSpan = 5;
     body.append(row);
-    return;
+  } else {
+    const p = leaderClockView.page - 1;
+    const slice = rows.slice(p * size, (p + 1) * size);
+    slice.forEach((record) => {
+      const row = document.createElement("tr");
+      addCell(row, names.get(record.employee_id)?.full_name || "Nhân sự");
+      addCell(row, dateLabel(record.work_date));
+      addCell(row, timeLabel(record.check_in_time));
+      addCell(row, timeLabel(record.check_out_time));
+      addCell(row, STATUS_LABEL[String(record.status || "").toLowerCase()] || record.status || "-");
+      body.append(row);
+    });
   }
-  rows.forEach((record) => {
-    const row = document.createElement("tr");
-    addCell(row, names.get(record.employee_id)?.full_name || "Nhân sự");
-    addCell(row, dateLabel(record.work_date));
-    addCell(row, timeLabel(record.check_in_time));
-    addCell(row, timeLabel(record.check_out_time));
-    addCell(row, STATUS_LABEL[String(record.status || "").toLowerCase()] || record.status || "-");
-    body.append(row);
-  });
+
+  renderLeaderClockPager(total, totalPages);
+}
+
+function renderLeaderClockPager(total, totalPages) {
+  const pager = document.getElementById("leaderClockPager");
+  if (!pager) return;
+  const size = leaderClockView.pageSize || 10;
+  const p = leaderClockView.page - 1;
+  const from = total ? p * size + 1 : 0;
+  const to = Math.min(total, (p + 1) * size);
+
+  const nums = [];
+  const add = (i) => nums.push(`<button type="button" class="pg-n ${i === p ? "on" : ""}" data-pg="${i}">${i + 1}</button>`);
+  if (totalPages <= 7) {
+    for (let i = 0; i < totalPages; i++) add(i);
+  } else {
+    add(0);
+    const a = Math.max(1, p - 1), b = Math.min(totalPages - 2, p + 1);
+    if (a > 1) nums.push('<span class="pg-dot">…</span>');
+    for (let i = a; i <= b; i++) add(i);
+    if (b < totalPages - 2) nums.push('<span class="pg-dot">…</span>');
+    add(totalPages - 1);
+  }
+
+  pager.innerHTML = `<span>Hiển thị <b>${from}-${to}</b> / ${total} dòng</span><span class="pg">Số dòng/trang `
+    + `<select data-psize>${LEADER_PAGE_SIZES.map((s) => `<option value="${s}" ${s === size ? "selected" : ""}>${s}</option>`).join("")}</select>`
+    + `<button type="button" class="pg-n" data-pg="${p - 1}" ${p > 0 ? "" : "disabled"}>‹</button>${nums.join("")}`
+    + `<button type="button" class="pg-n" data-pg="${p + 1}" ${p < totalPages - 1 ? "" : "disabled"}>›</button>`
+    + `</span>`;
 }
 
 function attendanceCode(record) {
@@ -262,6 +323,8 @@ function leaveStatus(request) {
   return "Chờ trưởng nhóm duyệt";
 }
 
+let leaderRequestsView = { page: 1, pageSize: 10 };
+
 function renderRequests() {
   const body = document.getElementById("leaderRequestsBody");
   const filter = document.getElementById("leaderRequestFilter").value;
@@ -272,59 +335,96 @@ function renderRequests() {
     if (filter === "resolved") return request.status !== "pending";
     return true;
   });
+  const total = visible.length;
+  const size = leaderRequestsView.pageSize || 10;
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  leaderRequestsView.page = Math.min(Math.max(1, leaderRequestsView.page), totalPages);
+
   if (!visible.length) {
     const row = document.createElement("tr");
     addCell(row, "Không có đơn trong danh sách.", "td").colSpan = 7;
     body.append(row);
-    return;
+  } else {
+    const p = leaderRequestsView.page - 1;
+    const slice = visible.slice(p * size, (p + 1) * size);
+    slice.forEach((request) => {
+      const row = document.createElement("tr");
+      const employee = document.createElement("td");
+      const name = document.createElement("strong");
+      name.textContent = request.full_name || "Nhân sự";
+      employee.append(name);
+      if (request.employee_code) {
+        const code = document.createElement("small");
+        code.className = "leader-status-note";
+        code.textContent = request.employee_code;
+        employee.append(code);
+      }
+      row.append(employee);
+      addCell(row, LEAVE_TYPES[request.leave_type] || "Chưa phân loại");
+      addCell(row, dateLabel(request.requested_at));
+      const range = request.leave_type === "resignation"
+        ? `Ngày dự kiến cuối: ${dateLabel(request.start_date)}`
+        : `${dateLabel(request.start_date)} - ${dateLabel(request.end_date)}`;
+      addCell(row, range);
+      addCell(row, request.reason || "—");
+      const status = addCell(row, leaveStatus(request));
+      const badge = document.createElement("span");
+      badge.className = `hr-status ${request.status === "rejected" ? "hr-status-rejected" : request.status === "approved" ? "hr-status-approved" : "leader-stage-waiting"}`;
+      badge.textContent = status.textContent;
+      status.replaceChildren(badge);
+      const actions = document.createElement("td");
+      if (request.status === "pending" && !request.leader_status) {
+        const wrap = document.createElement("div");
+        wrap.className = "leader-actions";
+        [["approved", "Duyệt"], ["rejected", "Từ chối"]].forEach(([decision, label]) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = decision === "approved"
+            ? "leader-button leader-button-primary"
+            : "leader-button leader-button-secondary";
+          button.dataset.requestId = request.leave_request_id;
+          button.dataset.decision = decision;
+          button.textContent = label;
+          wrap.append(button);
+        });
+        actions.append(wrap);
+      } else {
+        actions.textContent = request.status === "pending" ? "Đã chuyển quản lý" : "—";
+      }
+      row.append(actions);
+      body.append(row);
+    });
   }
-  visible.forEach((request) => {
-    const row = document.createElement("tr");
-    const employee = document.createElement("td");
-    const name = document.createElement("strong");
-    name.textContent = request.full_name || "Nhân sự";
-    employee.append(name);
-    if (request.employee_code) {
-      const code = document.createElement("small");
-      code.className = "leader-status-note";
-      code.textContent = request.employee_code;
-      employee.append(code);
-    }
-    row.append(employee);
-    addCell(row, LEAVE_TYPES[request.leave_type] || "Chưa phân loại");
-    addCell(row, dateLabel(request.requested_at));
-    const range = request.leave_type === "resignation"
-      ? `Ngày dự kiến cuối: ${dateLabel(request.start_date)}`
-      : `${dateLabel(request.start_date)} - ${dateLabel(request.end_date)}`;
-    addCell(row, range);
-    addCell(row, request.reason || "—");
-    const status = addCell(row, leaveStatus(request));
-    const badge = document.createElement("span");
-    badge.className = `hr-status ${request.status === "rejected" ? "hr-status-rejected" : request.status === "approved" ? "hr-status-approved" : "leader-stage-waiting"}`;
-    badge.textContent = status.textContent;
-    status.replaceChildren(badge);
-    const actions = document.createElement("td");
-    if (request.status === "pending" && !request.leader_status) {
-      const wrap = document.createElement("div");
-      wrap.className = "leader-actions";
-      [["approved", "Duyệt"], ["rejected", "Từ chối"]].forEach(([decision, label]) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = decision === "approved"
-          ? "leader-button leader-button-primary"
-          : "leader-button leader-button-secondary";
-        button.dataset.requestId = request.leave_request_id;
-        button.dataset.decision = decision;
-        button.textContent = label;
-        wrap.append(button);
-      });
-      actions.append(wrap);
-    } else {
-      actions.textContent = request.status === "pending" ? "Đã chuyển quản lý" : "—";
-    }
-    row.append(actions);
-    body.append(row);
-  });
+
+  renderLeaderRequestsPager(total, totalPages);
+}
+
+function renderLeaderRequestsPager(total, totalPages) {
+  const pager = document.getElementById("leaderRequestsPager");
+  if (!pager) return;
+  const size = leaderRequestsView.pageSize || 10;
+  const p = leaderRequestsView.page - 1;
+  const from = total ? p * size + 1 : 0;
+  const to = Math.min(total, (p + 1) * size);
+
+  const nums = [];
+  const add = (i) => nums.push(`<button type="button" class="pg-n ${i === p ? "on" : ""}" data-pg="${i}">${i + 1}</button>`);
+  if (totalPages <= 7) {
+    for (let i = 0; i < totalPages; i++) add(i);
+  } else {
+    add(0);
+    const a = Math.max(1, p - 1), b = Math.min(totalPages - 2, p + 1);
+    if (a > 1) nums.push('<span class="pg-dot">…</span>');
+    for (let i = a; i <= b; i++) add(i);
+    if (b < totalPages - 2) nums.push('<span class="pg-dot">…</span>');
+    add(totalPages - 1);
+  }
+
+  pager.innerHTML = `<span>Hiển thị <b>${from}-${to}</b> / ${total} dòng</span><span class="pg">Số dòng/trang `
+    + `<select data-psize>${LEADER_PAGE_SIZES.map((s) => `<option value="${s}" ${s === size ? "selected" : ""}>${s}</option>`).join("")}</select>`
+    + `<button type="button" class="pg-n" data-pg="${p - 1}" ${p > 0 ? "" : "disabled"}>‹</button>${nums.join("")}`
+    + `<button type="button" class="pg-n" data-pg="${p + 1}" ${p < totalPages - 1 ? "" : "disabled"}>›</button>`
+    + `</span>`;
 }
 
 async function reviewRequest(button) {
@@ -343,15 +443,20 @@ async function reviewRequest(button) {
   });
   if (!result.ok) {
     button.disabled = false;
+    console.error("reviewRequest failed:", result);
+    const detailMsg = result.constraint
+      ? ` (Ràng buộc: ${result.constraint})`
+      : (result.message ? `: ${result.message}` : "");
     window.alert(result.error === "already_decided"
       ? "Đơn này đã được xử lý."
       : result.error === "forbidden"
         ? "Bạn chỉ được xử lý đơn của nhân sự trong nhóm."
         : result.error === "forbidden_or_already_decided"
           ? "Đơn đã được xử lý hoặc không còn thuộc phạm vi nhóm của bạn."
-        : "Không cập nhật được đơn. Vui lòng thử lại.");
+        : `Lỗi cập nhật đơn: ${result.error}${detailMsg}`);
     return;
   }
+  showLeaderToast("success", decision === "approved" ? "Đã duyệt và chuyển đơn lên quản lý." : "Đã từ chối đơn.");
   await loadTeamData(currentMonth);
 }
 
@@ -408,7 +513,8 @@ function setView(name) {
 }
 
 async function refresh() {
-  await Promise.all([loadTeamData(currentMonth), loadOwnAttendance()]);
+  await loadTeamData(currentMonth);
+  await loadOwnAttendance();
 }
 
 function tickClock() {
@@ -423,18 +529,26 @@ function tickClock() {
 }
 
 async function initLeaderPortal() {
-  if (!portal.requireSession("leader", "../manager/login.html")) return;
+  if (!portal.requireSession("leader", "login.html")) return;
+  renderProfile();
   currentMonth = localMonth();
-  document.getElementById("leaderClockMonth").value = currentMonth;
-  document.getElementById("leaderSheetMonth").value = currentMonth.slice(5, 7);
-  document.getElementById("leaderSheetYear").value = currentMonth.slice(0, 4);
+  const clockMonthEl = document.getElementById("leaderClockMonth");
+  if (clockMonthEl) clockMonthEl.value = currentMonth;
+  const sheetMonthInput = document.getElementById("leaderSheetMonthInput");
+  if (sheetMonthInput) sheetMonthInput.value = currentMonth;
   try {
     await refresh();
   } catch (error) {
     console.error(error);
-    document.getElementById("leaderLoading").textContent = error.message === "forbidden"
+    const msg = error.message === "forbidden"
       ? "Tài khoản không có quyền truy cập cổng trưởng nhóm."
       : "Không tải được dữ liệu nhóm. Vui lòng thử lại.";
+    const loadingEl = document.getElementById("leaderLoading");
+    loadingEl.innerHTML = `<span>${msg}</span> <button type="button" class="leader-button leader-button-secondary" id="leaderRetryBtn" style="margin-left: 12px; display: inline-flex; vertical-align: middle; padding: 4px 12px; font-size: 13px;">Thử lại</button>`;
+    document.getElementById("leaderRetryBtn")?.addEventListener("click", () => {
+      loadingEl.textContent = "Đang tải dữ liệu nhóm...";
+      initLeaderPortal();
+    });
     return;
   }
   document.getElementById("leaderLoading").hidden = true;
@@ -451,45 +565,75 @@ document.querySelectorAll("[data-leader-view]").forEach((link) => {
   });
 });
 window.addEventListener("hashchange", () => setView(location.hash.slice(1)));
-document.getElementById("leaderRefreshBtn").addEventListener("click", () => {
-  refresh().catch((error) => {
+document.getElementById("leaderRefreshBtn").addEventListener("click", async () => {
+  try {
+    await refresh();
+    document.getElementById("leaderLoading").hidden = true;
+    document.getElementById("leaderApp").hidden = false;
+  } catch (error) {
     console.error(error);
     window.alert("Không thể làm mới dữ liệu. Vui lòng thử lại.");
-  });
+  }
 });
-document.getElementById("leaderClockMonth").addEventListener("change", async (event) => {
+document.getElementById("leaderClockMonth")?.addEventListener("change", async (event) => {
   try {
+    leaderClockView.page = 1;
     await loadTeamData(event.target.value);
   } catch (error) {
     console.error(error);
-    window.alert("Không tải được lịch sử chấm công trong tháng này.");
+    showLeaderToast("error", "Không tải được lịch sử chấm công trong tháng này.");
   }
 });
-document.getElementById("leaderSheetMonth").addEventListener("change", async (event) => {
-  try {
-    const year = document.getElementById("leaderSheetYear").value;
-    await loadTeamData(`${year}-${event.target.value}`);
-  } catch (error) {
-    console.error(error);
-    window.alert("Không tải được bảng chấm công trong tháng này.");
-  }
+document.getElementById("leaderClockSort")?.addEventListener("change", (event) => {
+  leaderClockView.sort = event.target.value;
+  leaderClockView.page = 1;
+  renderTeamAttendance();
 });
-document.getElementById("leaderSheetYear").addEventListener("change", async (event) => {
-  const year = Number(event.target.value);
-  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-    event.target.value = currentMonth.slice(0, 4);
-    return;
-  }
-  try {
-    await loadTeamData(`${year}-${document.getElementById("leaderSheetMonth").value}`);
-  } catch (error) {
-    console.error(error);
-    window.alert("Không tải được bảng chấm công trong tháng này.");
-  }
+const leaderClockPagerEl = document.getElementById("leaderClockPager");
+if (leaderClockPagerEl) {
+  leaderClockPagerEl.addEventListener("click", (event) => {
+    const btn = event.target.closest("button.pg-n");
+    if (!btn || btn.disabled) return;
+    const targetPg = Number(btn.dataset.pg);
+    if (!Number.isNaN(targetPg)) {
+      leaderClockView.page = targetPg + 1;
+      renderTeamAttendance();
+    }
+  });
+  leaderClockPagerEl.addEventListener("change", (event) => {
+    const sel = event.target.closest("select[data-psize]");
+    if (sel) {
+      leaderClockView.pageSize = Number(sel.value) || 10;
+      leaderClockView.page = 1;
+      renderTeamAttendance();
+    }
+  });
+}
+window.loadTeamData = loadTeamData;
+document.getElementById("leaderRequestFilter").addEventListener("change", () => {
+  leaderRequestsView.page = 1;
+  renderRequests();
 });
-document.getElementById("leaderAttendanceSearch").addEventListener("input", renderAttendanceSheet);
-document.getElementById("leaderSaveAttendanceBtn").addEventListener("click", saveAttendanceSheet);
-document.getElementById("leaderRequestFilter").addEventListener("change", renderRequests);
+const leaderRequestsPagerEl = document.getElementById("leaderRequestsPager");
+if (leaderRequestsPagerEl) {
+  leaderRequestsPagerEl.addEventListener("click", (event) => {
+    const btn = event.target.closest("button.pg-n");
+    if (!btn || btn.disabled) return;
+    const targetPg = Number(btn.dataset.pg);
+    if (!Number.isNaN(targetPg)) {
+      leaderRequestsView.page = targetPg + 1;
+      renderRequests();
+    }
+  });
+  leaderRequestsPagerEl.addEventListener("change", (event) => {
+    const sel = event.target.closest("select[data-psize]");
+    if (sel) {
+      leaderRequestsView.pageSize = Number(sel.value) || 10;
+      leaderRequestsView.page = 1;
+      renderRequests();
+    }
+  });
+}
 document.getElementById("leaderRequestsBody").addEventListener("click", (event) => {
   const button = event.target.closest("[data-request-id][data-decision]");
   if (button) reviewRequest(button).catch((error) => {
@@ -519,10 +663,59 @@ document.addEventListener("click", (event) => {
     profileMenu.classList.remove("show-menu");
   }
 });
-document.getElementById("leaderLogoutBtn").addEventListener("click", () => {
-  if (!window.confirm("Bạn có muốn đăng xuất không?")) return;
+const logoutModal = document.getElementById("logoutModal");
+const cancelLogoutBtn = document.getElementById("cancelLogoutBtn");
+const confirmLogoutBtn = document.getElementById("confirmLogoutBtn");
+
+function setLogoutModalOpen(open) {
+  if (logoutModal) logoutModal.hidden = !open;
+}
+
+document.getElementById("leaderLogoutBtn")?.addEventListener("click", () => {
+  profileMenu.classList.remove("show-menu");
+  profileToggle.setAttribute("aria-expanded", "false");
+  setLogoutModalOpen(true);
+  cancelLogoutBtn?.focus();
+});
+
+cancelLogoutBtn?.addEventListener("click", () => {
+  setLogoutModalOpen(false);
+});
+
+confirmLogoutBtn?.addEventListener("click", () => {
   portal.clearSession("leader");
-  window.location.replace("../manager/login.html");
+  window.location.replace("login.html");
+});
+
+logoutModal?.addEventListener("click", (event) => {
+  if (event.target === logoutModal) setLogoutModalOpen(false);
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && logoutModal && !logoutModal.hidden) {
+    setLogoutModalOpen(false);
+  }
 });
 
 initLeaderPortal();
+
+// Periodic check for account/role/password changes from admin.
+// Only runs when the tab is visible to prevent connection exhaustion.
+let lastLeaderPing = Date.now();
+async function pingLeaderStatus() {
+  if (portal.validSession("leader") && !document.hidden) {
+    try {
+      lastLeaderPing = Date.now();
+      await callLeader({ action: "ping" });
+    } catch (_) {
+      // background polling for account changes
+    }
+  }
+}
+
+setInterval(pingLeaderStatus, 15000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Date.now() - lastLeaderPing > 10000) {
+    pingLeaderStatus();
+  }
+});

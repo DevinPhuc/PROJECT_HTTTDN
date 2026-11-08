@@ -210,6 +210,9 @@ function getLoginUrlForRole(roleName: string): string {
   if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(norm)) {
     return "../manager/login.html";
   }
+  if (["leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom"].includes(norm)) {
+    return "../leader/login.html";
+  }
   return "../staff/staff-login.html";
 }
 
@@ -576,7 +579,7 @@ async function listRows() {
            e.full_name,
            e.email,
            e.gender,
-           contact.phone_number,
+           e.phone_number,
            to_char(e.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
            to_char(e.hire_date, 'YYYY-MM-DD') as hire_date,
            coalesce(e.current_department_id, position_department.department_id) as department_id,
@@ -590,12 +593,6 @@ async function listRows() {
            active_role.role_id,
            active_role.role_name
     from public.employees e
-    left join lateral (
-      select c.phone_number
-      from public.employee_contacts c
-      where c.employee_id = e.employee_id
-      limit 1
-    ) contact on true
     left join lateral (
       select dp.department_id
       from public.department_positions dp
@@ -687,18 +684,13 @@ async function createAction(
     const [employee] = await tx`
       insert into public.employees
         (employee_code, full_name, date_of_birth, gender, email, hire_date,
-         current_position_id, current_department_id, employment_status)
+         current_position_id, current_department_id, employment_status, phone_number)
       values
         (${fields.employee_code}, ${fields.full_name}, ${fields.date_of_birth}, ${fields.gender},
          ${fields.email}, ${fields.hire_date}, ${(fields.position_id || null)}::uuid,
-         ${fields.department_id}::uuid, 'Active')
+         ${fields.department_id}::uuid, 'Active', ${fields.phone_number || null})
       returning employee_id`;
 
-    if (fields.phone_number) {
-      await tx`
-        insert into public.employee_contacts (employee_id, phone_number)
-        values (${employee.employee_id}::uuid, ${fields.phone_number})`;
-    }
 
     await tx`
       insert into public.employee_accounts (employee_id, username, password_hash, is_active)
@@ -786,22 +778,31 @@ async function updateAction(
       set is_active = ${isActive}
       where employee_id = ${employeeId}::uuid
       returning employee_id`;
+    if (!isActive) {
+      await tx`
+        update public.employee_accounts
+        set pending_notice = ${JSON.stringify({
+          type: "account_locked",
+          message: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+          redirect_url: getLoginUrlForRole(roleChanged ? newRoleName : beforeEmp.old_role_name),
+        })}::jsonb
+        where employee_id = ${employeeId}::uuid`;
+    } else {
+      await tx`
+        update public.employee_accounts
+        set pending_notice = case
+          when pending_notice->>'type' = 'account_locked' then null
+          else pending_notice
+        end
+        where employee_id = ${employeeId}::uuid`;
+    }
     if (!account) return { error: "account_not_found" } as const;
 
     if (body.phone_number !== undefined) {
-      const [existingContact] = await tx`
-        select employee_id from public.employee_contacts
-        where employee_id = ${employeeId}::uuid limit 1`;
-      if (existingContact) {
-        await tx`
-          update public.employee_contacts
-          set phone_number = ${fields.phone_number || null}
-          where employee_id = ${employeeId}::uuid`;
-      } else if (fields.phone_number) {
-        await tx`
-          insert into public.employee_contacts (employee_id, phone_number)
-          values (${employeeId}::uuid, ${fields.phone_number})`;
-      }
+      await tx`
+        update public.employees
+        set phone_number = ${fields.phone_number || null}
+        where employee_id = ${employeeId}::uuid`;
     }
 
     let roleChanged = false;
@@ -891,12 +892,28 @@ async function setActiveAction(
     return json({ ok: false, error: "invalid_employee" }, 400);
 
   const isActive = body.is_active !== false;
-  const rows = await sql!`
-    update public.employee_accounts
-    set is_active = ${isActive}
-    where employee_id = ${employeeId}::uuid
-      and deleted_at is null
-    returning employee_id, is_active`;
+  const lockNotice = {
+    type: "account_locked",
+    message: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+  };
+  const rows = isActive
+    ? await sql!`
+        update public.employee_accounts
+        set is_active = true,
+            pending_notice = case
+              when pending_notice->>'type' = 'account_locked' then null
+              else pending_notice
+            end
+        where employee_id = ${employeeId}::uuid
+          and deleted_at is null
+        returning employee_id, is_active`
+    : await sql!`
+        update public.employee_accounts
+        set is_active = false,
+            pending_notice = ${JSON.stringify(lockNotice)}::jsonb
+        where employee_id = ${employeeId}::uuid
+          and deleted_at is null
+        returning employee_id, is_active`;
   if (rows.length === 0) return json({ ok: false, error: "not_found" }, 400);
 
   return json({
@@ -913,9 +930,15 @@ async function deleteAction(body: Record<string, unknown>): Promise<Response> {
   if (!UUID_RE.test(employeeId))
     return json({ ok: false, error: "invalid_employee" }, 400);
 
+  const lockNotice = {
+    type: "account_locked",
+    message: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+  };
   const rows = await sql!`
     update public.employee_accounts
-    set deleted_at = now(), is_active = false
+    set deleted_at = now(),
+        is_active = false,
+        pending_notice = ${JSON.stringify(lockNotice)}::jsonb
     where employee_id = ${employeeId}::uuid
       and deleted_at is null
     returning employee_id`;
@@ -932,7 +955,12 @@ async function restoreAction(body: Record<string, unknown>): Promise<Response> {
 
   const rows = await sql!`
     update public.employee_accounts
-    set deleted_at = null, is_active = true
+    set deleted_at = null,
+        is_active = true,
+        pending_notice = case
+          when pending_notice->>'type' = 'account_locked' then null
+          else pending_notice
+        end
     where employee_id = ${employeeId}::uuid
       and deleted_at is not null
     returning employee_id, is_active`;
@@ -1045,10 +1073,6 @@ async function permanentDeleteAction(
         delete from public.employee_qualifications
         where employee_id = ${employeeId}::uuid`;
 
-      // 9. Delete employee_contacts
-      await tx`
-        delete from public.employee_contacts
-        where employee_id = ${employeeId}::uuid`;
 
       // 10. Nullify user_roles assigned_by, then delete employee's user_roles
       await tx`
@@ -1137,6 +1161,8 @@ Deno.serve(async (req) => {
               redirectUrl = "login.html";
             } else if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(lower)) {
               redirectUrl = "../manager/login.html";
+            } else if (["leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom"].includes(lower)) {
+              redirectUrl = "../leader/login.html";
             } else {
               redirectUrl = "../staff/staff-login.html";
             }

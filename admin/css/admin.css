@@ -535,16 +535,16 @@ body:has(.admin-page) {
   color: var(--admin-red);
 }
 
-.admin-form input:read-only,
-.admin-form select:disabled {
-  background: #f1f3f1;
-  color: #78827c;
-  cursor: not-allowed;
-}
-
-#accountForm input[name="employee_code"]:read-only {
-  background: #e9f1eb;
-  color: var(--admin-green-dark);
+#accountForm input:read-only,
+#accountForm input[readonly],
+#accountForm select:disabled,
+#accountForm input[name="employee_code"]:read-only,
+#accountForm input[name="employee_code"][readonly] {
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  cursor: not-allowed !important;
 }
 
 .admin-form [hidden] {
@@ -1384,4 +1384,20 @@ body:has(.admin-page) {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Status select & locked fields in accountForm: dark gray and no dropdown arrow */
+#accountForm select[name="is_active"],
+#accountForm select[name="is_active"]:disabled,
+#accountForm select:disabled {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: none !important;
+  background-color: #cbd5e1 !important;
+  border-color: #94a3b8 !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  cursor: not-allowed !important;
+  padding-right: 12px !important;
 }

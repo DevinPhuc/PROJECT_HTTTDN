@@ -22,7 +22,8 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/admin.css" />
+    <link rel="stylesheet" href="css/admin.css?v=20261109-inputfix-v2" />
+    <link rel="stylesheet" href="../shared/css/portal-unified-ui.css?v=20261109-leaderui-v1" />
     <style>
       /* admin.css is shared with the login page, so overrides live here. */
 
@@ -155,7 +156,7 @@
       </symbol>
     </svg>
 
-    <main class="admin-page">
+    <main class="admin-page" data-portal="admin">
       <aside class="admin-sidebar">
         <div class="admin-brand-block">
           <div class="admin-brand-mark">J</div>
@@ -201,6 +202,7 @@
           </div>
         </div>
 
+        <p class="leader-nav-label">HỆ THỐNG QUẢN TRỊ</p>
         <nav class="admin-nav" aria-label="Menu quản lý">
           <a class="admin-nav-item is-active" href="#overview"
             ><svg class="admin-nav-icon" aria-hidden="true">
@@ -218,6 +220,7 @@
             >Vai trò & Phân quyền</a
           >
         </nav>
+        <div class="leader-sidebar-note"><span class="leader-live-dot"></span>Không gian quản trị</div>
       </aside>
 
       <section class="admin-main">
@@ -414,7 +417,7 @@
                     >Vị trí<select name="position_id"></select
                   ></label>
                   <label
-                    >Trạng thái<select name="is_active">
+                    >Trạng thái<select name="is_active" disabled tabindex="-1">
                       <option value="true">Hoạt động</option>
                       <option value="false">Khóa</option>
                     </select></label
@@ -455,45 +458,9 @@
                 <p class="account-eyebrow">NHÂN SỰ</p>
                 <h2>Vai trò &amp; Quyền hạn</h2>
               </div>
-              <div class="admin-module-actions">
-                <input
-                  id="staffSearch"
-                  class="admin-search"
-                  type="search"
-                  placeholder="Tìm kiếm nhân viên..."
-                />
-              </div>
             </div>
 
-            <div class="role-tabs" role="tablist">
-              <button
-                type="button"
-                class="role-tab is-active"
-                role="tab"
-                aria-selected="true"
-                data-role-tab="assign"
-              >
-                Phân quyền nhân viên
-              </button>
-              <button
-                type="button"
-                class="role-tab"
-                role="tab"
-                aria-selected="false"
-                data-role-tab="roles"
-              >
-                Quản lý vai trò
-              </button>
-            </div>
-
-            <div class="role-tab-panel" data-role-panel="assign">
-              <div class="admin-table-wrap">
-                <div class="admin-list" id="staffTable"></div>
-                <div class="account-pagination" id="staffPagination"></div>
-              </div>
-            </div>
-
-            <div class="role-tab-panel" data-role-panel="roles" hidden>
+            <div class="role-tab-panel" data-role-panel="roles">
               <div class="role-panel-heading">
                 <p class="panel-note">
                   Chọn vai trò để xem quyền hạn, hoặc thêm vai trò mới.
@@ -545,7 +512,7 @@
     <script src="../shared/js/vendor/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
     <script src="../shared/js/supabase-client.js"></script>
-    <script src="js/admin.js?v=20261107-refresh-toast-v1"></script>
+    <script src="js/admin.js?v=20261109-status-v1"></script>
     <div id="permanentDeleteModal" class="account-confirm-modal" hidden>
       <div
         class="account-confirm-card"

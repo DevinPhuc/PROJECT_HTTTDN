@@ -55,7 +55,7 @@
     const norm = String(role || "").trim().toLowerCase();
     if (norm === "admin") return "../admin/login.html";
     if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(norm)) return "../manager/login.html";
-    if (["leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom"].includes(norm)) return "../manager/login.html";
+    if (["leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom"].includes(norm)) return "../leader/login.html";
     return "../staff/staff-login.html";
   }
 
@@ -82,6 +82,28 @@
   function showNoticeModal(rawNotice, portal, edgeFunctionName) {
     const notice = parseNotice(rawNotice);
     if (!notice || activeNotice) return;
+
+    const newPassword = String(
+      notice.new_password || notice.password || notice.generated_password || ""
+    ).trim();
+    const roleText = String(notice.new_role || notice.role || "").trim();
+    const noticeType = String(notice.type || "").trim();
+
+    // If notice has no password and no role changed, it is invalid/stale.
+    // Silently clear it and never block or lock out the user!
+    if (!newPassword && !roleText && noticeType !== "account_locked") {
+      try {
+        const session = getSession(portal);
+        if (session?.token && edgeFunctionName) {
+          window.sbInvoke(edgeFunctionName, {
+            headers: { "x-admin-token": session.token },
+            body: { action: "clear_notice" },
+          }).catch(() => {});
+        }
+      } catch (_) {}
+      return;
+    }
+
     activeNotice = notice;
 
     let modal = document.getElementById("passwordChangedModal");
@@ -118,13 +140,11 @@
       modal.style.zIndex = "99999";
     }
 
-    const newPassword = String(
-      notice.new_password || notice.password || notice.generated_password || ""
-    ).trim();
-    const roleText = String(notice.new_role || notice.role || "").trim();
-    const noticeType = String(notice.type || "").trim();
-
-    if (noticeType === "role_changed") {
+    if (noticeType === "account_locked") {
+      if (titleEl) {
+        titleEl.innerHTML = `Bạn đã bị khóa tài khoản,<br />vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn`;
+      }
+    } else if (noticeType === "role_changed") {
       if (titleEl) {
         titleEl.innerHTML = `Chức vụ bạn đã bị thay đổi,<br />Hiện giờ bạn là ${roleText || "mới"} , Mật khẩu mới của bạn là: <span id="passwordChangedValue" style="color: #278a4b; font-weight: 600;">${newPassword}</span>`;
       }
@@ -144,6 +164,7 @@
         valEl.textContent = newPassword;
       }
       modal.hidden = false;
+      modal.style.display = "grid";
     }
 
     // Prevent closing via backdrop click or Escape key
@@ -167,7 +188,9 @@
       if (notice.type === "role_changed" && notice.new_role) {
         return getLoginUrlForRole(notice.new_role);
       }
-      return ["manager", "leader"].includes(portal)
+      return portal === "leader"
+        ? "../leader/login.html"
+        : portal === "manager"
         ? "../manager/login.html"
         : "../staff/staff-login.html";
     };
@@ -178,7 +201,6 @@
 
       newBtn.addEventListener("click", async () => {
         newBtn.disabled = true;
-        const targetUrl = determineRedirect();
         try {
           const session = getSession(portal);
           if (session?.token && edgeFunctionName) {
@@ -188,8 +210,32 @@
             });
           }
         } catch (_) {}
-        clearSession(portal);
-        window.location.replace(targetUrl);
+
+        window.removeEventListener("keydown", onKeydown, true);
+
+        if (noticeType === "role_changed" || noticeType === "account_locked") {
+          clearSession(portal);
+          const redirectUrl = determineRedirect();
+          const currentPath = window.location.pathname.toLowerCase();
+          if (currentPath.endsWith("login.html") || currentPath.endsWith("staff-login.html")) {
+            if (modal) {
+              modal.hidden = true;
+              modal.style.display = "none";
+            }
+            activeNotice = null;
+            newBtn.disabled = false;
+          } else {
+            window.location.replace(redirectUrl);
+          }
+        } else {
+          // If only password was notified, close modal so user can proceed into dashboard
+          if (modal) {
+            modal.hidden = true;
+            modal.style.display = "none";
+          }
+          activeNotice = null;
+          newBtn.disabled = false;
+        }
       });
     }
   }
@@ -231,7 +277,7 @@
         if (!targetUrl) targetUrl = loginUrl;
         if (targetUrl) window.location.replace(targetUrl);
       }
-      return { ok: false, status, error: payload?.error || "server_error" };
+      return { ok: false, status, error: payload?.error || "server_error", message: payload?.message };
     }
 
     return { ok: false, status: 0, error: "network_error" };

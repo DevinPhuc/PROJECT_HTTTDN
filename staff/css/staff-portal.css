@@ -795,9 +795,12 @@ button.staff-kpi-action:focus-visible {
 .staff-clock-card {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  border-top: 3px solid var(--admin-green);
-  box-shadow: 0 8px 22px rgb(16 79 85 / 10%);
+  gap: 20px;
+  padding: clamp(20px, 3vw, 28px);
+  border: 1px solid #dfebe5;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(20 30 25 / 6%);
 }
 
 .staff-clock-face {
@@ -810,82 +813,86 @@ button.staff-kpi-action:focus-visible {
 
 .staff-clock-date {
   margin: 0;
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 600;
+  color: #526057;
+  font-size: 13px;
+  font-weight: 650;
   text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .staff-clock-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  gap: 14px;
+  width: 100%;
 }
 
 .staff-clock-col {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 18px 14px 20px;
-  border: 1px solid var(--admin-line);
-  border-radius: 2px;
-  background: #fff;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 16px 20px;
+  border: 1px solid #dfebe5;
+  border-radius: 13px;
+  background: rgb(255 255 255 / 82%);
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .staff-clock-col-label {
   margin: 0;
-  color: var(--admin-muted);
+  color: #526057;
   font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
+  font-weight: 650;
+  text-transform: none;
 }
 
 .staff-clock-time {
-  margin: 0 0 6px;
-  color: var(--admin-ink);
-  font-family: var(--heading-font, Georgia, serif);
+  margin: 8px 0 13px;
+  color: #141e19;
+  font-family: inherit;
   font-variant-numeric: tabular-nums;
-  font-size: 30px;
-  font-weight: 500;
-  letter-spacing: 1px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 .staff-clock-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-width: 180px;
-  padding: 13px 28px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 16px;
   border: 0;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--admin-green) 0%, var(--admin-green-dark) 100%);
-  color: #fff;
-  font: 700 15px/1.2 var(--body-font, sans-serif);
-  letter-spacing: .4px;
+  border-radius: 8px;
+  background: #105b48;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 650;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgb(16 79 85 / 22%);
-  transition: transform .15s ease, box-shadow .15s ease;
+  box-shadow: none;
+  transition: opacity 160ms ease, background-color 160ms ease;
 }
 
 .staff-btn-icon {
-  width: 17px;
-  height: 17px;
-  fill: currentColor;
-  flex: none;
+  display: none;
 }
 
 .staff-clock-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgb(16 79 85 / 28%);
+  opacity: 0.92;
+  box-shadow: none;
+  transform: none;
 }
 
 .staff-clock-btn:disabled {
-  background: #e6eeed;
-  color: var(--admin-muted);
-  box-shadow: none;
+  background: #7ca89a;
+  color: #ffffff;
   cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
+  transform: none;
 }
 
 .staff-clock-btn[data-loading="1"] {
@@ -895,7 +902,7 @@ button.staff-kpi-action:focus-visible {
 .staff-clock-feedback {
   margin: -6px 0 0;
   min-height: 16px;
-  color: var(--admin-green-dark);
+  color: #10584f;
   font-size: 12px;
   text-align: center;
 }

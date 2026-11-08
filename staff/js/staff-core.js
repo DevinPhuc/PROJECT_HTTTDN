@@ -147,7 +147,6 @@ const demoPayrollRecords = Array.from({ length: demoPayrollMonthCount }, (_, ind
     work_days: workDays,
     paid_leave_days: paidLeaveDays,
     allowance,
-    overtime_pay: 0,
     insurance_rate: 10.5,
     insurance_amount: insuranceAmount,
     personal_income_tax: personalIncomeTax,
@@ -459,7 +458,7 @@ async function loadStaffPortal() {
         // silent background refresh
       }
     }
-  }, 3000);
+  }, 10000);
 }
 
 // Toast feedback (section 9): same bottom-right pattern as the manager

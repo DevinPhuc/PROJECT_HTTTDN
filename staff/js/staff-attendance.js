@@ -24,7 +24,8 @@ let attendanceFeedbackTimer = 0;
 // History table (section 6): client-side filter + pagination, 10 rows per page.
 // Month = yyyy-mm picker; week = 1..4 (7-day blocks of the chosen month).
 const ATT_PAGE_SIZE = 10;
-const attendanceView = { filter: "all", page: 1, month: null, week: null };
+const ATT_PAGE_SIZES = [10, 20, 50, 100];
+const attendanceView = { filter: "all", page: 1, pageSize: 10, sort: "desc", month: null, week: null };
 
 // Month/week options come from the system clock, built once per page load.
 (function initAttendancePickerOptions() {
@@ -85,13 +86,20 @@ function attendanceFiltered() {
     const monthDate = parseIsoDate(`${attendanceView.month}-01`);
     const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
     const endDay = week === 4 ? lastDay : Math.min(7 * week, lastDay);
-    return records.filter((r) => {
+    records = records.filter((r) => {
       if (r.work_date.slice(0, 7) !== attendanceView.month) return false;
       const day = Number(r.work_date.slice(8, 10));
       return day >= startDay && day <= endDay;
     });
   }
-  return records;
+  const mult = attendanceView.sort === "asc" ? 1 : -1;
+  return [...records].sort((a, b) => {
+    const cmpDate = String(a.work_date || "").localeCompare(String(b.work_date || "")) * mult;
+    if (cmpDate !== 0) return cmpDate;
+    const timeA = String(a.check_in || "");
+    const timeB = String(b.check_in || "");
+    return timeA.localeCompare(timeB) * mult;
+  });
 }
 
 function setAttendanceFeedback(message) {
@@ -131,25 +139,24 @@ function attendanceButton(phase) {
 function refreshAttendanceUI() {
   const activeRecord = activeTodayRecord();
 
-  // Có lượt mở: hiện giờ vào của lượt đó. Giờ ra luôn --:-- cho tới khi bấm Ra về,
-  // sau đó cả hai ô reset về --:-- cho lượt tiếp theo.
   document.getElementById("attendanceCheckIn").textContent = activeRecord ? timeShort(activeRecord.check_in) : NOT_CHECKED;
   document.getElementById("attendanceCheckOut").textContent = NOT_CHECKED;
 
-  // Nút không bao giờ bị khóa vĩnh viễn: chỉ khóa trong lúc yêu cầu đang chạy.
-  ["in", "out"].forEach((buttonPhase) => {
-    const button = attendanceButton(buttonPhase);
-    button.disabled = button.dataset.loading === "1";
-  });
+  const inBtn = attendanceButton("in");
+  const outBtn = attendanceButton("out");
+  if (inBtn) inBtn.disabled = Boolean(activeRecord) || inBtn.dataset.loading === "1";
+  if (outBtn) outBtn.disabled = !activeRecord || outBtn.dataset.loading === "1";
 
   const summary = document.getElementById("attendanceSummary");
   const sessions = todayRecords().filter((item) => item.check_in);
-  if (activeRecord) {
-    summary.innerHTML = `Hôm nay: đang trong ca (lượt ${sessions.length})</strong>`;
-  } else if (sessions.length > 0) {
-    summary.textContent = `Hôm nay đã hoàn thành ${sessions.length} lượt chấm công.`;
-  } else {
-    summary.textContent = "Chưa chấm công hôm nay";
+  if (summary) {
+    if (activeRecord) {
+      summary.innerHTML = `Hôm nay đang trong ca · vào <strong>${timeShort(activeRecord.check_in)}</strong>`;
+    } else if (sessions.length > 0) {
+      summary.textContent = `Hôm nay đã hoàn thành ${sessions.length} lượt chấm công.`;
+    } else {
+      summary.textContent = "Chưa chấm công hôm nay";
+    }
   }
 }
 
@@ -170,63 +177,100 @@ function renderAttendanceSlice() {
   updateAttendancePickerControls();
   const rows = document.getElementById("attendanceRows"); rows.replaceChildren();
   const filtered = attendanceFiltered();
+  const total = filtered.length;
+  const size = attendanceView.pageSize || ATT_PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  attendanceView.page = Math.min(Math.max(1, attendanceView.page), totalPages);
+
   if (!filtered.length) {
     const row = document.createElement("tr"); const cell = document.createElement("td");
     cell.colSpan = 4; cell.className = "staff-empty-cell"; cell.textContent = "Chưa có dữ liệu chấm công."; row.append(cell); rows.append(row);
-  }
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ATT_PAGE_SIZE));
-  attendanceView.page = Math.min(attendanceView.page, totalPages);
-  const pageStart = (attendanceView.page - 1) * ATT_PAGE_SIZE;
-  filtered.slice(pageStart, pageStart + ATT_PAGE_SIZE).forEach((record) => {
-    const row = document.createElement("tr");
-    [dateLabel(record.work_date), record.check_in ? timeShort(record.check_in) : "—", record.check_out ? timeShort(record.check_out) : "—"].forEach((value) => {
-      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+  } else {
+    const pageStart = (attendanceView.page - 1) * size;
+    filtered.slice(pageStart, pageStart + size).forEach((record) => {
+      const row = document.createElement("tr");
+      [dateLabel(record.work_date), record.check_in ? timeShort(record.check_in) : "—", record.check_out ? timeShort(record.check_out) : "—"].forEach((value) => {
+        const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+      });
+      const statusCell = document.createElement("td"); statusCell.append(attendanceStatusBadge(record.status)); row.append(statusCell);
+      rows.append(row);
     });
-    const statusCell = document.createElement("td"); statusCell.append(attendanceStatusBadge(record.status)); row.append(statusCell);
-    rows.append(row);
-  });
-  renderAttendancePager(totalPages);
+  }
+  renderAttendancePager(total, totalPages);
 }
 
-function renderAttendancePager(totalPages) {
+function renderAttendancePager(total, totalPages) {
   const pager = document.getElementById("attendancePager");
-  pager.replaceChildren();
-  if (totalPages <= 1) { pager.hidden = true; return; }
-  const mkBtn = (label, target, disabled) => {
-    const btn = document.createElement("button");
-    btn.type = "button"; btn.className = "admin-secondary-btn"; btn.textContent = label;
-    if (disabled) btn.disabled = true;
-    btn.addEventListener("click", () => {
-      attendanceView.page = target;
-      renderAttendanceSlice();
-    });
-    return btn;
-  };
-  pager.append(mkBtn("‹ Trước", attendanceView.page - 1, attendanceView.page <= 1));
-  const label = document.createElement("span");
-  label.textContent = `Trang ${attendanceView.page}/${totalPages}`;
-  pager.append(label);
-  pager.append(mkBtn("Sau ›", attendanceView.page + 1, attendanceView.page >= totalPages));
+  if (!pager) return;
+  const size = attendanceView.pageSize || ATT_PAGE_SIZE;
+  const p = attendanceView.page - 1;
+  const from = total ? p * size + 1 : 0;
+  const to = Math.min(total, (p + 1) * size);
+  const nums = [];
+  const add = (i) => nums.push(`<button type="button" class="pg-n ${i === p ? "on" : ""}" data-pg="${i}">${i + 1}</button>`);
+  if (totalPages <= 7) {
+    for (let i = 0; i < totalPages; i++) add(i);
+  } else {
+    add(0);
+    const a = Math.max(1, p - 1), b = Math.min(totalPages - 2, p + 1);
+    if (a > 1) nums.push('<span class="pg-dot">…</span>');
+    for (let i = a; i <= b; i++) add(i);
+    if (b < totalPages - 2) nums.push('<span class="pg-dot">…</span>');
+    add(totalPages - 1);
+  }
+
+  pager.innerHTML = `<span>Hiển thị <b>${from}-${to}</b> / ${total} dòng</span><span class="pg">Số dòng/trang `
+    + `<select data-psize>${ATT_PAGE_SIZES.map((s) => `<option value="${s}" ${s === size ? "selected" : ""}>${s}</option>`).join("")}</select>`
+    + `<button type="button" class="pg-n" data-pg="${p - 1}" ${p > 0 ? "" : "disabled"}>‹</button>${nums.join("")}`
+    + `<button type="button" class="pg-n" data-pg="${p + 1}" ${p < totalPages - 1 ? "" : "disabled"}>›</button>`
+    + `</span>`;
   pager.hidden = false;
 }
 
-document.getElementById("attendanceFilter").addEventListener("change", (event) => {
+document.getElementById("attendanceFilter")?.addEventListener("change", (event) => {
   attendanceView.filter = event.target.value;
   attendanceView.page = 1;
   renderAttendanceSlice();
 });
 
-document.getElementById("attendanceMonth").addEventListener("change", (event) => {
+document.getElementById("attendanceMonth")?.addEventListener("change", (event) => {
   attendanceView.month = event.target.value;
   attendanceView.page = 1;
   renderAttendanceSlice();
 });
 
-document.getElementById("attendanceWeek").addEventListener("change", (event) => {
+document.getElementById("attendanceWeek")?.addEventListener("change", (event) => {
   attendanceView.week = Number(event.target.value);
   attendanceView.page = 1;
   renderAttendanceSlice();
 });
+
+document.getElementById("staffAttendanceSort")?.addEventListener("change", (event) => {
+  attendanceView.sort = event.target.value;
+  attendanceView.page = 1;
+  renderAttendanceSlice();
+});
+
+const staffPagerEl = document.getElementById("attendancePager");
+if (staffPagerEl) {
+  staffPagerEl.addEventListener("click", (event) => {
+    const btn = event.target.closest("button.pg-n");
+    if (!btn || btn.disabled) return;
+    const targetPg = Number(btn.dataset.pg);
+    if (!Number.isNaN(targetPg)) {
+      attendanceView.page = targetPg + 1;
+      renderAttendanceSlice();
+    }
+  });
+  staffPagerEl.addEventListener("change", (event) => {
+    const sel = event.target.closest("select[data-psize]");
+    if (sel) {
+      attendanceView.pageSize = Number(sel.value) || 10;
+      attendanceView.page = 1;
+      renderAttendanceSlice();
+    }
+  });
+}
 
 // Chặn bấm sai thứ tự trước khi gọi server. Trả về thông báo, hoặc "" nếu hợp lệ.
 function attendanceGuard(clicked) {
@@ -238,7 +282,7 @@ function attendanceGuard(clicked) {
 
 async function performClock(phase) {
   const button = attendanceButton(phase);
-  const label = button.querySelector(".staff-clock-btn-label");
+  const label = button.querySelector(".staff-clock-btn-label") || button;
   const originalLabel = label.textContent;
   button.dataset.loading = "1";
   refreshAttendanceUI();

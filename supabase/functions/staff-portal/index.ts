@@ -133,10 +133,19 @@ async function ensureNoticeColumn() {
   if (noticeColumnChecked) return;
   try {
     await sql!`alter table public.employee_accounts add column if not exists pending_notice jsonb`;
-    noticeColumnChecked = true;
   } catch (err) {
     console.error("staff-portal: ensureNoticeColumn failed", err);
   }
+  try {
+    await sql!`
+      alter table if exists public.payroll
+        drop column if exists overtime_pay cascade,
+        drop column if exists night_pay cascade,
+        drop column if exists payment_date cascade`;
+  } catch (err) {
+    console.warn("staff-portal: drop payroll columns failed", err);
+  }
+  noticeColumnChecked = true;
 }
 
 async function getActor(token: string): Promise<Actor | null> {
@@ -227,7 +236,7 @@ async function ownEmployee(tx: typeof sql, employeeId: string) {
 async function ownContact(tx: typeof sql, employeeId: string) {
   const rows = await tx!`
     select employee_id, phone_number, address
-    from public.employee_contacts
+    from public.employees
     where employee_id = ${employeeId}::uuid`;
   return rows[0] ?? null;
 }
@@ -355,18 +364,11 @@ async function updateProfileAction(actor: Actor, body: Record<string, unknown>):
         where employee_id = ${actor.employee_id}::uuid`;
     }
 
-    const existing = await ownContact(tx, actor.employee_id);
-    if (existing) {
-      await tx`
-        update public.employee_contacts
-        set phone_number = ${phoneNumber || null},
-            address = ${address || null}
-        where employee_id = ${actor.employee_id}::uuid`;
-    } else if (phoneNumber || address) {
-      await tx`
-        insert into public.employee_contacts (employee_id, phone_number, address)
-        values (${actor.employee_id}::uuid, ${phoneNumber || null}, ${address || null})`;
-    }
+    await tx`
+      update public.employees
+      set phone_number = ${phoneNumber || null},
+          address = ${address || null}
+      where employee_id = ${actor.employee_id}::uuid`;
     // Marital status is the only identity field the employee may self-edit;
     // no insert — the row is HR-seeded (national_id is NOT NULL).
     const marital = str(body.marital_status);
@@ -437,7 +439,7 @@ async function personalInfoAction(actor: Actor): Promise<Response> {
 async function leaveListAction(actor: Actor): Promise<Response> {
   const rows = await sql!`
     select r.leave_request_id, r.employee_id, r.start_date, r.end_date, r.num_days,
-           r.reason, r.status, r.requested_at, r.decided_at, r.medical_ref,
+           r.reason, r.status, r.requested_at, r.decided_at,
            case t.type_name
              when 'Nghỉ phép' then 'annual'
              when 'Nghỉ ốm đau' then 'sick'
@@ -605,9 +607,9 @@ async function payrollMonthAction(actor: Actor, body: Record<string, unknown>): 
   const rows = await sql!`
     select payroll_id, employee_id, pay_month, pay_year, base_salary,
            total_allowance as allowance, total_deduction as total_deductions,
-           bonus, overtime_pay, night_pay, gross_salary, net_salary,
+           bonus, gross_salary, net_salary,
            work_days, standard_days, insurance_amount, personal_income_tax,
-           payment_date, payment_status, payment_method
+           payment_status, payment_method
     from public.payroll
     where employee_id = ${actor.employee_id}::uuid
       and pay_year = ${year} and pay_month = ${month}`;
@@ -616,7 +618,7 @@ async function payrollMonthAction(actor: Actor, body: Record<string, unknown>): 
   // payroll_details; empty payroll rows mean empty details.
   const details = payrollRow
     ? await sql!`
-        select detail_id, item_type, item_name, amount, payer, quantity, rate_multiplier
+        select detail_id, item_type, item_name, amount, payer
         from public.payroll_details
         where payroll_id = ${payrollRow.payroll_id}::uuid
         order by item_type, item_name`
@@ -880,9 +882,9 @@ async function payrollYearAction(actor: Actor, body: Record<string, unknown>): P
   const rows = await sql!`
     select payroll_id, employee_id, pay_month, pay_year, base_salary,
            total_allowance as allowance, total_deduction as total_deductions,
-           bonus, overtime_pay, night_pay, gross_salary, net_salary,
+           bonus, gross_salary, net_salary,
            work_days, standard_days, insurance_amount, personal_income_tax,
-           payment_date, payment_status, payment_method
+           payment_status, payment_method
     from public.payroll
     where employee_id = ${actor.employee_id}::uuid
       and pay_year = ${year}
@@ -912,23 +914,31 @@ Deno.serve(async (req) => {
   if (!actor) {
     let redirectUrl = "staff-login.html";
     let activeRole = "";
+    let pendingNotice: unknown = null;
     if (token) {
       try {
         const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
         const employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
         if (UUID_RE.test(employeeId)) {
+          const [acc] = await sql!`
+            select pending_notice from public.employee_accounts where employee_id = ${employeeId}::uuid limit 1`;
+          if (acc?.pending_notice) {
+            pendingNotice = parseNotice(acc.pending_notice);
+          }
           activeRole = await activePortalRole(employeeId);
           if (activeRole === "Admin") {
             redirectUrl = "../admin/login.html";
-          } else if (activeRole === "Manager" || activeRole === "Leader") {
+          } else if (activeRole === "Manager") {
             redirectUrl = "../manager/login.html";
+          } else if (activeRole === "Leader") {
+            redirectUrl = "../leader/login.html";
           }
         }
       } catch {
         // ignore
       }
     }
-    return json({ ok: false, error: "unauthorized", role: activeRole, redirect_url: redirectUrl }, 401);
+    return json({ ok: false, error: "unauthorized", role: activeRole, redirect_url: redirectUrl, pending_notice: pendingNotice }, 401);
   }
 
   let body: Record<string, unknown>;

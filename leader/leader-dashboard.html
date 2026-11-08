@@ -6,8 +6,15 @@
     <meta name="description" content="Cổng trưởng nhóm Jewels." />
     <title>Leader Portal - Jewels</title>
     <link rel="icon" type="image/svg+xml" href="../shared/images/brand-logo-1.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="../shared/css/style.css" />
-    <link rel="stylesheet" href="css/leader.css" />
+    <link rel="stylesheet" href="css/leader.css?v=20261109-leaderui-v1" />
+    <link rel="stylesheet" href="../shared/css/portal-unified-ui.css?v=20261109-leaderui-v1" />
   </head>
   <body>
     <main class="leader-shell">
@@ -47,7 +54,7 @@
 
       <section class="leader-main">
         <header class="leader-topbar">
-          <div><p class="leader-eyebrow">JEWELS <span>/</span> QUẢN LÝ NHÓM</p><h1 id="leaderPageTitle">Chấm công</h1></div>
+          <div><p class="leader-eyebrow">JEWELS · QUẢN LÝ NHÓM</p><h1 id="leaderPageTitle">Chấm công</h1></div>
           <div class="leader-topbar-actions">
             <button type="button" class="leader-button leader-button-secondary" id="leaderRefreshBtn">
               <img src="../shared/images/reset.png" alt="" class="button-icon" />Làm mới dữ liệu
@@ -78,7 +85,15 @@
             <section class="leader-card">
               <div class="leader-card-heading">
                 <div><p class="leader-eyebrow">NHÓM CỦA TÔI</p><h3>Lịch sử chấm công nhóm</h3></div>
-                <label class="leader-period-control">Tháng<input type="month" id="leaderClockMonth" /></label>
+                <div class="leader-clock-filters">
+                  <label class="leader-period-control">Tháng<input type="month" id="leaderClockMonth" /></label>
+                  <label class="leader-period-control">Sắp xếp
+                    <select id="leaderClockSort">
+                      <option value="desc" selected>Ngày mới nhất</option>
+                      <option value="asc">Ngày cũ nhất</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <div class="leader-table-wrap">
                 <table class="leader-table">
@@ -86,39 +101,40 @@
                   <tbody id="leaderClockRows"></tbody>
                 </table>
               </div>
+              <nav id="leaderClockPager" class="mgr-pager" aria-label="Trang lịch sử chấm công nhóm"></nav>
             </section>
           </section>
 
           <section class="leader-view" data-leader-panel="attendance-sheet" hidden>
-            <div class="leader-section-heading">
-              <div><p class="leader-eyebrow">THEO DÕI THỜI GIAN</p><h2>Bảng chấm công</h2><p class="leader-subtitle">Chọn ký hiệu cho từng ngày của nhân sự trong nhóm.</p></div>
-              <div class="leader-module-actions">
-                <label class="leader-period-control">Tháng
-                  <span class="leader-month-selectors">
-                    <select id="leaderSheetMonth" aria-label="Tháng">
-                      <option value="01">January</option><option value="02">February</option>
-                      <option value="03">March</option><option value="04">April</option>
-                      <option value="05">May</option><option value="06">June</option>
-                      <option value="07">July</option><option value="08">August</option>
-                      <option value="09">September</option><option value="10">October</option>
-                      <option value="11">November</option><option value="12">December</option>
-                    </select>
-                    <input type="number" id="leaderSheetYear" min="2000" max="2100" step="1" aria-label="Năm" />
-                  </span>
-                </label>
-                <button type="button" class="leader-button leader-button-primary" id="leaderSaveAttendanceBtn">Lưu bảng chấm công</button>
+            <div class="panel-heading">
+              <div>
+                <h2>Bảng chấm công</h2>
+                <p class="cc-subtitle">Chọn ký hiệu rồi bấm (hoặc kéo chuột) lên các ô ngày để chấm</p>
+              </div>
+              <div class="cc-head-tools">
+                <label class="hr-period-control">Kỳ lương<input id="leaderSheetMonthInput" type="month" /></label>
+                <button type="button" class="admin-primary-btn cc-excel-btn" id="leaderCcExcel"><svg class="cc-btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5h5.5L13 5v9.5H4zM9.5 1.5V5H13M6 8.5h5M6 11h5"/></svg>Xuất Excel</button>
+                <button type="button" class="admin-secondary-btn" id="leaderCcPrint"><svg class="cc-btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6V2h8v4M4 12H2.5A1.5 1.5 0 0 1 1 10.5v-3A1.5 1.5 0 0 1 2.5 6h11A1.5 1.5 0 0 1 15 7.5v3a1.5 1.5 0 0 1-1.5 1.5H12M4 9.5h8V14H4z"/></svg>In</button>
               </div>
             </div>
-            <section class="leader-card">
-              <div class="leader-filter">
-                <label>Tìm nhân sự<input id="leaderAttendanceSearch" class="leader-input" type="search" placeholder="Tên hoặc mã nhân viên" /></label>
-                <p class="leader-feedback" id="leaderAttendanceFeedback" role="status" aria-live="polite"></p>
+            <section class="admin-panel leader-card" style="padding: 18px;">
+              <div class="cc-tools">
+                <div class="cc-palette" id="leaderCcPalette"></div>
+                <div class="cc-actions">
+                  <input id="leaderCcSearch" class="admin-search" type="search" placeholder="Tìm nhân viên..." />
+                  <button type="button" class="admin-secondary-btn" id="leaderCcFillX"><svg class="cc-btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg>Điền "X" ngày trống</button>
+                  <button type="button" class="admin-secondary-btn" id="leaderCcClearMonth"><svg class="mgr-cc-clear-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>Xóa tháng</button>
+                </div>
               </div>
-              <div class="leader-board-wrap">
-                <table class="leader-table leader-board">
-                  <thead id="leaderSheetHead"></thead><tbody id="leaderSheetBody"></tbody>
+              <p id="leaderCcFeedback" role="status" aria-live="polite" style="font-size: 13px; margin: 4px 0 10px; min-height: 18px; font-weight: 500;"></p>
+              <div class="hr-table-wrap cc-wrap">
+                <table class="cc">
+                  <thead id="leaderCcHead"></thead>
+                  <tbody id="leaderCcBody"></tbody>
+                  <tfoot id="leaderCcFoot" hidden></tfoot>
                 </table>
               </div>
+              <nav id="leaderCcPager" class="mgr-pager" aria-label="Trang bảng chấm công"></nav>
             </section>
           </section>
 
@@ -137,15 +153,66 @@
                   <tbody id="leaderRequestsBody"></tbody>
                 </table>
               </div>
+              <nav id="leaderRequestsPager" class="mgr-pager" aria-label="Trang duyệt đơn"></nav>
             </section>
           </section>
         </div>
       </section>
     </main>
 
+    <div
+      class="logout-modal"
+      id="passwordChangedModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="passwordChangedTitle"
+      hidden
+    >
+      <div class="logout-modal-content" style="width: min(100%, 460px); max-width: 460px;">
+        <h2 id="passwordChangedTitle" style="font-size: 23px; line-height: 1.4; margin: 0 0 24px; font-weight: 500;">
+          Mật khẩu bạn đã bị thay đổi,<br />
+          Sau đây là mật khẩu mới của bạn: <span id="passwordChangedValue" style="color: #278a4b; font-weight: 600;"></span>
+        </h2>
+        <div class="logout-modal-actions" style="display: flex; justify-content: center;">
+          <button
+            type="button"
+            class="admin-secondary-btn"
+            id="confirmPasswordChangeBtn"
+            style="min-width: 100px; padding: 8px 24px;"
+          >
+            Đồng ý
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="logout-modal" id="logoutModal" role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle" hidden>
+      <div class="logout-modal-content">
+        <h2 id="logoutModalTitle">Bạn có muốn đăng xuất không?</h2>
+        <div class="logout-modal-actions">
+          <button type="button" class="admin-secondary-btn" id="cancelLogoutBtn">
+            Không
+          </button>
+          <button type="button" class="admin-logout-btn" id="confirmLogoutBtn">
+            Có
+          </button>
+        </div>
+      </div>
+    </div>
+
+        <div id="leaderSuccessToast" class="leader-toast leader-success-toast" role="status" aria-live="polite">
+      <img src="../shared/images/check.png" alt="" class="toast-icon" />
+      <span>Dữ liệu đã được làm mới!</span>
+    </div>
+    <div id="leaderErrorToast" class="leader-toast leader-error-toast" role="status" aria-live="polite">
+      <img src="../shared/images/x.png" alt="" class="toast-icon" />
+      <span>Không thể làm mới dữ liệu. Vui lòng thử lại.</span>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../shared/js/supabase-client.js"></script>
-    <script src="../shared/js/portal-api.js"></script>
-    <script src="js/leader.js"></script>
+    <script src="../shared/js/portal-api.js?v=20261108-fix-v5"></script>
+    <script src="js/leader.js?v=20261109-attfix-v6"></script>
+    <script src="js/leader-sheet.js?v=20261109-attfix-v6"></script>
   </body>
 </html>
