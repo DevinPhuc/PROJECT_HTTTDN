@@ -45,6 +45,7 @@
       .login-shell {
         width: min(940px, calc(100% - 32px));
         min-height: 640px;
+        height: 640px;
         display: grid;
         grid-template-columns: 1.1fr 1fr;
         border: 1px solid var(--admin-line);
@@ -166,10 +167,10 @@
 
       .password-wrap {
         position: relative;
+        display: grid;
       }
 
       .password-wrap input {
-        width: 100%;
         padding-right: 52px;
       }
 
@@ -227,7 +228,12 @@
 
       .helper-link {
         color: var(--admin-primary);
-        text-decoration: none;
+        text-decoration: underline;
+        transition: color 0.15s ease;
+      }
+
+      .helper-link:hover {
+        color: #104f55;
       }
 
       .login-submit {
@@ -247,9 +253,37 @@
       }
 
       .login-feedback {
-        min-height: 24px;
+        display: none;
+      }
+      .admin-toast {
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translate(-50%, -16px);
+        width: min(420px, calc(100% - 32px));
+        padding: 14px 18px;
+        border: 1px solid var(--admin-error);
+        border-radius: 14px;
+        background: #fff;
         color: var(--admin-error);
-        font-size: 0.92rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-align: center;
+        box-shadow: 0 18px 40px rgba(39, 27, 11, 0.18);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition:
+          opacity 0.25s ease,
+          transform 0.25s ease,
+          visibility 0.25s;
+        z-index: 10;
+      }
+
+      .admin-toast.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translate(-50%, 0);
       }
 
       .admin-note {
@@ -263,6 +297,8 @@
       @media (max-width: 720px) {
         .login-shell {
           grid-template-columns: 1fr;
+          height: auto;
+          min-height: auto;
         }
 
         .login-visual {
@@ -296,12 +332,7 @@
         <form class="login-form" id="staffLoginForm" novalidate>
           <label class="field">
             Email nhân viên
-            <input
-              name="email"
-              type="email"
-              placeholder="email@jewels.vn"
-              required
-            />
+            <input name="email" type="email" placeholder="Email" required />
           </label>
 
           <div class="field">
@@ -311,7 +342,7 @@
                 name="password"
                 id="staffPassword"
                 type="password"
-                placeholder="Nhập mật khẩu"
+                placeholder="Mật khẩu"
                 required
               />
               <button
@@ -354,6 +385,36 @@
           </div>
 
           <button class="login-submit" type="submit" disabled>Đăng nhập</button>
+
+          <div
+            style="
+              margin-top: 16px;
+              text-align: center;
+              font-size: 0.92rem;
+              color: var(--admin-muted);
+              line-height: 1.6;
+            "
+          >
+            <div>
+              Bạn là Quản lý?
+              <a
+                href="../manager/login.html"
+                class="helper-link"
+                style="font-weight: 600"
+                >Truy cập đường dẫn để vào trang đăng nhập của Quản lý</a
+              >
+            </div>
+            <div style="margin-top: 6px">
+              Bạn là Admin?
+              <a
+                href="../admin/login.html"
+                class="helper-link"
+                style="font-weight: 600"
+                >Truy cập đường dẫn để vào trang đăng nhập của Admin</a
+              >
+            </div>
+          </div>
+
           <p
             class="login-feedback"
             id="staffLoginFeedback"
@@ -363,6 +424,13 @@
         </form>
       </section>
     </div>
+
+    <div
+      class="admin-toast"
+      id="adminLoginToast"
+      role="alert"
+      aria-live="assertive"
+    ></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../shared/js/supabase-client.js"></script>
@@ -412,10 +480,10 @@
         const email = String(formData.get("email") || "").trim();
         const password = String(formData.get("password") || "");
         if (!email || !password) {
-          feedback.textContent = "Vui lòng nhập đầy đủ email và mật khẩu.";
+          showToast("Vui lòng nhập đầy đủ email và mật khẩu.");
           return;
         }
-        feedback.textContent = "Đang xác thực...";
+        showToast("Đang xác thực...");
         const result = await portal.signIn("staff", {
           username: email,
           password,
@@ -428,7 +496,7 @@
             MESSAGES[result.error] || "Đã xảy ra lỗi. Vui lòng thử lại.";
           return;
         }
-        feedback.textContent = "";
+        if (toast) toast.classList.remove("show");
         window.location.replace("staff-dashboard.html");
       });
 

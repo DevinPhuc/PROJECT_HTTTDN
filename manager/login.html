@@ -36,6 +36,7 @@
     .login-shell {
       width: min(940px, calc(100% - 32px));
       min-height: 640px;
+      height: 640px;
       display: grid;
       grid-template-columns: 1.1fr 1fr;
       border: 1px solid var(--admin-line);
@@ -212,7 +213,12 @@
 
     .helper-link {
       color: var(--admin-primary);
-      text-decoration: none;
+      text-decoration: underline;
+      transition: color 0.15s ease;
+    }
+
+    .helper-link:hover {
+      color: #5b3605;
     }
 
     .login-submit {
@@ -262,6 +268,8 @@
     @media (max-width: 720px) {
       .login-shell {
         grid-template-columns: 1fr;
+        height: auto;
+        min-height: auto;
       }
 
       .login-visual {
@@ -315,6 +323,11 @@
         </div>
 
         <button class="login-submit" type="submit">Đăng nhập</button>
+
+        <div style="margin-top: 16px; text-align: center; font-size: 0.92rem; color: var(--admin-muted); line-height: 1.6;">
+          <div>Bạn là nhân viên? <a href="../staff/staff-login.html" class="helper-link" style="font-weight: 600;">Truy cập đường dẫn để vào trang đăng nhập của nhân viên</a></div>
+          <div style="margin-top: 6px;">Bạn là Admin? <a href="../admin/login.html" class="helper-link" style="font-weight: 600;">Truy cập đường dẫn để vào trang đăng nhập của Admin</a></div>
+        </div>
       </form>
 
     </section>

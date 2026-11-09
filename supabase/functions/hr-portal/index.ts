@@ -1406,6 +1406,16 @@ async function leaveReviewAction(
     if (!(await employeeInScope(actor, String(leave.employee_id)))) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
+    if (!actor.is_admin && actor.department_id) {
+      const [emp] = await sql`
+        select current_department_id as department_id
+        from public.employees
+        where employee_id = ${leave.employee_id}::uuid
+        limit 1`;
+      if (emp && emp.department_id && String(emp.department_id) !== String(actor.department_id)) {
+        return json({ ok: false, error: "forbidden" }, 403);
+      }
+    }
 
     const updated = await sql`
       update public.leave_requests
