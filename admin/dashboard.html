@@ -23,7 +23,10 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/admin.css?v=20261109-inputfix-v2" />
-    <link rel="stylesheet" href="../shared/css/portal-unified-ui.css?v=20261109-leaderui-v1" />
+    <link
+      rel="stylesheet"
+      href="../shared/css/portal-unified-ui.css?v=20261109-leaderui-v1"
+    />
     <style>
       /* admin.css is shared with the login page, so overrides live here. */
 
@@ -53,7 +56,7 @@
         overflow-y: auto;
         background: #fff;
         box-shadow: 0 24px 60px rgb(21 32 27 / 30%);
-        border-radius: 8px;
+        border-radius: 14px;
       }
     </style>
   </head>
@@ -217,10 +220,12 @@
           <a class="admin-nav-item" href="#staff"
             ><svg class="admin-nav-icon" aria-hidden="true">
               <use href="#admin-nav-roles"></use></svg
-            >Vai trò & Phân quyền</a
+            >Cài đặt vai trò</a
           >
         </nav>
-        <div class="leader-sidebar-note"><span class="leader-live-dot"></span>Không gian quản trị</div>
+        <div class="leader-sidebar-note">
+          <span class="leader-live-dot"></span>Không gian quản trị
+        </div>
       </aside>
 
       <section class="admin-main">
@@ -240,7 +245,9 @@
                   <h2>Danh sách tài khoản</h2>
                 </div>
                 <div class="overview-heading-actions">
-                  <span class="panel-note" id="overviewAccountsCount">— tài khoản</span>
+                  <span class="panel-note" id="overviewAccountsCount"
+                    >— tài khoản</span
+                  >
                   <button
                     type="button"
                     class="admin-secondary-btn account-refresh-btn"
@@ -413,9 +420,7 @@
                   <label
                     >Phòng ban<select name="department_id" required></select
                   ></label>
-                  <label
-                    >Vị trí<select name="position_id"></select
-                  ></label>
+                  <label>Vị trí<select name="position_id"></select></label>
                   <label
                     >Trạng thái<select name="is_active" disabled tabindex="-1">
                       <option value="true">Hoạt động</option>

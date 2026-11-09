@@ -1619,22 +1619,46 @@ function renderRoleCards() {
       permission,
     ]),
   );
+  const ADMIN_PERMISSIONS = [
+    "Thêm tài khoản nhân sự mới",
+    "Chỉnh sửa thông tin nhân sự",
+    "Phân quyền nhân sự",
+    "Xem toàn bộ nhân viên của hệ thống",
+    "Xóa/Khôi phục tài khoản nhân sự",
+    "Khóa/Mở khóa tài khoản nhân sự",
+    "Xóa vĩnh viễn nhân sự",
+    "Tìm kiếm nhân sự",
+  ];
+
   container.innerHTML = state.roles
     .map((role) => {
-      const items = (role.permission_ids || [])
-        .map((id) => byId.get(id))
-        .filter(Boolean);
+      const isSystemRole = role.role_name.toLowerCase() === "admin";
+      let displayItems = [];
 
-      const body = items.length
-        ? items
+      if (isSystemRole) {
+        displayItems = ADMIN_PERMISSIONS;
+      } else {
+        const items = (role.permission_ids || [])
+          .map((id) => byId.get(id))
+          .filter(Boolean);
+        displayItems = items.map((item) => {
+          const desc = item.description || item.permission_code;
+          if (desc === "Chấm công vào/ra của nhân viên" || desc === "Chấm công ra/vào của nhân viên") {
+            return "Chấm công ra/vào";
+          }
+          return desc;
+        });
+      }
+
+      const body = displayItems.length
+        ? displayItems
             .map(
-              (item) =>
-                `<span class="permission-item">${escapeHtml(item.description || item.permission_code)}</span>`,
+              (desc) =>
+                `<span class="permission-item">${escapeHtml(desc)}</span>`,
             )
             .join("")
         : '<p class="panel-note">Chưa có quyền hạn nào.</p>';
 
-      const isSystemRole = role.role_name.toLowerCase() === "admin";
       const actionBtn = isSystemRole
         ? '<span class="status-badge" style="font-size:0.75rem; color:#888;">Hệ thống</span>'
         : `<button type="button" class="mini-btn" data-edit-role="${escapeHtml(role.role_id)}">Sửa</button>`;

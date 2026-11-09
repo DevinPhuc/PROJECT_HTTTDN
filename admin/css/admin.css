@@ -304,6 +304,7 @@ body:has(.admin-page) {
   padding: 21px;
   border: 1px solid var(--admin-line);
   background: var(--admin-paper);
+  border-radius: 14px;
 }
 
 .admin-panel-wide {
@@ -460,7 +461,7 @@ body:has(.admin-page) {
   padding: 20px 24px;
   border: 1px solid var(--admin-line);
   background: #fff;
-  border-radius: 8px;
+  border-radius: 14px;
 }
 
 .admin-form-header {
@@ -619,6 +620,7 @@ body:has(.admin-page) {
   padding: 14px;
   border: 1px solid var(--admin-line);
   background: #f8faf7;
+  border-radius: 12px;
 }
 
 .account-filter-panel label {
@@ -858,7 +860,7 @@ body:has(.admin-page) {
 .account-confirm-card {
   width: min(460px, 100%);
   padding: 24px;
-  border-radius: 8px;
+  border-radius: 14px;
   background: #fff;
   box-shadow: 0 24px 60px rgb(21 32 27 / 30%);
 }
@@ -951,6 +953,8 @@ body:has(.admin-page) {
 .role-card {
   border: 1px solid var(--admin-line);
   background: #fbfcfa;
+  border-radius: 13px;
+  overflow: hidden;
 }
 
 .role-card-head {
@@ -1020,6 +1024,8 @@ body:has(.admin-page) {
 .permission-group {
   border: 1px solid var(--admin-line);
   background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .permission-group-header {
@@ -1086,6 +1092,7 @@ body:has(.admin-page) {
   overflow-y: auto;
   background: #fff;
   box-shadow: 0 24px 60px rgb(21 32 27 / 30%);
+  border-radius: 14px;
 }
 
 @media (max-width: 1120px) {

@@ -1291,13 +1291,7 @@ function renderRequests() {
       const code = (employee.employee_code || "").toLowerCase();
       const typeLabel = (LEAVE_TYPES[request.leave_type] || "").toLowerCase();
       const reason = (request.reason || "").toLowerCase();
-      const statusLabel = (
-        status === "pending" && !request.leader_status
-          ? "Chờ trưởng nhóm"
-          : status === "pending" && request.leader_status === "approved"
-            ? "Chờ quản lý duyệt"
-          : LEAVE_STATUSES[request.status] || ""
-      ).toLowerCase();
+      const statusLabel = (LEAVE_STATUSES[request.status] || "").toLowerCase();
 
       const matched =
         name.includes(searchTerm) ||
@@ -1429,14 +1423,8 @@ function renderRequests() {
       statusCell.className = "hr-status-column";
       const badge = document.createElement("span");
       const statusKey = String(request.status || "pending").toLowerCase();
-      const waitingForLeader = statusKey === "pending" && !request.leader_status;
-      const waitingForManager = statusKey === "pending" && request.leader_status === "approved";
-      badge.className = `hr-status ${waitingForLeader || waitingForManager ? "hr-status-pending" : `hr-status-${statusKey}`}`;
-      badge.textContent = waitingForLeader
-        ? "Chờ trưởng nhóm"
-        : waitingForManager
-          ? "Chờ quản lý duyệt"
-          : LEAVE_STATUSES[request.status] || request.status;
+      badge.className = `hr-status hr-status-${statusKey}`;
+      badge.textContent = LEAVE_STATUSES[request.status] || request.status;
       statusCell.append(badge);
       row.append(statusCell);
 
@@ -1445,7 +1433,7 @@ function renderRequests() {
       actionsCell.className = "hr-actions-column";
       const actions = document.createElement("div");
       actions.className = "hr-row-actions";
-      if (request.status === "pending" && request.leader_status === "approved") {
+      if (request.status === "pending") {
         const approveBtn = document.createElement("button");
         approveBtn.type = "button";
         approveBtn.className = "hr-btn-approve";
@@ -1464,7 +1452,7 @@ function renderRequests() {
       } else {
         const done = document.createElement("span");
         done.className = "hr-action-done";
-        done.textContent = request.status === "pending" ? "Chờ trưởng nhóm" : "—";
+        done.textContent = "—";
         actions.append(done);
       }
       actionsCell.append(actions);
@@ -1527,7 +1515,6 @@ document
           "Bạn không có quyền duyệt đơn này (không duyệt đơn của chính mình).",
         already_decided: "Đơn này đã được xử lý trước đó.",
         invalid_reference: "Không tìm thấy đơn nghỉ.",
-        pending_leader_review: "Đơn cần được trưởng nhóm duyệt trước.",
       };
       window.alert(
         reasons[result.error] ||
