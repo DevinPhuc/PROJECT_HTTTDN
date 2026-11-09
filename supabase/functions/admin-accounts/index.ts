@@ -210,9 +210,6 @@ function getLoginUrlForRole(roleName: string): string {
   if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(norm)) {
     return "../manager/login.html";
   }
-  if (["leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom"].includes(norm)) {
-    return "../leader/login.html";
-  }
   return "../staff/staff-login.html";
 }
 
@@ -420,11 +417,12 @@ async function rolesRows() {
            r.role_name,
            r.description,
            coalesce(
-             json_agg(rp.permission_id) filter (where rp.permission_id is not null),
+             json_agg(rp.permission_id order by p.permission_code, rp.permission_id) filter (where rp.permission_id is not null),
              '[]'::json
            ) as permission_ids
     from public.roles r
     left join public.role_permissions rp on rp.role_id = r.role_id
+    left join public.permissions p on p.permission_id = rp.permission_id
     group by r.role_id, r.role_name, r.description
     order by r.role_name`;
 }
@@ -1161,8 +1159,6 @@ Deno.serve(async (req) => {
               redirectUrl = "login.html";
             } else if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(lower)) {
               redirectUrl = "../manager/login.html";
-            } else if (["leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom"].includes(lower)) {
-              redirectUrl = "../leader/login.html";
             } else {
               redirectUrl = "../staff/staff-login.html";
             }

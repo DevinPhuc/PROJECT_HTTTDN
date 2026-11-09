@@ -46,12 +46,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MANAGER_ROLE_NAMES = ["manager", "hr_manager", "quản lý", "quản lý nhân sự"];
 const MANAGER_PERMISSION_CODES = ["manager", "hr_manager", "manage_staff", "manage_employees"];
-const LEADER_ROLE_NAMES = [
-  "leader", "team_lead", "team lead", "team_leader", "team leader", "trưởng nhóm", "truong nhom",
-];
-const LEADER_PERMISSION_CODES = [
-  "leader", "team_lead", "team_leader", "team_lead_access", "team_leader_access", "approve_team_leave",
-];
 
 type Actor = { employee_id: string; username: string; full_name: string; pending_notice?: unknown };
 
@@ -84,26 +78,9 @@ async function activePortalRole(employeeId: string): Promise<string> {
           and lower(p.permission_code) = any(${sql.array(MANAGER_PERMISSION_CODES)})
           and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
           and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
-      ) as is_manager,
-      exists (
-        select 1 from public.user_roles ur
-        join public.roles r on r.role_id = ur.role_id
-        where ur.employee_id = ${employeeId}::uuid
-          and lower(r.role_name) = any(${sql.array(LEADER_ROLE_NAMES)})
-          and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
-          and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
-      ) or exists (
-        select 1 from public.user_roles ur
-        join public.role_permissions rp on rp.role_id = ur.role_id
-        join public.permissions p on p.permission_id = rp.permission_id
-        where ur.employee_id = ${employeeId}::uuid
-          and lower(p.permission_code) = any(${sql.array(LEADER_PERMISSION_CODES)})
-          and ur.valid_from <= (now() at time zone 'Asia/Ho_Chi_Minh')::date
-          and (ur.valid_to is null or ur.valid_to >= (now() at time zone 'Asia/Ho_Chi_Minh')::date)
-      ) as is_leader`;
+      ) as is_manager`;
   if (row?.is_admin) return "Admin";
   if (row?.is_manager) return "Manager";
-  if (row?.is_leader) return "Leader";
   return "";
 }
 
@@ -198,7 +175,7 @@ async function getActor(token: string): Promise<Actor | null> {
   if (!row) return null;
 
   // Privileged accounts must use their dedicated portal; reject old staff sessions too.
-  if (["Admin", "Manager", "Leader"].includes(await activePortalRole(employeeId))) return null;
+  if (["Admin", "Manager"].includes(await activePortalRole(employeeId))) return null;
 
   return {
     employee_id: row.employee_id,
@@ -930,8 +907,6 @@ Deno.serve(async (req) => {
             redirectUrl = "../admin/login.html";
           } else if (activeRole === "Manager") {
             redirectUrl = "../manager/login.html";
-          } else if (activeRole === "Leader") {
-            redirectUrl = "../leader/login.html";
           }
         }
       } catch {

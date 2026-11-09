@@ -331,7 +331,7 @@ body:has(.admin-page) {
   width: min(100%, 380px);
   padding: 26px;
   border: 1px solid var(--admin-line);
-  border-radius: 4px;
+  border-radius: 14px;
   background: var(--admin-paper);
   box-shadow: 0 16px 40px rgb(20 30 25 / 18%);
 }
@@ -391,6 +391,7 @@ body:has(.admin-page) {
   padding: 21px;
   border: 1px solid var(--admin-line);
   background: var(--admin-paper);
+  border-radius: 14px;
 }
 
 .panel-heading {
@@ -490,6 +491,8 @@ body:has(.admin-page) {
 
 .hr-table-panel {
   padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
 }
 
 .employee-list-filters {
@@ -1307,7 +1310,7 @@ body:has(.admin-page) {
   width: min(750px, calc(100vw - 32px));
   max-height: min(86vh, 760px);
   overflow-y: auto;
-  border-radius: 8px;
+  border-radius: 14px;
   background: var(--admin-paper);
   box-shadow: 0 24px 60px rgb(21 32 27 / 30%);
 }

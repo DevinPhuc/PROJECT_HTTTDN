@@ -624,7 +624,7 @@ button.btn-primary,
   width: min(100%, 380px) !important;
   padding: 28px 24px !important;
   border: 1px solid #e6e9e3 !important;
-  border-radius: 6px !important;
+  border-radius: 14px !important;
   background: #ffffff !important;
   box-shadow: 0 16px 40px rgba(20, 30, 25, 0.18) !important;
 }
@@ -1291,7 +1291,7 @@ select[data-psize] {
   width: min(100%, 390px) !important;
   padding: 32px 36px 28px !important;
   border: 1px solid #e5e7eb !important;
-  border-radius: 8px !important;
+  border-radius: 14px !important;
   background: #ffffff !important;
   box-shadow: 0 16px 40px rgba(20, 30, 25, 0.18) !important;
   text-align: center !important;
@@ -1508,4 +1508,48 @@ select[data-psize] {
   width: 15px !important;
   height: 15px !important;
   flex: 0 0 auto !important;
+}
+
+/* ==========================================================================
+   UNIFIED ROUNDED CORNERS FOR ALL PANELS & CARDS (Admin, Manager, Staff)
+   Matches the 14px card / 13px inner box design pattern from image 1
+   ========================================================================== */
+.admin-panel,
+.staff-panel,
+.pl-card,
+.mgr-clock-card,
+.staff-clock-card {
+  border-radius: 14px !important;
+}
+
+.modal-content,
+.account-confirm-card,
+#accountForm:not([hidden]),
+#roleForm:not([hidden]) {
+  border-radius: 14px !important;
+}
+
+.role-card,
+.mgr-clock-col,
+.staff-clock-col,
+.staff-kpi-card,
+.staff-formula {
+  border-radius: 13px !important;
+}
+
+.permission-group,
+.account-filter-panel {
+  border-radius: 12px !important;
+}
+
+/* Payroll search input fix: prevent search icon from overlapping input text */
+.pl-search input,
+.pl-search input[type="search"],
+.pl-search .pl-inp,
+#plQ {
+  padding-left: 38px !important;
+}
+
+.pl-search svg {
+  pointer-events: none !important;
 }
