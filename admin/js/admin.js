@@ -213,9 +213,9 @@ const ACCOUNT_ERRORS = {
   missing_fields: "Vui lòng nhập đầy đủ thông tin bắt buộc.",
   invalid_email: "Email không hợp lệ.",
   invalid_date_of_birth: "Ngày sinh không hợp lệ.",
-  invalid_hire_date: "Ngày vào làm không hợp lệ.",
+  invalid_hire_date: "Ngày vào làm không hợp lệ (không vượt quá ngày hiện tại).",
   invalid_reference: "Phòng ban, vị trí hoặc vai trò không hợp lệ.",
-  under_min_age: "Ngày vào làm phải cách ngày sinh ít nhất 15 năm.",
+  under_min_age: "Ngày vào làm phải đủ từ 18 tuổi tính từ ngày sinh.",
   unknown_department: "Không tìm thấy phòng ban.",
   unknown_role: "Không tìm thấy vai trò.",
   invalid_role: "Vai trò không hợp lệ.",
@@ -285,12 +285,31 @@ function getDateInputLimits() {
   };
 }
 
+function getMinHireDateIso(dobIso) {
+  const iso = toIsoDate(dobIso);
+  if (!iso) return "";
+  const [year, month, day] = iso.split("-").map(Number);
+  const minDate = new Date(year + 18, month - 1, day);
+  return getLocalDateIso(minDate);
+}
+
 function updateAccountDateLimits() {
   const form = document.getElementById("accountForm");
   if (!form) return;
   const limits = getDateInputLimits();
   form.elements.date_of_birth.max = limits.dateOfBirth;
   form.elements.hire_date.max = limits.hireDate;
+
+  const dobValue = toIsoDate(form.elements.date_of_birth.value);
+  const minHireDate = getMinHireDateIso(dobValue);
+  if (minHireDate) {
+    form.elements.hire_date.min = minHireDate;
+    if (form.elements.hire_date.value && toIsoDate(form.elements.hire_date.value) < minHireDate) {
+      form.elements.hire_date.value = "";
+    }
+  } else {
+    form.elements.hire_date.removeAttribute("min");
+  }
 }
 
 function getStatusClass(status) {
@@ -1368,6 +1387,7 @@ async function openAccountEdit(employeeId) {
   }
   form.elements.date_of_birth.value = toDisplayDate(account.date_of_birth);
   form.elements.hire_date.value = toDisplayDate(account.hire_date);
+  updateAccountDateLimits();
   fillAccountOptions(account);
   const isSelf = String(account.employee_id) === String(currentSession?.user?.employee_id);
   const isAdminAccount = String(account.role_name).toLowerCase() === "admin";
@@ -1463,11 +1483,20 @@ async function submitAccountForm(event) {
   const dateLimits = getDateInputLimits();
   if (dateOfBirth > dateLimits.dateOfBirth) {
     message.textContent = accountErrorMessage("invalid_date_of_birth");
+    form.elements.date_of_birth?.focus();
+    return;
+  }
+
+  const minHireDate = getMinHireDateIso(dateOfBirth);
+  if (minHireDate && hireDate < minHireDate) {
+    message.textContent = "Ngày vào làm phải đủ từ 18 tuổi tính từ ngày sinh.";
+    form.elements.hire_date?.focus();
     return;
   }
 
   if (hireDate > dateLimits.hireDate) {
-    message.textContent = accountErrorMessage("invalid_hire_date");
+    message.textContent = "Ngày vào làm không được vượt quá ngày hiện tại.";
+    form.elements.hire_date?.focus();
     return;
   }
 
@@ -2007,14 +2036,30 @@ function attachCrudActions() {
   if (accountForm) {
     updateAccountDateLimits();
     accountForm.addEventListener("submit", submitAccountForm);
-    accountForm.elements.date_of_birth.addEventListener(
-      "input",
-      updateGeneratedPassword,
-    );
-    accountForm.elements.date_of_birth.addEventListener(
-      "change",
-      updateGeneratedPassword,
-    );
+    accountForm.elements.date_of_birth.addEventListener("input", () => {
+      updateAccountDateLimits();
+      updateGeneratedPassword();
+    });
+    accountForm.elements.date_of_birth.addEventListener("change", () => {
+      updateAccountDateLimits();
+      updateGeneratedPassword();
+    });
+    accountForm.elements.hire_date?.addEventListener("change", () => {
+      const dobVal = toIsoDate(accountForm.elements.date_of_birth?.value);
+      const minHire = getMinHireDateIso(dobVal);
+      const hireVal = toIsoDate(accountForm.elements.hire_date?.value);
+      const limits = getDateInputLimits();
+      const message = document.getElementById("accountFormMessage");
+      if (minHire && hireVal && hireVal < minHire) {
+        if (message) message.textContent = "Ngày vào làm phải đủ từ 18 tuổi tính từ ngày sinh.";
+        accountForm.elements.hire_date.value = "";
+      } else if (hireVal && hireVal > limits.hireDate) {
+        if (message) message.textContent = "Ngày vào làm không được vượt quá ngày hiện tại.";
+        accountForm.elements.hire_date.value = "";
+      } else if (message && (message.textContent.includes("Ngày vào làm") || message.textContent.includes("18 tuổi"))) {
+        message.textContent = "";
+      }
+    });
     accountForm.elements.role_id.addEventListener("change", () => {
       updateGeneratedEmployeeCode();
       updateGeneratedPassword();

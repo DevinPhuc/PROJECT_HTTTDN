@@ -103,15 +103,19 @@ function readProfile(body: Record<string, unknown>) {
     return { error: "invalid_reference" } as const;
   }
 
-  // Mirrors ck_employees_min_working_age: hire_date >= date_of_birth + 15 years.
+  // Working age: hire_date >= date_of_birth + 18 years and <= today.
   const dob = new Date(`${fields.date_of_birth}T00:00:00Z`);
   const earliest = Date.UTC(
-    dob.getUTCFullYear() + 15,
+    dob.getUTCFullYear() + 18,
     dob.getUTCMonth(),
     dob.getUTCDate(),
   );
   if (new Date(`${fields.hire_date}T00:00:00Z`).getTime() < earliest) {
     return { error: "under_min_age" } as const;
+  }
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (fields.hire_date > todayIso) {
+    return { error: "invalid_hire_date" } as const;
   }
 
   return { fields } as const;

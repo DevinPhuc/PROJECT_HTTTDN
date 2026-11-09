@@ -375,6 +375,47 @@ async function updateProfileAction(actor: Actor, body: Record<string, unknown>):
 
 // Own identity + qualification + status-history payload for the profile menu.
 // Read only besides marital_status in updateProfileAction; the rest is HR data.
+async function fetchStatusHistory(employeeId: string) {
+  return await sql!`
+    select status, effective_date, end_date, reason
+    from (
+      select case
+               when lt.type_name = 'Xin nghỉ việc' or lower(coalesce(lt.type_name, '')) like '%nghỉ việc%'
+                 then 'Resigned'
+               else 'OnLeave'
+             end as status,
+             to_char(r.start_date, 'YYYY-MM-DD') as effective_date,
+             case
+               when lt.type_name = 'Xin nghỉ việc' or lower(coalesce(lt.type_name, '')) like '%nghỉ việc%'
+                 then null
+               else to_char(r.end_date, 'YYYY-MM-DD')
+             end as end_date,
+             coalesce(r.reason, case when lt.type_name = 'Xin nghỉ việc' or lower(coalesce(lt.type_name, '')) like '%nghỉ việc%' then 'Đơn xin nghỉ việc' else 'Nghỉ phép' end) as reason
+      from public.leave_requests r
+      left join public.leave_types lt on lt.leave_type_id = r.leave_type_id
+      where r.employee_id = ${employeeId}::uuid
+        and lower(r.status::text) = 'approved'
+      union
+      select case
+               when lower(status::text) in ('resigned', 'đã nghỉ việc', 'xin nghỉ việc', 'đơn xin nghỉ việc')
+                 then 'Resigned'
+               when lower(status::text) in ('active', 'đang làm', 'đang làm việc')
+                 then 'Active'
+               else 'OnLeave'
+             end as status,
+             to_char(effective_date, 'YYYY-MM-DD') as effective_date,
+             null as end_date,
+             reason
+      from public.employee_status_history
+      where employee_id = ${employeeId}::uuid
+        and (
+          status in ('OnLeave', 'Đang nghỉ phép', 'Resigned', 'resigned', 'Đã nghỉ việc', 'Xin nghỉ việc', 'Đơn xin nghỉ việc')
+          or lower(status::text) like '%nghỉ việc%'
+        )
+    ) s
+    order by effective_date desc`;
+}
+
 async function personalInfoAction(actor: Actor): Promise<Response> {
   const [personal] = await sql!`
     select national_id, id_type, nationality, marital_status,
@@ -387,26 +428,7 @@ async function personalInfoAction(actor: Actor): Promise<Response> {
     from public.employee_qualifications
     where employee_id = ${actor.employee_id}::uuid
     order by graduation_year desc nulls last`;
-  const history = await sql!`
-    select status, effective_date, end_date, reason
-    from (
-      select 'OnLeave' as status,
-             to_char(start_date, 'YYYY-MM-DD') as effective_date,
-             to_char(end_date, 'YYYY-MM-DD') as end_date,
-             coalesce(reason, 'Nghỉ phép') as reason
-      from public.leave_requests
-      where employee_id = ${actor.employee_id}::uuid
-        and lower(status::text) = 'approved'
-      union
-      select 'OnLeave' as status,
-             to_char(effective_date, 'YYYY-MM-DD') as effective_date,
-             null as end_date,
-             reason
-      from public.employee_status_history
-      where employee_id = ${actor.employee_id}::uuid
-        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
-    ) s
-    order by effective_date desc`;
+  const history = await fetchStatusHistory(actor.employee_id);
   return json({
     ok: true,
     personal_info: personal ?? null,
@@ -833,26 +855,7 @@ async function qualificationsSaveAction(actor: Actor, body: Record<string, unkno
 }
 
 async function statusHistorySaveAction(actor: Actor, _body: Record<string, unknown>): Promise<Response> {
-  const saved = await sql!`
-    select status, effective_date, end_date, reason
-    from (
-      select 'OnLeave' as status,
-             to_char(start_date, 'YYYY-MM-DD') as effective_date,
-             to_char(end_date, 'YYYY-MM-DD') as end_date,
-             coalesce(reason, 'Nghỉ phép') as reason
-      from public.leave_requests
-      where employee_id = ${actor.employee_id}::uuid
-        and lower(status::text) = 'approved'
-      union
-      select 'OnLeave' as status,
-             to_char(effective_date, 'YYYY-MM-DD') as effective_date,
-             null as end_date,
-             reason
-      from public.employee_status_history
-      where employee_id = ${actor.employee_id}::uuid
-        and (status = 'OnLeave' or status = 'Đang nghỉ phép')
-    ) s
-    order by effective_date desc`;
+  const saved = await fetchStatusHistory(actor.employee_id);
   return json({ ok: true, rows: saved });
 }
 

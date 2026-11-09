@@ -824,6 +824,39 @@ function updateGeneratedEmployeeCode() {
   }
 }
 
+function updateManagerEmployeeDateLimits() {
+  const form = document.getElementById("employeeForm");
+  if (!form) return;
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  const todayIso = `${year}-${month}-${day}`;
+  const maxDobDate = new Date(today);
+  maxDobDate.setFullYear(year - 18);
+  const maxDobIso = `${maxDobDate.getFullYear()}-${String(maxDobDate.getMonth() + 1).padStart(2, "0")}-${String(maxDobDate.getDate()).padStart(2, "0")}`;
+
+  const dobInput = form.elements.namedItem("dateOfBirth");
+  const hireDateInput = form.elements.namedItem("hireDate");
+  if (dobInput) dobInput.max = maxDobIso;
+  if (hireDateInput) hireDateInput.max = todayIso;
+
+  const dobVal = dobInput?.value ? String(dobInput.value).trim().slice(0, 10) : "";
+  if (dobVal && /^\d{4}-\d{2}-\d{2}$/.test(dobVal)) {
+    const [y, m, d] = dobVal.split("-").map(Number);
+    const minHireDate = new Date(y + 18, m - 1, d);
+    const minHire = `${minHireDate.getFullYear()}-${String(minHireDate.getMonth() + 1).padStart(2, "0")}-${String(minHireDate.getDate()).padStart(2, "0")}`;
+    if (hireDateInput) {
+      hireDateInput.min = minHire;
+      if (hireDateInput.value && hireDateInput.value < minHire) {
+        hireDateInput.value = "";
+      }
+    }
+  } else if (hireDateInput) {
+    hireDateInput.removeAttribute("min");
+  }
+}
+
 function showEmployeeForm(employee = null) {
   const form = document.getElementById("employeeForm");
   form.reset();
@@ -840,13 +873,7 @@ function showEmployeeForm(employee = null) {
   const dateOfBirthInput = form.elements.namedItem("dateOfBirth");
   const passwordInput = form.elements.namedItem("password");
   const passwordGroup = passwordInput.closest(".form-group");
-  dateOfBirthInput.max = new Date(
-    new Date().getFullYear() - 18,
-    new Date().getMonth(),
-    new Date().getDate(),
-  )
-    .toISOString()
-    .slice(0, 10);
+  updateManagerEmployeeDateLimits();
 
   const canChooseDepartment = Boolean(
     currentActor?.is_admin || currentActor?.is_hr,
@@ -1071,8 +1098,39 @@ const employeeForm = document.getElementById("employeeForm");
 if (employeeForm) {
   const dateInput = employeeForm.elements.namedItem("dateOfBirth");
   if (dateInput) {
-    dateInput.addEventListener("input", updateGeneratedEmployeePassword);
-    dateInput.addEventListener("change", updateGeneratedEmployeePassword);
+    dateInput.addEventListener("input", () => {
+      updateManagerEmployeeDateLimits();
+      updateGeneratedEmployeePassword();
+    });
+    dateInput.addEventListener("change", () => {
+      updateManagerEmployeeDateLimits();
+      updateGeneratedEmployeePassword();
+    });
+  }
+  const hireInput = employeeForm.elements.namedItem("hireDate");
+  if (hireInput) {
+    hireInput.addEventListener("change", () => {
+      const today = new Date();
+      const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const dobVal = dateInput?.value ? String(dateInput.value).trim().slice(0, 10) : "";
+      const hireVal = hireInput?.value ? String(hireInput.value).trim().slice(0, 10) : "";
+      if (dobVal && hireVal) {
+        const [y, m, d] = dobVal.split("-").map(Number);
+        const minHireDate = new Date(y + 18, m - 1, d);
+        const minHire = `${minHireDate.getFullYear()}-${String(minHireDate.getMonth() + 1).padStart(2, "0")}-${String(minHireDate.getDate()).padStart(2, "0")}`;
+        if (hireVal < minHire) {
+          feedback("employeeFeedback", "Ngày vào làm phải đủ từ 18 tuổi tính từ ngày sinh.", true);
+          hireInput.value = "";
+          return;
+        }
+      }
+      if (hireVal && hireVal > todayIso) {
+        feedback("employeeFeedback", "Ngày vào làm không được vượt quá ngày hiện tại.", true);
+        hireInput.value = "";
+        return;
+      }
+      feedback("employeeFeedback", "");
+    });
   }
   const roleInput = employeeForm.elements.namedItem("roleId");
   if (roleInput) {
@@ -1199,9 +1257,9 @@ document
         );
         return;
       }
-      employees = employees.filter(
-        (item) => item.employee_id !== employee.employee_id,
-      );
+      employee.deleted_at = new Date().toISOString();
+      employee.is_active = false;
+      employee.employment_status = "Resigned";
       renderAll();
       await loadLookups();
       renderAll();
@@ -1231,6 +1289,38 @@ document
       document.getElementById("employeePhone")?.focus();
       return;
     }
+
+    const dob = String(values.dateOfBirth || "").trim().slice(0, 10);
+    const hire = String(values.hireDate || "").trim().slice(0, 10);
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const maxDobDate = new Date(today);
+    maxDobDate.setFullYear(today.getFullYear() - 18);
+    const maxDobIso = `${maxDobDate.getFullYear()}-${String(maxDobDate.getMonth() + 1).padStart(2, "0")}-${String(maxDobDate.getDate()).padStart(2, "0")}`;
+
+    if (dob && dob > maxDobIso) {
+      feedback("employeeFeedback", "Nhân sự phải đủ từ 18 tuổi trở lên.", true);
+      document.getElementById("employeeDob")?.focus();
+      return;
+    }
+
+    if (dob && hire) {
+      const [y, m, d] = dob.split("-").map(Number);
+      const minHireDate = new Date(y + 18, m - 1, d);
+      const minHireIso = `${minHireDate.getFullYear()}-${String(minHireDate.getMonth() + 1).padStart(2, "0")}-${String(minHireDate.getDate()).padStart(2, "0")}`;
+      if (hire < minHireIso) {
+        feedback("employeeFeedback", "Ngày vào làm phải đủ từ 18 tuổi tính từ ngày sinh.", true);
+        document.getElementById("employeeHireDate")?.focus();
+        return;
+      }
+    }
+
+    if (hire && hire > todayIso) {
+      feedback("employeeFeedback", "Ngày vào làm không được vượt quá ngày hiện tại.", true);
+      document.getElementById("employeeHireDate")?.focus();
+      return;
+    }
+
     const statusSelect = form.elements.namedItem("employmentStatus");
     const currentStatus = (statusSelect?.value || values.employmentStatus || "Đang làm").trim();
     const result = await callHr({
@@ -1251,7 +1341,15 @@ document
       password: String(values.password || "").trim(),
     });
     if (!result.ok) {
-      feedback("employeeFeedback", "Không lưu được hồ sơ nhân sự.", true);
+      let errMsg = "Không lưu được hồ sơ nhân sự.";
+      if (result.error === "under_min_age") {
+        errMsg = "Ngày vào làm phải đủ từ 18 tuổi tính từ ngày sinh.";
+      } else if (result.error === "invalid_hire_date") {
+        errMsg = "Ngày vào làm không hợp lệ (không vượt quá ngày hiện tại).";
+      } else if (result.error === "invalid_date_of_birth") {
+        errMsg = "Ngày sinh không hợp lệ (nhân sự phải đủ 18 tuổi).";
+      }
+      feedback("employeeFeedback", errMsg, true);
       return;
     }
     const wasNewEmployee = !values.id;
@@ -1563,9 +1661,29 @@ document
 
     if (isDeletedResignation) {
       if (targetRequest?.employee_id) {
-        employees = employees.filter(
-          (emp) => emp.employee_id !== targetRequest.employee_id,
+        const emp = employees.find(
+          (e) => e.employee_id === targetRequest.employee_id,
         );
+        if (emp) {
+          emp.deleted_at = new Date().toISOString();
+          emp.is_active = false;
+          emp.employment_status = "Resigned";
+        }
+        const todayStr = vietnamDateISO();
+        const alreadyHasHistory = employmentStatusHistory.some(
+          (h) =>
+            h.employee_id === targetRequest.employee_id &&
+            normalizedStatus(h.employment_status) === "resigned",
+        );
+        if (!alreadyHasHistory) {
+          employmentStatusHistory.push({
+            employee_id: targetRequest.employee_id,
+            employment_status: "resigned",
+            is_baseline: false,
+            effective_from: todayStr,
+            effective_to: null,
+          });
+        }
       }
       const reviewToast = document.getElementById("reviewToast");
       if (reviewToast) {
@@ -1608,31 +1726,51 @@ function approvedLeavesInPeriod(employee, range) {
       request.employee_id === employee.employee_id &&
       request.status === "approved" &&
       request.leave_type !== "resignation" &&
-      request.start_date <= range.asOf &&
+      request.leave_type !== "Xin nghỉ việc" &&
+      request.leave_type_name !== "Xin nghỉ việc" &&
+      request.start_date <= range.end &&
       request.end_date >= range.start,
   );
 }
 
 function monthlyStatus(employee, range) {
-  if (employee.hire_date > range.asOf) return null;
+  if (employee.hire_date && employee.hire_date > range.end) return null;
   const periodHistory = employmentStatusHistory.filter(
     (item) =>
       item.employee_id === employee.employee_id &&
-      item.effective_from <= range.asOf &&
+      item.effective_from <= range.end &&
       (!item.effective_to || item.effective_to >= range.start),
   );
   const approvedLeaves = approvedLeavesInPeriod(employee, range);
   const resignationRequests = requests.filter(
     (request) =>
       request.employee_id === employee.employee_id &&
-      request.leave_type === "resignation" &&
+      (request.leave_type === "resignation" ||
+        request.leave_type === "Xin nghỉ việc" ||
+        request.leave_type_name === "Xin nghỉ việc") &&
       request.status === "approved" &&
       request.start_date >= range.start &&
-      request.start_date <= range.asOf,
+      request.start_date <= range.end,
   );
-  const hasWorkStatus = periodHistory.some(
+  const hasHistoryWorkStatus = periodHistory.some(
     (item) => normalizedStatus(item.employment_status) === "active",
   );
+  const hasAttendanceInPeriod = attendanceCache.some(
+    (item) =>
+      item.employee_id === employee.employee_id &&
+      item.work_date >= range.start &&
+      item.work_date <= range.end &&
+      item.status !== "absent" &&
+      item.status !== "vắng",
+  );
+  const isEmployedInPeriod =
+    (!employee.hire_date || employee.hire_date <= range.end) &&
+    normalizedStatus(employee.employment_status) !== "resigned";
+
+  const hasWorkStatus =
+    hasHistoryWorkStatus ||
+    hasAttendanceInPeriod ||
+    (!periodHistory.some((item) => normalizedStatus(item.employment_status) === "resigned") && isEmployedInPeriod);
   const hasLeaveStatus = periodHistory.some(
     (item) => normalizedStatus(item.employment_status) === "on_leave",
   );
@@ -1641,13 +1779,19 @@ function monthlyStatus(employee, range) {
       normalizedStatus(item.employment_status) === "resigned" &&
       item.is_baseline !== true &&
       item.effective_from >= range.start &&
-      item.effective_from <= range.asOf,
+      item.effective_from <= range.end,
   );
+  const isResignedInPeriod =
+    resignationHistory.length > 0 ||
+    resignationRequests.length > 0 ||
+    (normalizedStatus(employee.employment_status) === "resigned" &&
+      employee.deleted_at &&
+      employee.deleted_at.slice(0, 7) === `${range.year}-${String(range.month).padStart(2, "0")}`);
+
   const statusSet = new Set();
   if (hasWorkStatus) statusSet.add("active");
   if (hasLeaveStatus || approvedLeaves.length) statusSet.add("on_leave");
-  if (resignationHistory.length || resignationRequests.length)
-    statusSet.add("resigned");
+  if (isResignedInPeriod) statusSet.add("resigned");
 
   const notes = [];
   if (hasWorkStatus) notes.push("Có trạng thái làm việc trong kỳ");
@@ -1664,13 +1808,16 @@ function monthlyStatus(employee, range) {
   ]
     .filter((date, index, values) => values.indexOf(date) === index)
     .forEach((date) => notes.push(`Nghỉ việc có hiệu lực ${dateLabel(date)}`));
+  if (isResignedInPeriod && !resignationHistory.length && !resignationRequests.length) {
+    notes.push("Đã thôi việc trong kỳ");
+  }
 
   const baselineResignedDuringPeriod = periodHistory.some(
     (item) =>
       item.is_baseline === true &&
       normalizedStatus(item.employment_status) === "resigned" &&
       item.effective_from >= range.start &&
-      item.effective_from <= range.asOf,
+      item.effective_from <= range.end,
   );
   if (
     !statusSet.size &&
@@ -1931,7 +2078,14 @@ let visibleStaffStats = [];
 const staffStatsPagination = { page: 1, size: 10 };
 
 function renderStaffStats() {
-  const employeesWithStats = employees.map((employee) => ({
+  const activeEmployees = employees.filter((employee) => {
+    return (
+      !employee.deleted_at &&
+      employee.is_active !== false &&
+      normalizedStatus(employee.employment_status) !== "resigned"
+    );
+  });
+  const employeesWithStats = activeEmployees.map((employee) => ({
     employee,
     salary: salaryValue(employee),
     tenure: employeeTenure(employee),
@@ -2184,6 +2338,13 @@ document.getElementById("exportStaffStatsBtn").addEventListener("click", () => {
 
 function canManagerAssignRoleTo(employee) {
   if (!employee) return false;
+  if (
+    employee.deleted_at ||
+    employee.is_active === false ||
+    normalizedStatus(employee.employment_status) === "resigned"
+  ) {
+    return false;
+  }
   if (isCurrentActorEmployee(employee)) return false;
   if (isManagerEmployee(employee)) return false;
   const currentRoleIds = roleAssignments.get(employee.employee_id) || [];

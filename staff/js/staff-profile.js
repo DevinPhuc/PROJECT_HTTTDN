@@ -110,7 +110,10 @@ async function loadPayrollInfo() {
 const STATUS_LABELS = {
   Active: "Đang làm việc",
   OnLeave: "Nghỉ phép",
-  Resigned: "Nghỉ việc"
+  Resigned: "Đơn xin nghỉ việc",
+  resigned: "Đơn xin nghỉ việc",
+  "Xin nghỉ việc": "Đơn xin nghỉ việc",
+  "Đơn xin nghỉ việc": "Đơn xin nghỉ việc"
 };
 // Existing rows store marital_status in English; the form uses Vietnamese.
 const MARITAL_LABELS = {
@@ -196,15 +199,30 @@ function qualificationRow(q = {}) {
 function statusRow(row = {}) {
   const tr = document.createElement("tr");
   const dateTd = document.createElement("td");
-  dateTd.textContent = dateLabel(row.effective_date) || "—";
+  dateTd.textContent = dateLabel(row.effective_date) || "-";
+
+  const isResignation =
+    row.status === "Resigned" ||
+    row.status === "resigned" ||
+    row.status === "Đơn xin nghỉ việc" ||
+    row.status === "Xin nghỉ việc" ||
+    String(row.reason || "").toLowerCase().includes("nghỉ việc");
 
   const endDateTd = document.createElement("td");
-  endDateTd.textContent = dateLabel(row.end_date) || "—";
+  endDateTd.textContent = isResignation ? "-" : (dateLabel(row.end_date) || "-");
 
   const statusTd = document.createElement("td");
   const statusBadge = document.createElement("span");
-  const label = STATUS_LABELS[row.status] || row.status || "Đang nghỉ phép";
-  statusBadge.className = "staff-status-badge staff-status-onleave";
+  const label = isResignation ? "Đơn xin nghỉ việc" : (STATUS_LABELS[row.status] || row.status || "Đang nghỉ phép");
+
+  let badgeClass = "staff-status-onleave";
+  if (isResignation) {
+    badgeClass = "staff-status-resigned";
+  } else if (row.status === "Active" || row.status === "active" || row.status === "Đang làm việc") {
+    badgeClass = "staff-status-active";
+  }
+
+  statusBadge.className = `staff-status-badge ${badgeClass}`;
   statusBadge.textContent = label;
   statusTd.append(statusBadge);
 

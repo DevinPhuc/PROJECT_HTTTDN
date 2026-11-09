@@ -730,9 +730,6 @@ async function bootAction(actor: Actor): Promise<Response> {
       from public.employees e
       left join public.employee_accounts a on a.employee_id = e.employee_id
       where e.employee_id = any(${sql.array(ids)}::uuid[])
-        and a.deleted_at is null
-        and a.is_active = true
-        and (e.employment_status is null or e.employment_status <> 'Resigned')
       order by e.full_name`,
     sql!`
       select e.employee_id, e.phone_number, e.address
@@ -812,6 +809,50 @@ async function bootAction(actor: Actor): Promise<Response> {
     (row as Record<string, unknown>).status = String(
       (row as Record<string, unknown>).status ?? "",
     ).toLowerCase();
+  }
+
+  try {
+    await sql!`
+      insert into public.hr_employment_status_history
+        (employee_id, employment_status, is_baseline, effective_from, reason)
+      select
+        e.employee_id,
+        case
+          when lower(coalesce(e.employment_status, '')::text) in ('onleave', 'on_leave', 'on leave', 'đang nghỉ phép')
+            then 'on_leave'
+          when lower(coalesce(e.employment_status, '')::text) in ('resigned', 'inactive', 'đã nghỉ việc', 'nghỉ việc')
+            then 'resigned'
+          else 'active'
+        end,
+        true,
+        coalesce(e.hire_date, (now() at time zone 'Asia/Ho_Chi_Minh')::date),
+        'Trạng thái ban đầu khi khởi tạo tài khoản'
+      from public.employees e
+      where e.employee_id = any(${sql.array(ids)}::uuid[])
+        and not exists (
+          select 1
+          from public.hr_employment_status_history h
+          where h.employee_id = e.employee_id
+        )`;
+  } catch (_) {}
+
+  const historyEmpIds = new Set(
+    (statusHistory as any[]).map((h: any) => String(h.employee_id)),
+  );
+  for (const emp of employees as any[]) {
+    const empId = String(emp.employee_id);
+    if (!historyEmpIds.has(empId)) {
+      (statusHistory as any[]).push({
+        employee_id: empId,
+        employment_status:
+          String(emp.employment_status || "active").toLowerCase() === "resigned"
+            ? "resigned"
+            : "active",
+        is_baseline: true,
+        effective_from: emp.hire_date || new Date().toISOString().slice(0, 10),
+        effective_to: null,
+      });
+    }
   }
 
   return json({
@@ -1078,6 +1119,28 @@ async function employeeSaveAction(
     education.length > 120
   ) {
     return json({ ok: false, error: "invalid_employee" }, 400);
+  }
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (dateOfBirth && isRealDate(dateOfBirth)) {
+    const dob = new Date(`${dateOfBirth}T00:00:00Z`);
+    const maxDobDate = new Date();
+    maxDobDate.setUTCFullYear(maxDobDate.getUTCFullYear() - 18);
+    if (dob.getTime() > maxDobDate.getTime()) {
+      return json({ ok: false, error: "invalid_date_of_birth" }, 400);
+    }
+    const earliestHire = Date.UTC(
+      dob.getUTCFullYear() + 18,
+      dob.getUTCMonth(),
+      dob.getUTCDate(),
+    );
+    if (new Date(`${hireDate}T00:00:00Z`).getTime() < earliestHire) {
+      return json({ ok: false, error: "under_min_age" }, 400);
+    }
+  }
+
+  if (hireDate > todayIso) {
+    return json({ ok: false, error: "invalid_hire_date" }, 400);
   }
   if (!(statusInput in EMPLOYMENT_STATUS))
     return json({ ok: false, error: "invalid_status" }, 400);
