@@ -448,6 +448,46 @@ async function loadAccounts() {
 }
 
 // One call for the whole dashboard boot (accounts, staff, roles, permissions).
+function normalizeRole(role) {
+  if (!role) return role;
+  const roleLower = (role.role_name || "").toLowerCase();
+  const desc = (role.description || "").trim();
+  if (
+    roleLower.includes("quản lý") ||
+    roleLower === "manager" ||
+    roleLower === "hr_manager" ||
+    desc === "Trưởng phòng: dữ liệu phòng ban, duyệt đơn nghỉ phép, không xem lương"
+  ) {
+    role.description = "Quản lý nhân sự của phòng ban mình";
+  } else if (
+    roleLower.includes("trưởng nhóm") ||
+    roleLower.includes("leader") ||
+    roleLower.includes("team_lead") ||
+    desc === "Giám sát nhóm: chấm công và duyệt đơn nghỉ phép của phòng ban"
+  ) {
+    role.description = "Giám sát thành viên nhóm";
+  }
+  return role;
+}
+
+function ensureCustomPermissions(perms) {
+  if (!Array.isArray(perms)) return;
+  const hasTaskAssign = perms.some(
+    (p) =>
+      p.description === "Phân công công việc" ||
+      p.permission_code === "task.assign",
+  );
+  if (!hasTaskAssign) {
+    perms.push({
+      permission_id: "perm-task-assign",
+      permission_code: "task.assign",
+      module_name: "Công việc",
+      action: "Assign",
+      description: "Phân công công việc",
+    });
+  }
+}
+
 async function loadInitialData() {
   state.accountsLoading = true;
   state.accountsError = "";
@@ -467,10 +507,13 @@ async function loadInitialData() {
     ? response.data.accounts
     : [];
   state.staff = Array.isArray(response.data?.staff) ? response.data.staff : [];
-  state.roles = Array.isArray(response.data?.roles) ? response.data.roles : [];
+  state.roles = (
+    Array.isArray(response.data?.roles) ? response.data.roles : []
+  ).map(normalizeRole);
   state.permissions = Array.isArray(response.data?.permissions)
     ? response.data.permissions
     : [];
+  ensureCustomPermissions(state.permissions);
   state.departments = Array.isArray(response.data?.departments)
     ? response.data.departments
     : [];
@@ -1585,7 +1628,9 @@ async function loadRoles() {
     }
     return;
   }
-  state.roles = Array.isArray(response.data?.roles) ? response.data.roles : [];
+  state.roles = (
+    Array.isArray(response.data?.roles) ? response.data.roles : []
+  ).map(normalizeRole);
 }
 
 async function loadPermissions() {
@@ -1602,6 +1647,7 @@ async function loadPermissions() {
   state.permissions = Array.isArray(response.data?.permissions)
     ? response.data.permissions
     : [];
+  ensureCustomPermissions(state.permissions);
   return state.permissions;
 }
 
@@ -1632,6 +1678,7 @@ function renderRoleCards() {
 
   container.innerHTML = state.roles
     .map((role) => {
+      normalizeRole(role);
       const isSystemRole = role.role_name.toLowerCase() === "admin";
       let displayItems = [];
 
@@ -1648,6 +1695,18 @@ function renderRoleCards() {
           }
           return desc;
         });
+
+        const roleLower = (role.role_name || "").toLowerCase();
+        if (roleLower.includes("trưởng nhóm") || roleLower.includes("leader") || roleLower.includes("team_lead")) {
+          if (!displayItems.includes("Phân công công việc")) {
+            const clockIdx = displayItems.indexOf("Chấm công ra/vào");
+            if (clockIdx !== -1) {
+              displayItems.splice(clockIdx + 1, 0, "Phân công công việc");
+            } else {
+              displayItems.unshift("Phân công công việc");
+            }
+          }
+        }
       }
 
       const body = displayItems.length
@@ -1745,6 +1804,7 @@ async function openRoleEdit(roleId) {
   );
   if (!role) return;
 
+  normalizeRole(role);
   const form = document.getElementById("roleForm");
   if (!form) return;
   resetForm("roleForm");
@@ -1752,7 +1812,19 @@ async function openRoleEdit(roleId) {
   form.elements.role_id.value = role.role_id;
   form.elements.role_name.value = role.role_name;
   form.elements.description.value = role.description || "";
-  renderPermissionGroups(role.permission_ids || []);
+
+  let selectedPermIds = [...(role.permission_ids || [])];
+  const roleLower = (role.role_name || "").toLowerCase();
+  if (roleLower.includes("trưởng nhóm") || roleLower.includes("leader") || roleLower.includes("team_lead")) {
+    const taskAssignPerm = state.permissions.find(
+      (p) => p.description === "Phân công công việc" || p.permission_code === "task.assign",
+    );
+    if (taskAssignPerm && !selectedPermIds.includes(taskAssignPerm.permission_id)) {
+      selectedPermIds.push(taskAssignPerm.permission_id);
+    }
+  }
+
+  renderPermissionGroups(selectedPermIds);
   document.getElementById("roleFormTitle").textContent = "Sửa vai trò";
   showRoleForm();
 }

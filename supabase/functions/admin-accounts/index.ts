@@ -412,7 +412,7 @@ async function departmentRows() {
 }
 
 async function rolesRows() {
-  return await sql!`
+  const rows = await sql!`
     select r.role_id,
            r.role_name,
            r.description,
@@ -425,6 +425,27 @@ async function rolesRows() {
     left join public.permissions p on p.permission_id = rp.permission_id
     group by r.role_id, r.role_name, r.description
     order by r.role_name`;
+
+  return (rows as Array<Record<string, unknown>>).map((r) => {
+    const name = String(r.role_name || "").toLowerCase();
+    let desc = r.description ? String(r.description) : "";
+    if (
+      name.includes("quản lý") ||
+      name === "manager" ||
+      name === "hr_manager" ||
+      desc === "Trưởng phòng: dữ liệu phòng ban, duyệt đơn nghỉ phép, không xem lương"
+    ) {
+      desc = "Quản lý nhân sự của phòng ban mình";
+    } else if (
+      name.includes("trưởng nhóm") ||
+      name.includes("leader") ||
+      name.includes("team_lead") ||
+      desc === "Giám sát nhóm: chấm công và duyệt đơn nghỉ phép của phòng ban"
+    ) {
+      desc = "Giám sát thành viên nhóm";
+    }
+    return { ...r, description: desc };
+  });
 }
 
 async function rolesAction(): Promise<Response> {

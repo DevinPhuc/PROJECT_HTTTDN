@@ -1279,6 +1279,28 @@ function renderRequests() {
     // Xóa ra khỏi danh sách nếu nhân sự đã bị xóa (không còn trong danh sách active)
     if (!employee) return false;
 
+    // Danh sách duyệt đơn chỉ hiển thị những tài khoản thuộc chính phòng ban nhân sự, không xem đơn của các phòng ban khác
+    const employeeDepartmentId = employee.department_id || employee.current_department_id;
+    const empDept = departments.find(
+      (dept) => String(dept.department_id) === String(employeeDepartmentId),
+    );
+    const empDeptName = (empDept?.department_name || "").trim().toLowerCase();
+    const isHRDept = empDeptName.includes("nhân sự") || empDeptName.includes("nhan su");
+
+    const actorDept = departments.find(
+      (dept) => String(dept.department_id) === String(currentActor?.department_id),
+    );
+    const actorDeptName = (actorDept?.department_name || "").trim().toLowerCase();
+    const isActorHR = currentActor?.is_hr || actorDeptName.includes("nhân sự") || actorDeptName.includes("nhan su");
+
+    const inScope = isActorHR
+      ? isHRDept
+      : currentActor?.department_id
+        ? String(employeeDepartmentId) === String(currentActor.department_id)
+        : isHRDept;
+
+    if (!inScope) return false;
+
     const status = String(request.status || "").toLowerCase();
     if (filter === "pending" && status !== "pending") return false;
     if (filter === "approved" && status !== "approved") return false;
