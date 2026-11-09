@@ -36,9 +36,11 @@ const SUPABASE_DB_URL = Deno.env.get("SUPABASE_DB_URL");
 const ADMIN_JWT_SECRET = Deno.env.get("ADMIN_JWT_SECRET");
 
 // One connection per warm instance; transaction-mode pooling does not support prepared statements.
-const sql = SUPABASE_DB_URL
-  ? postgres(SUPABASE_DB_URL, { max: 1, prepare: false, ssl: "require" })
-  : null;
+const sql = (
+  SUPABASE_DB_URL
+    ? postgres(SUPABASE_DB_URL, { max: 1, prepare: false, ssl: "require" })
+    : null
+) as unknown as ReturnType<typeof postgres>;
 
 const JWT_KEY = ADMIN_JWT_SECRET ? new TextEncoder().encode(ADMIN_JWT_SECRET) : null;
 
@@ -204,7 +206,7 @@ function dbError(err: unknown): Response {
 async function ownEmployee(tx: typeof sql, employeeId: string) {
   const rows = await tx!`
     select employee_id, employee_code, full_name, date_of_birth, email, gender,
-           hire_date, employment_status, current_position_id as position_id
+           hire_date, employment_status, current_position_id as position_id, education
     from public.employees
     where employee_id = ${employeeId}::uuid`;
   return rows[0] ?? null;
@@ -252,7 +254,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     ok: true,
     employee,
     contact: contact ?? null,
-    position: position ?? null,
+    position: (position as any[])[0] ?? null,
     roleNames: roleRows.map((row) => String(row.role_name)),
     permissionCodes: permissionRows.map((row) => String(row.permission_code).toLowerCase()),
     pending_notice: actor.pending_notice || null,
@@ -534,6 +536,7 @@ async function leaveCreateAction(actor: Actor, body: Record<string, unknown>): P
 
   const resignation = str(leaveType.type_name) === "Xin nghỉ việc";
   let numDays = 1;
+  const effectiveEndDate = resignation ? startDate : endDate;
   if (!resignation) {
     if (!isRealDate(endDate) || endDate < startDate) return json({ ok: false, error: "invalid_dates" }, 400);
     numDays = Math.round(
@@ -561,12 +564,12 @@ async function leaveCreateAction(actor: Actor, body: Record<string, unknown>): P
   }
 
   try {
-    await sql`
+    await sql!`
       insert into public.leave_requests
         (employee_id, leave_type_id, start_date, end_date, num_days, reason, status, requested_at)
       values
         (${actor.employee_id}::uuid, ${leaveType.leave_type_id}::uuid,
-         ${startDate}::date, ${resignation ? null : endDate}::date, ${numDays},
+         ${startDate}::date, ${effectiveEndDate}::date, ${numDays},
          ${reason}, 'Pending', now())`;
   } catch (err) {
     return dbError(err);

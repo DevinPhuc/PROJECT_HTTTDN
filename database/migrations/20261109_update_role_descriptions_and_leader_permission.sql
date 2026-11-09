@@ -12,7 +12,7 @@ where lower(role_name) in ('trưởng nhóm', 'leader', 'team_lead', 'team leade
 
 -- 3. Insert permission 'Phân công công việc' if not exists
 insert into public.permissions (permission_code, module_name, action, description)
-values ('task.assign', 'Công việc', 'Assign', 'Phân công công việc')
+values ('task.assign', 'Công việc', 'Edit', 'Phân công công việc')
 on conflict (permission_code) do update
 set description = excluded.description,
     module_name = excluded.module_name,

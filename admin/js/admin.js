@@ -1328,6 +1328,7 @@ async function openAccountAdd() {
     true,
   );
   form.elements.role_id.disabled = false;
+  if (form.elements.education) form.elements.education.value = "";
   form.elements.is_active.value = "true";
   form.elements.is_active.disabled = true;
   form.querySelector(".admin-form-header h3").textContent = "Thêm nhân sự mới";
@@ -1359,6 +1360,9 @@ async function openAccountEdit(employeeId) {
   form.elements.full_name.value = account.full_name;
   form.elements.email.value = account.email;
   form.elements.gender.value = account.gender;
+  if (form.elements.education) {
+    form.elements.education.value = account.education || "";
+  }
   if (form.elements.phone_number) {
     form.elements.phone_number.value = account.phone_number || "";
   }
@@ -1421,6 +1425,7 @@ async function submitAccountForm(event) {
     phone_number: String(form.elements.phone_number?.value || values.phone_number || "").trim(),
     department_id: values.department_id,
     position_id: form.elements.position_id?.value || values.position_id || "",
+    education: form.elements.education ? form.elements.education.value : (values.education || ""),
     role_id: form.elements.role_id ? form.elements.role_id.value : values.role_id,
     is_active: form.elements.is_active ? form.elements.is_active.value === "true" : true,
     generated_password: currentPassword,

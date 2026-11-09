@@ -388,7 +388,8 @@ async function loadStaffPortal() {
   if (!boot.ok || !boot.data.employee) { showPageError("Không tải được hồ sơ nhân sự. Vui lòng đăng nhập lại."); return; }
   employee = boot.data.employee;
   contact = boot.data.contact;
-  position = boot.data.position;
+  const rawPos = boot.data.position;
+  position = Array.isArray(rawPos) ? rawPos[0] : rawPos;
   department = position ? { department_id: position.department_id, department_name: position.department_name } : null;
   permissionCodes = boot.data.permissionCodes || [];
   if ((boot.data.roleNames || []).some((name) => ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(String(name).toLowerCase()))) { window.location.replace("../manager/dashboard.html"); return; }

@@ -70,12 +70,14 @@ function populateProfile() {
   document.getElementById("staffAvatar").textContent = initials(employee.full_name);
   // Thông tin công việc is read-only reference data owned by HR.
   const jobFields = {
-    jobPosition: position?.position_title || "-",
-    jobDepartment: department?.department_name || "-",
+    jobEducation: employee.education || "—",
+    jobPosition: position?.position_title || "—",
+    jobDepartment: department?.department_name || "—",
     jobHireDate: dateLabel(employee.hire_date)
   };
   Object.entries(jobFields).forEach(([id, value]) => {
-    document.getElementById(id).textContent = value;
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
   });
   document.querySelector(".staff-employee-code strong").textContent = employee.employee_code || "-";
 

@@ -564,7 +564,7 @@ function renderEmployees() {
     if (
       employee.deleted_at ||
       employee.is_active === false ||
-      normalizedStatus(employee.employment_status) !== "active"
+      normalizedStatus(employee.employment_status) === "resigned"
     ) {
       return false;
     }
@@ -614,7 +614,7 @@ function renderEmployees() {
       (e) =>
         !e.deleted_at &&
         e.is_active !== false &&
-        normalizedStatus(e.employment_status) === "active" &&
+        normalizedStatus(e.employment_status) !== "resigned" &&
         !isCurrentActorEmployee(e),
     );
     addCell(
@@ -1194,10 +1194,15 @@ document
         };
         window.alert(
           DELETE_ERRORS[result.error] ||
+            result.message ||
             "Không thể xóa hồ sơ. Kiểm tra bản ghi liên quan và quyền của bạn.",
         );
         return;
       }
+      employees = employees.filter(
+        (item) => item.employee_id !== employee.employee_id,
+      );
+      renderAll();
       await loadLookups();
       renderAll();
       showToast("deleteToast");
@@ -1515,8 +1520,17 @@ document
     const requestId = button.dataset.requestId;
     const actionText = reviewStatus === "approved" ? "duyệt" : "từ chối";
 
-    if (!window.confirm(`Bạn có chắc muốn ${actionText} đơn nghỉ này không?`)) {
-      return;
+    const targetRequest = requests.find((r) => r.leave_request_id === requestId);
+    const isResignation = targetRequest?.leave_type === "resignation" || targetRequest?.leave_type_name === "Xin nghỉ việc";
+
+    if (reviewStatus === "approved" && isResignation) {
+      if (!window.confirm("Nếu duyệt thì tài khoản sẽ bị xóa. Bạn có chắc không ?")) {
+        return;
+      }
+    } else {
+      if (!window.confirm(`Bạn có chắc muốn ${actionText} đơn nghỉ này không?`)) {
+        return;
+      }
     }
 
     button.disabled = true;
@@ -1545,16 +1559,34 @@ document
       return;
     }
 
-    const reviewToast = document.getElementById("reviewToast");
-    if (reviewToast) {
-      const span = reviewToast.querySelector("span");
-      if (span) {
-        span.textContent =
-          reviewStatus === "approved"
-            ? "Đã duyệt đơn nghỉ thành công!"
-            : "Đã từ chối đơn nghỉ thành công!";
+    const isDeletedResignation = result.data?.is_resignation || (reviewStatus === "approved" && isResignation);
+
+    if (isDeletedResignation) {
+      if (targetRequest?.employee_id) {
+        employees = employees.filter(
+          (emp) => emp.employee_id !== targetRequest.employee_id,
+        );
       }
-      showToast("reviewToast");
+      const reviewToast = document.getElementById("reviewToast");
+      if (reviewToast) {
+        const span = reviewToast.querySelector("span");
+        if (span) span.textContent = "Xóa tài khoản thành công!";
+        showToast("reviewToast");
+      } else {
+        window.alert("Xóa tài khoản thành công!");
+      }
+    } else {
+      const reviewToast = document.getElementById("reviewToast");
+      if (reviewToast) {
+        const span = reviewToast.querySelector("span");
+        if (span) {
+          span.textContent =
+            reviewStatus === "approved"
+              ? "Đã duyệt đơn nghỉ thành công!"
+              : "Đã từ chối đơn nghỉ thành công!";
+        }
+        showToast("reviewToast");
+      }
     }
 
     await loadLookups();
