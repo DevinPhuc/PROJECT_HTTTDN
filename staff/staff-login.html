@@ -442,6 +442,16 @@
       const passwordInput = document.getElementById("staffPassword");
       const togglePasswordBtn = document.getElementById("togglePassword");
       const eyeSlash = document.getElementById("eyeSlash");
+      const toast = document.getElementById("adminLoginToast");
+
+      let toastTimer;
+      function showToast(message) {
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 5000);
+      }
 
       togglePasswordBtn.addEventListener("click", () => {
         const show = passwordInput.type === "password";
@@ -481,23 +491,55 @@
         const password = String(formData.get("password") || "");
         if (!email || !password) {
           showToast("Vui lòng nhập đầy đủ email và mật khẩu.");
+          if (feedback) feedback.textContent = "Vui lòng nhập đầy đủ email và mật khẩu.";
           return;
         }
+
+        const submitButton = loginForm.querySelector(".login-submit");
+        if (submitButton) submitButton.disabled = true;
         showToast("Đang xác thực...");
-        const result = await portal.signIn("staff", {
-          username: email,
-          password,
-        });
-        if (result.error) {
-          if (result.error === "account_locked") {
-            portal.showNoticeModal({ type: "account_locked" }, "staff");
+
+        try {
+          const result = await portal.signIn("staff", {
+            username: email,
+            password,
+          });
+          if (result.error) {
+            if (result.error === "account_locked") {
+              portal.showNoticeModal({ type: "account_locked" }, "staff");
+            }
+            const errMsg =
+              MESSAGES[result.error] || "Đã xảy ra lỗi. Vui lòng thử lại.";
+            if (feedback) feedback.textContent = errMsg;
+            showToast(errMsg);
+            passwordInput.value = "";
+            passwordInput.focus();
+            return;
           }
-          feedback.textContent =
-            MESSAGES[result.error] || "Đã xảy ra lỗi. Vui lòng thử lại.";
-          return;
+          if (toast) toast.classList.remove("show");
+          if (submitButton) submitButton.textContent = "Đang chuyển hướng...";
+
+          const session = portal.getSession("staff");
+          if (session?.token) {
+            try {
+              await window.sbInvoke("staff-portal", {
+                headers: { "x-admin-token": session.token },
+                body: { action: "ping" },
+              });
+            } catch (_) {}
+          }
+
+          window.location.replace("staff-dashboard.html");
+        } catch (err) {
+          console.error(err);
+          showToast("Không thể kết nối máy chủ. Vui lòng thử lại sau.");
+          if (feedback) feedback.textContent = "Không thể kết nối máy chủ. Vui lòng thử lại sau.";
+        } finally {
+          if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = "Đăng nhập";
+          }
         }
-        if (toast) toast.classList.remove("show");
-        window.location.replace("staff-dashboard.html");
       });
 
       // JS is alive and the handler is attached; only now is submitting safe.

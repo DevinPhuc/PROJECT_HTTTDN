@@ -259,7 +259,6 @@
                   <p class="account-eyebrow">THÔNG TIN NHÂN VIÊN</p>
                   <div class="form-grid-2">
                     <input type="hidden" name="id" />
-                    <input type="hidden" name="education" />
                     <div class="form-group">
                       <label>Họ và tên <span class="req">*</span></label>
                       <input name="name" type="text" required maxlength="100" />
@@ -333,9 +332,22 @@
                         <option>Đã nghỉ việc</option>
                       </select>
                     </div>
-                    <div class="form-group" id="employeeRoleGroup">
-                      <label>Vai trò hệ thống <span class="req">*</span></label>
-                      <select name="roleId" id="employeeRole" required></select>
+                    <div class="form-subgrid-2">
+                      <div class="form-group" id="employeeRoleGroup">
+                        <label>Vai trò hệ thống <span class="req">*</span></label>
+                        <select name="roleId" id="employeeRole" required></select>
+                      </div>
+                      <div class="form-group" id="employeeEducationGroup">
+                        <label>Trình độ</label>
+                        <select name="education" id="employeeEducation">
+                          <option value="">Chọn trình độ</option>
+                          <option value="Cao đẳng">Cao đẳng</option>
+                          <option value="Cử nhân">Cử nhân</option>
+                          <option value="Kỹ sư">Kỹ sư</option>
+                          <option value="Thạc sĩ">Thạc sĩ</option>
+                          <option value="Tiến sĩ">Tiến sĩ</option>
+                        </select>
+                      </div>
                     </div>
                     <div class="form-group employee-password-group">
                       <label

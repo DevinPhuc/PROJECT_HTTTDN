@@ -528,6 +528,24 @@ body:has(.admin-page) {
   min-width: 0;
 }
 
+.admin-role-education-fields {
+  display: grid;
+  width: 100%;
+  grid-column: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-role-education-fields > label {
+  min-width: 0;
+}
+
+.admin-role-education-fields select {
+  width: 100%;
+  min-width: 0;
+}
+
 .admin-form .account-eyebrow {
   margin: 3px 0 0;
 }
@@ -1209,7 +1227,8 @@ body:has(.admin-page) {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .admin-date-fields {
+  .admin-date-fields,
+  .admin-role-education-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1225,7 +1244,8 @@ body:has(.admin-page) {
 
 @media (max-width: 420px) {
   .admin-date-fields,
-  .admin-gender-phone-fields {
+  .admin-gender-phone-fields,
+  .admin-role-education-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 }

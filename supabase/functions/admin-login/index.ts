@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       .sign(JWT_KEY);
 
     try {
-      await sql`update public.employee_accounts set pending_notice = null where employee_id = ${portalResult.employee_id}::uuid`;
+      if (portalResult.employee_id) await sql`update public.employee_accounts set pending_notice = null where employee_id = ${portalResult.employee_id}::uuid`;
     } catch (_) {}
 
     return json({
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
     .sign(JWT_KEY);
 
   try {
-    await sql`update public.employee_accounts set pending_notice = null where employee_id = ${result.employee_id}::uuid`;
+    if (result.employee_id) await sql`update public.employee_accounts set pending_notice = null where employee_id = ${result.employee_id}::uuid`;
   } catch (_) {}
 
   return json({

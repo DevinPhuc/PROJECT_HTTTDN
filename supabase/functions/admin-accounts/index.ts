@@ -26,9 +26,11 @@ const SUPABASE_DB_URL = Deno.env.get("SUPABASE_DB_URL");
 const ADMIN_JWT_SECRET = Deno.env.get("ADMIN_JWT_SECRET");
 
 // One connection per warm instance; transaction-mode pooling does not support prepared statements.
-const sql = SUPABASE_DB_URL
-  ? postgres(SUPABASE_DB_URL, { max: 1, prepare: false, ssl: "require" })
-  : null;
+const sql = (
+  SUPABASE_DB_URL
+    ? postgres(SUPABASE_DB_URL, { max: 1, prepare: false, ssl: "require" })
+    : null
+) as unknown as ReturnType<typeof postgres>;
 
 const JWT_KEY = ADMIN_JWT_SECRET
   ? new TextEncoder().encode(ADMIN_JWT_SECRET)
@@ -72,6 +74,7 @@ function readProfile(body: Record<string, unknown>) {
     hire_date: str(body.hire_date),
     department_id: str(body.department_id),
     position_id: str(body.position_id),
+    education: str(body.education).trim() || null,
   };
 
   if (
@@ -433,7 +436,8 @@ async function rolesRows() {
       name.includes("quản lý") ||
       name === "manager" ||
       name === "hr_manager" ||
-      desc === "Trưởng phòng: dữ liệu phòng ban, duyệt đơn nghỉ phép, không xem lương"
+      desc ===
+        "Trưởng phòng: dữ liệu phòng ban, duyệt đơn nghỉ phép, không xem lương"
     ) {
       desc = "Quản lý nhân sự của phòng ban mình";
     } else if (
@@ -599,6 +603,7 @@ async function listRows() {
            e.email,
            e.gender,
            e.phone_number,
+           e.education,
            to_char(e.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
            to_char(e.hire_date, 'YYYY-MM-DD') as hire_date,
            coalesce(e.current_department_id, position_department.department_id) as department_id,
@@ -703,13 +708,12 @@ async function createAction(
     const [employee] = await tx`
       insert into public.employees
         (employee_code, full_name, date_of_birth, gender, email, hire_date,
-         current_position_id, current_department_id, employment_status, phone_number)
+         current_position_id, current_department_id, employment_status, phone_number, education)
       values
         (${fields.employee_code}, ${fields.full_name}, ${fields.date_of_birth}, ${fields.gender},
-         ${fields.email}, ${fields.hire_date}, ${(fields.position_id || null)}::uuid,
-         ${fields.department_id}::uuid, 'Active', ${fields.phone_number || null})
+         ${fields.email}, ${fields.hire_date}, ${fields.position_id || null}::uuid,
+         ${fields.department_id}::uuid, 'Active', ${fields.phone_number || null}, ${fields.education || null})
       returning employee_id`;
-
 
     await tx`
       insert into public.employee_accounts (employee_id, username, password_hash, is_active)
@@ -785,44 +789,13 @@ async function updateAction(
           gender = ${fields.gender},
           date_of_birth = ${fields.date_of_birth},
           hire_date = ${fields.hire_date},
-          current_position_id = ${(fields.position_id || null)}::uuid,
+          current_position_id = ${fields.position_id || null}::uuid,
           current_department_id = ${fields.department_id}::uuid,
+          education = ${fields.education || null},
           updated_at = now()
       where employee_id = ${employeeId}::uuid
       returning employee_id`;
     if (!employee) return { error: "not_found" } as const;
-
-    const [account] = await tx`
-      update public.employee_accounts
-      set is_active = ${isActive}
-      where employee_id = ${employeeId}::uuid
-      returning employee_id`;
-    if (!isActive) {
-      await tx`
-        update public.employee_accounts
-        set pending_notice = ${JSON.stringify({
-          type: "account_locked",
-          message: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
-          redirect_url: getLoginUrlForRole(roleChanged ? newRoleName : beforeEmp.old_role_name),
-        })}::jsonb
-        where employee_id = ${employeeId}::uuid`;
-    } else {
-      await tx`
-        update public.employee_accounts
-        set pending_notice = case
-          when pending_notice->>'type' = 'account_locked' then null
-          else pending_notice
-        end
-        where employee_id = ${employeeId}::uuid`;
-    }
-    if (!account) return { error: "account_not_found" } as const;
-
-    if (body.phone_number !== undefined) {
-      await tx`
-        update public.employees
-        set phone_number = ${fields.phone_number || null}
-        where employee_id = ${employeeId}::uuid`;
-    }
 
     let roleChanged = false;
     let newRoleName = String(beforeEmp.old_role_name || "Nhân viên");
@@ -859,6 +832,42 @@ async function updateAction(
           newRoleName = role.role_name;
         }
       }
+    }
+
+    const [account] = await tx`
+      update public.employee_accounts
+      set is_active = ${isActive}
+      where employee_id = ${employeeId}::uuid
+      returning employee_id`;
+    if (!account) return { error: "account_not_found" } as const;
+
+    if (!isActive) {
+      await tx`
+        update public.employee_accounts
+        set pending_notice = ${JSON.stringify({
+          type: "account_locked",
+          message:
+            "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Quản lý để giải quyết nếu như có sự nhầm lẫn",
+          redirect_url: getLoginUrlForRole(
+            roleChanged ? newRoleName : beforeEmp.old_role_name,
+          ),
+        })}::jsonb
+        where employee_id = ${employeeId}::uuid`;
+    } else {
+      await tx`
+        update public.employee_accounts
+        set pending_notice = case
+          when pending_notice->>'type' = 'account_locked' then null
+          else pending_notice
+        end
+        where employee_id = ${employeeId}::uuid`;
+    }
+
+    if (body.phone_number !== undefined) {
+      await tx`
+        update public.employees
+        set phone_number = ${fields.phone_number || null}
+        where employee_id = ${employeeId}::uuid`;
     }
 
     const computedNewPassword = generateAccountPassword(
@@ -913,7 +922,8 @@ async function setActiveAction(
   const isActive = body.is_active !== false;
   const lockNotice = {
     type: "account_locked",
-    message: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+    message:
+      "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
   };
   const rows = isActive
     ? await sql!`
@@ -942,53 +952,137 @@ async function setActiveAction(
   });
 }
 
+async function recordEmploymentStatusTx(
+  tx: any,
+  employeeId: string,
+  status: string,
+  actorId: string,
+  reason = "Cập nhật trạng thái nhân sự",
+): Promise<void> {
+  const normalizedStatus = status.toLowerCase();
+  const [current] = await tx`
+    select status_history_id, employment_status, effective_from,
+           effective_from >= (now() at time zone 'Asia/Ho_Chi_Minh')::date as starts_today_or_later
+    from public.hr_employment_status_history
+    where employee_id = ${employeeId}::uuid and effective_to is null
+    order by effective_from desc, status_history_id desc
+    limit 1
+    for update`;
+  if (current && String(current.employment_status).toLowerCase() === normalizedStatus) return;
+
+  if (current && current.starts_today_or_later) {
+    await tx`
+      update public.hr_employment_status_history
+      set employment_status = ${normalizedStatus}, changed_by = ${actorId}::uuid,
+          reason = ${reason}, is_baseline = false
+      where status_history_id = ${current.status_history_id}`;
+    return;
+  }
+
+  if (current) {
+    await tx`
+      update public.hr_employment_status_history
+      set effective_to = (now() at time zone 'Asia/Ho_Chi_Minh')::date - 1
+      where status_history_id = ${current.status_history_id}`;
+  }
+  await tx`
+    insert into public.hr_employment_status_history
+      (employee_id, employment_status, effective_from, changed_by, reason)
+    values (${employeeId}::uuid, ${normalizedStatus},
+            (now() at time zone 'Asia/Ho_Chi_Minh')::date,
+            ${actorId}::uuid, ${reason})`;
+}
+
 // Soft delete only: the row stays visible in the list with is_active = false,
 // while admin_login refuses it because it never accepts an inactive account.
-async function deleteAction(body: Record<string, unknown>): Promise<Response> {
+async function deleteAction(
+  body: Record<string, unknown>,
+  actor: Actor,
+): Promise<Response> {
   const employeeId = str(body.employee_id);
   if (!UUID_RE.test(employeeId))
     return json({ ok: false, error: "invalid_employee" }, 400);
 
   const lockNotice = {
     type: "account_locked",
-    message: "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+    message:
+      "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
   };
-  const rows = await sql!`
-    update public.employee_accounts
-    set deleted_at = now(),
-        is_active = false,
-        pending_notice = ${JSON.stringify(lockNotice)}::jsonb
-    where employee_id = ${employeeId}::uuid
-      and deleted_at is null
-    returning employee_id`;
-  if (rows.length === 0) return json({ ok: false, error: "not_found" }, 400);
+  const result = await sql!.begin(async (tx) => {
+    const rows = await tx`
+      update public.employee_accounts
+      set deleted_at = now(),
+          is_active = false,
+          pending_notice = ${JSON.stringify(lockNotice)}::jsonb
+      where employee_id = ${employeeId}::uuid
+        and deleted_at is null
+      returning employee_id`;
+    if (rows.length === 0) return null;
 
-  return json({ ok: true, employee_id: rows[0].employee_id });
+    await tx`
+      update public.employees
+      set employment_status = 'Resigned'
+      where employee_id = ${employeeId}::uuid`;
+
+    await recordEmploymentStatusTx(
+      tx,
+      employeeId,
+      "resigned",
+      actor.employee_id,
+      "Admin xóa tài khoản (Nghỉ việc)",
+    );
+
+    return rows[0];
+  });
+  if (!result) return json({ ok: false, error: "not_found" }, 400);
+
+  return json({ ok: true, employee_id: result.employee_id });
 }
 
 // Undo a soft delete: clear the marker and give the account a usable state again.
-async function restoreAction(body: Record<string, unknown>): Promise<Response> {
+async function restoreAction(
+  body: Record<string, unknown>,
+  actor: Actor,
+): Promise<Response> {
   const employeeId = str(body.employee_id);
   if (!UUID_RE.test(employeeId))
     return json({ ok: false, error: "invalid_employee" }, 400);
 
-  const rows = await sql!`
-    update public.employee_accounts
-    set deleted_at = null,
-        is_active = true,
-        pending_notice = case
-          when pending_notice->>'type' = 'account_locked' then null
-          else pending_notice
-        end
-    where employee_id = ${employeeId}::uuid
-      and deleted_at is not null
-    returning employee_id, is_active`;
-  if (rows.length === 0) return json({ ok: false, error: "not_found" }, 400);
+  const result = await sql!.begin(async (tx) => {
+    const rows = await tx`
+      update public.employee_accounts
+      set deleted_at = null,
+          is_active = true,
+          pending_notice = case
+            when pending_notice->>'type' = 'account_locked' then null
+            else pending_notice
+          end
+      where employee_id = ${employeeId}::uuid
+        and deleted_at is not null
+      returning employee_id, is_active`;
+    if (rows.length === 0) return null;
+
+    await tx`
+      update public.employees
+      set employment_status = 'Active'
+      where employee_id = ${employeeId}::uuid`;
+
+    await recordEmploymentStatusTx(
+      tx,
+      employeeId,
+      "active",
+      actor.employee_id,
+      "Admin khôi phục tài khoản",
+    );
+
+    return rows[0];
+  });
+  if (!result) return json({ ok: false, error: "not_found" }, 400);
 
   return json({
     ok: true,
-    employee_id: rows[0].employee_id,
-    is_active: rows[0].is_active,
+    employee_id: result.employee_id,
+    is_active: result.is_active,
   });
 }
 
@@ -1092,7 +1186,6 @@ async function permanentDeleteAction(
         delete from public.employee_qualifications
         where employee_id = ${employeeId}::uuid`;
 
-
       // 10. Nullify user_roles assigned_by, then delete employee's user_roles
       await tx`
         update public.user_roles
@@ -1144,8 +1237,6 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "server_not_configured" }, 500);
   }
 
-  
-
   await ensureNoticeColumn();
 
   const token = req.headers.get("x-admin-token") ?? "";
@@ -1161,8 +1252,11 @@ Deno.serve(async (req) => {
     let activeRole = "";
     if (token) {
       try {
-        const { payload } = await jwtVerify(token, JWT_KEY!, { algorithms: ["HS256"] });
-        const employeeId = typeof payload.employee_id === "string" ? payload.employee_id : "";
+        const { payload } = await jwtVerify(token, JWT_KEY!, {
+          algorithms: ["HS256"],
+        });
+        const employeeId =
+          typeof payload.employee_id === "string" ? payload.employee_id : "";
         if (UUID_RE.test(employeeId)) {
           const [roleRow] = await sql!`
             select r.role_name
@@ -1178,7 +1272,11 @@ Deno.serve(async (req) => {
             const lower = activeRole.toLowerCase();
             if (lower === "admin") {
               redirectUrl = "login.html";
-            } else if (["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(lower)) {
+            } else if (
+              ["manager", "hr_manager", "quản lý", "quản lý nhân sự"].includes(
+                lower,
+              )
+            ) {
               redirectUrl = "../manager/login.html";
             } else {
               redirectUrl = "../staff/staff-login.html";
@@ -1189,7 +1287,15 @@ Deno.serve(async (req) => {
         // ignore
       }
     }
-    return json({ ok: false, error: "unauthorized", role: activeRole, redirect_url: redirectUrl }, 401);
+    return json(
+      {
+        ok: false,
+        error: "unauthorized",
+        role: activeRole,
+        redirect_url: redirectUrl,
+      },
+      401,
+    );
   }
 
   let body: Record<string, unknown>;
@@ -1209,7 +1315,7 @@ Deno.serve(async (req) => {
         return await initAction();
       case "options":
         return await optionsAction();
-      
+
       case "latest_activities":
         return await latestActivitiesAction();
       case "list":
@@ -1223,9 +1329,9 @@ Deno.serve(async (req) => {
       case "set_active":
         return await setActiveAction(body);
       case "delete":
-        return await deleteAction(body);
+        return await deleteAction(body, actor);
       case "restore":
-        return await restoreAction(body);
+        return await restoreAction(body, actor);
       case "permanent_delete":
         return await permanentDeleteAction(body, actor);
       case "roles":

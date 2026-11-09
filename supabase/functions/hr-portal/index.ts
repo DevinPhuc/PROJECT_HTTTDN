@@ -36,15 +36,17 @@ const SUPABASE_DB_URL = Deno.env.get("SUPABASE_DB_URL");
 const ADMIN_JWT_SECRET = Deno.env.get("ADMIN_JWT_SECRET");
 
 // One connection per warm instance; transaction-mode pooling does not support prepared statements.
-const sql = SUPABASE_DB_URL
-  ? postgres(SUPABASE_DB_URL, {
-      max: 3,
-      idle_timeout: 20,
-      connect_timeout: 10,
-      prepare: false,
-      ssl: "require",
-    })
-  : null;
+const sql = (
+  SUPABASE_DB_URL
+    ? postgres(SUPABASE_DB_URL, {
+        max: 3,
+        idle_timeout: 20,
+        connect_timeout: 10,
+        prepare: false,
+        ssl: "require",
+      })
+    : null
+) as unknown as ReturnType<typeof postgres>;
 
 const JWT_KEY = ADMIN_JWT_SECRET
   ? new TextEncoder().encode(ADMIN_JWT_SECRET)
@@ -512,11 +514,11 @@ function dbError(err: unknown): Response {
   );
 }
 
-async function optionalBootQuery<T>(
+async function optionalBootQuery(
   label: string,
-  query: Promise<T>,
-  fallback: T,
-): Promise<T> {
+  query: Promise<any>,
+  fallback: any,
+): Promise<any> {
   try {
     return await query;
   } catch (error) {
@@ -628,7 +630,7 @@ function tagged(ids: string[]): string[] {
   return ids.length ? ids : ["00000000-0000-0000-0000-000000000000"];
 }
 
-async function fetchBootLeaveRows(ids: string[]): Promise<unknown[]> {
+async function fetchBootLeaveRows(ids: string[]): Promise<any[]> {
   try {
     return await sql!`
       select lr.leave_request_id, lr.employee_id, lr.start_date, lr.end_date,
@@ -730,7 +732,7 @@ async function bootAction(actor: Actor): Promise<Response> {
       where e.employee_id = any(${sql.array(ids)}::uuid[])
         and a.deleted_at is null
         and a.is_active = true
-        and e.employment_status = 'Active'
+        and (e.employment_status is null or e.employment_status <> 'Resigned')
       order by e.full_name`,
     sql!`
       select e.employee_id, e.phone_number, e.address
@@ -829,7 +831,7 @@ async function bootAction(actor: Actor): Promise<Response> {
     departments,
     roles,
     permissions,
-    all_employee_codes: (allCodeRows as Array<{ employee_code: string }>)
+    all_employee_codes: (allCodeRows as unknown as Array<{ employee_code: string }>)
       .map((r) => String(r.employee_code))
       .filter(Boolean),
     user_roles: assignments,
@@ -936,7 +938,7 @@ async function attendanceClockAction(
 }
 
 async function contactTx(
-  tx: typeof sql,
+  tx: any,
   employeeId: string,
   phone: string,
   address: string | null,
@@ -949,7 +951,7 @@ async function contactTx(
 }
 
 async function roleAssignTx(
-  tx: typeof sql,
+  tx: any,
   actor: Actor,
   employeeId: string,
   roleId: string,
@@ -965,11 +967,11 @@ async function roleAssignTx(
     order by valid_from desc, user_role_id desc
     for update`;
   const matchingRole = currentRoles.find(
-    (row) => String(row.role_id) === roleId,
+    (row: any) => String(row.role_id) === roleId,
   );
 
   const sameDayRole = currentRoles.find(
-    (assignment) => assignment.starts_today,
+    (assignment: any) => assignment.starts_today,
   );
   if (!matchingRole && sameDayRole) {
     await tx`
@@ -1004,12 +1006,14 @@ async function roleAssignTx(
 }
 
 async function recordEmploymentStatusTx(
-  tx: typeof sql,
+  tx: any,
   employeeId: string,
   status: string,
   effectiveDate: string,
   actorId: string,
+  reason = "Cập nhật trạng thái nhân sự",
 ): Promise<void> {
+  const normalizedStatus = status.toLowerCase();
   const [current] = await tx`
     select status_history_id, employment_status, effective_from,
            effective_from >= (now() at time zone 'Asia/Ho_Chi_Minh')::date as starts_today_or_later
@@ -1018,13 +1022,13 @@ async function recordEmploymentStatusTx(
     order by effective_from desc, status_history_id desc
     limit 1
     for update`;
-  if (current && String(current.employment_status) === status) return;
+  if (current && String(current.employment_status).toLowerCase() === normalizedStatus) return;
 
   if (current && current.starts_today_or_later) {
     await tx`
       update public.hr_employment_status_history
-      set employment_status = ${status}, changed_by = ${actorId}::uuid,
-          reason = 'Cập nhật trạng thái nhân sự', is_baseline = false
+      set employment_status = ${normalizedStatus}, changed_by = ${actorId}::uuid,
+          reason = ${reason}, is_baseline = false
       where status_history_id = ${current.status_history_id}`;
     return;
   }
@@ -1039,9 +1043,9 @@ async function recordEmploymentStatusTx(
   await tx`
     insert into public.hr_employment_status_history
       (employee_id, employment_status, effective_from, changed_by, reason)
-    values (${employeeId}::uuid, ${status},
+    values (${employeeId}::uuid, ${normalizedStatus},
             greatest(${effectiveDate}::date, ${today}),
-            ${actorId}::uuid, 'Cập nhật trạng thái nhân sự')`;
+            ${actorId}::uuid, ${reason})`;
 }
 
 async function employeeSaveAction(
@@ -1224,18 +1228,24 @@ async function employeeDeleteAction(
     return json({ ok: false, error: "invalid_employee" }, 400);
   }
 
+  // 1. Không cho phép ai tự xóa chính tài khoản của mình
   if (!actor.is_admin && id === actor.employee_id) {
     return json({ ok: false, error: "forbidden_self_delete" }, 403);
   }
 
+  // 2. Kiểm tra phạm vi (Scope):
+  // - Nếu là Admin hoặc HR Manager: employeeInScope luôn trả về true (được phép xóa toàn công ty)
+  // - Nếu là Manager thường: employeeInScope chỉ trả về true nếu người bị xóa cùng phòng ban
   if (!(await employeeInScope(actor, id))) {
     return json({ ok: false, error: "forbidden_out_of_scope" }, 403);
   }
 
+  // 3. Không ai được phép xóa Admin (Trừ khi người xóa cũng là Admin)
   if (!actor.is_admin && (await employeeHoldsAdminRole(id))) {
     return json({ ok: false, error: "forbidden_cannot_delete_admin" }, 403);
   }
 
+  // 4. Quản lý không được xóa Quản lý khác (nhưng được xóa Nhân viên và Trưởng nhóm)
   if (!actor.is_admin) {
     const targetRoles = await sql!`
       select 1 from public.user_roles ur
@@ -1253,49 +1263,54 @@ async function employeeDeleteAction(
     }
   }
 
-  // 1. Không cho phép ai tự xóa chính tài khoản của mình
-  if (!actor.is_admin && id === actor.employee_id) {
-    return json({ ok: false, error: "forbidden_self_delete" }, 403);
+  const [targetEmp] = await sql!`
+    select e.employee_id, e.employment_status, a.deleted_at
+    from public.employees e
+    left join public.employee_accounts a on a.employee_id = e.employee_id
+    where e.employee_id = ${id}::uuid`;
+
+  if (!targetEmp) {
+    return json({ ok: false, error: "invalid_employee" }, 400);
   }
 
-  // 2. Kiểm tra phạm vi (Scope):
-  // - Nếu là Admin hoặc HR Manager: employeeInScope sẽ luôn trả về True (được phép xóa toàn công ty)
-  // - Nếu là Manager thường: employeeInScope chỉ trả về True nếu người bị xóa cùng phòng ban
-  if (!(await employeeInScope(actor, id))) {
-    return json({ ok: false, error: "forbidden_out_of_scope" }, 403);
+  if (targetEmp.deleted_at || targetEmp.employment_status === "Resigned") {
+    return json({ ok: false, error: "already_deleted" }, 400);
   }
-
-  // 3. Không ai được phép xóa Admin (Trừ khi người xóa cũng là Admin)
-  if (!actor.is_admin && (await employeeHoldsAdminRole(id))) {
-    return json({ ok: false, error: "forbidden_cannot_delete_admin" }, 403);
-  }
-
-  // (Đã gỡ bỏ đoạn mã cấm Manager xóa Manager khác. Bây giờ quyền lực được
-  // quyết định hoàn toàn dựa vào phòng ban (Scope) ở bước 2).
 
   try {
     await sql!.begin(async (tx) => {
       // THỰC HIỆN XÓA MỀM (Dành cho cả Manager và Admin khi gọi qua hr-portal)
 
-      // Đánh dấu tài khoản đã xóa, khóa tài khoản
+      // 1. Đánh dấu tài khoản đã xóa, khóa tài khoản và thiết lập thông báo khóa
+      const lockNotice = {
+        type: "account_locked",
+        message:
+          "Bạn đã bị khóa tài khoản, vui lòng liên hệ với Trưởng nhóm hoặc Quản lý để giải quyết nếu như có sự nhầm lẫn",
+      };
       await tx`
         update public.employee_accounts
-        set deleted_at = now(), is_active = false
+        set deleted_at = now(),
+            is_active = false,
+            pending_notice = ${JSON.stringify(lockNotice)}::jsonb
         where employee_id = ${id}::uuid
           and deleted_at is null`;
 
-      // Cập nhật trạng thái nhân viên thành đã nghỉ việc
+      // 2. Cập nhật trạng thái nhân viên thành đã nghỉ việc
       await tx`
         update public.employees
         set employment_status = 'Resigned'
         where employee_id = ${id}::uuid`;
 
-      // Ghi log trạng thái nghỉ việc
-      await tx`
-        insert into public.hr_employment_status_history
-          (employee_id, employment_status, effective_from, changed_by, reason)
-        values (${id}::uuid, 'Resigned', (now() at time zone 'Asia/Ho_Chi_Minh')::date,
-                ${actor.employee_id}::uuid, 'Quản lý xóa hồ sơ (Nghỉ việc)')`;
+      // 3. Ghi log trạng thái nghỉ việc (chuẩn hóa chữ thường 'resigned' tuân thủ ràng buộc check)
+      const todayStr = new Date().toISOString().slice(0, 10);
+      await recordEmploymentStatusTx(
+        tx,
+        id,
+        "resigned",
+        todayStr,
+        actor.employee_id,
+        "Quản lý xóa hồ sơ (Nghỉ việc)",
+      );
     });
   } catch (err) {
     return dbError(err);
@@ -1392,10 +1407,12 @@ async function leaveReviewAction(
     return json({ ok: false, error: "invalid_status" }, 400);
 
   try {
-    const [leave] = await sql`
-      select employee_id, lower(status::text) as status, start_date, reason
-      from public.leave_requests
-      where leave_request_id = ${requestId}::uuid
+    const [leave] = await sql!`
+      select lr.employee_id, lower(lr.status::text) as status, lr.start_date, lr.reason,
+             lt.type_name
+      from public.leave_requests lr
+      left join public.leave_types lt on lt.leave_type_id = lr.leave_type_id
+      where lr.leave_request_id = ${requestId}::uuid
       limit 1`;
     if (!leave) return json({ ok: false, error: "invalid_reference" }, 400);
     if (leave.status !== "pending")
@@ -1407,7 +1424,7 @@ async function leaveReviewAction(
       return json({ ok: false, error: "forbidden" }, 403);
     }
     if (!actor.is_admin && actor.department_id) {
-      const [emp] = await sql`
+      const [emp] = await sql!`
         select current_department_id as department_id
         from public.employees
         where employee_id = ${leave.employee_id}::uuid
@@ -1417,27 +1434,68 @@ async function leaveReviewAction(
       }
     }
 
-    const updated = await sql`
-      update public.leave_requests
-      set status = ${statusInput === "approved" ? "Approved" : "Rejected"},
-          approved_by = ${actor.employee_id}::uuid,
-          decided_at = now()
-      where leave_request_id = ${requestId}::uuid
-      and lower(status::text) = 'pending'
-      returning employee_id`;
+    const isResignation = leave.type_name === "Xin nghỉ việc";
 
-    if (!updated.length)
-      return json({ ok: false, error: "already_decided" }, 400);
+    await sql!.begin(async (tx) => {
+      const updated = await tx`
+        update public.leave_requests
+        set status = ${statusInput === "approved" ? "Approved" : "Rejected"},
+            approved_by = ${actor.employee_id}::uuid,
+            decided_at = now()
+        where leave_request_id = ${requestId}::uuid
+          and lower(status::text) = 'pending'
+        returning employee_id`;
 
-    if (statusInput === "approved") {
-      await sql`
-        insert into public.employee_status_history
-          (employee_id, status, effective_date, reason, recorded_by)
-        values
-          (${leave.employee_id}::uuid, 'OnLeave', ${leave.start_date}::date,
-           ${leave.reason || "Nghỉ phép"}, ${actor.employee_id}::uuid)`;
-    }
-  } catch (err) {
+      if (!updated.length)
+        throw { code: "ALREADY_DECIDED" };
+
+      if (statusInput === "approved") {
+        if (isResignation) {
+          const lockNotice = {
+            type: "account_locked",
+            message:
+              "Bạn đã bị khóa tài khoản do đơn xin nghỉ việc đã được phê duyệt",
+          };
+          await tx`
+            update public.employee_accounts
+            set deleted_at = now(),
+                is_active = false,
+                pending_notice = ${JSON.stringify(lockNotice)}::jsonb
+            where employee_id = ${leave.employee_id}::uuid
+              and deleted_at is null`;
+
+          await tx`
+            update public.employees
+            set employment_status = 'Resigned'
+            where employee_id = ${leave.employee_id}::uuid`;
+
+          const todayStr = new Date().toISOString().slice(0, 10);
+          await recordEmploymentStatusTx(
+            tx,
+            String(leave.employee_id),
+            "resigned",
+            todayStr,
+            actor.employee_id,
+            "Quản lý duyệt đơn xin nghỉ việc",
+          );
+        } else {
+          await tx`
+            insert into public.employee_status_history
+              (employee_id, status, effective_date, reason, recorded_by)
+            values
+              (${leave.employee_id}::uuid, 'OnLeave', ${leave.start_date}::date,
+               ${leave.reason || "Nghỉ phép"}, ${actor.employee_id}::uuid)`;
+        }
+      }
+    });
+
+    return json({
+      ok: true,
+      is_resignation: isResignation && statusInput === "approved",
+      employee_id: leave.employee_id,
+    });
+  } catch (err: any) {
+    if (err?.code === "ALREADY_DECIDED") return json({ ok: false, error: "already_decided" }, 400);
     return dbError(err);
   }
 
@@ -1778,7 +1836,7 @@ Deno.serve(async (req) => {
         typeof payload.employee_id === "string" ? payload.employee_id : "";
       if (!UUID_RE.test(employeeId))
         return json({ ok: false, error: "unauthorized" }, 401);
-      const [acc] = await sql`
+      const [acc] = await sql!`
         select is_active, deleted_at, pending_notice
         from public.employee_accounts
         where employee_id = ${employeeId}::uuid
