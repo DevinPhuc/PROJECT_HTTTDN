@@ -103,10 +103,6 @@ type Actor = {
   pending_notice?: unknown;
 };
 
-function makeError(code: string): Error {
-  return Object.assign(new Error(code), { code });
-}
-
 function isUUID(value: string): boolean {
   return UUID_RE.test(value);
 }
@@ -674,32 +670,6 @@ async function fetchBootLeaveRows(ids: string[]): Promise<any[]> {
   }
 }
 
-async function fetchBootAttendanceRows(
-  ids: string[],
-): Promise<Record<string, unknown>[]> {
-  try {
-    return (await sql!`
-      select attendance_id, employee_id, work_date, status, day_code, 0 as overtime_hours, null as notes
-      from public.attendance_records
-      where employee_id = any(${sql.array(ids)}::uuid[])
-      order by work_date desc`) as Record<string, unknown>[];
-  } catch (err) {
-    const code = (err as { code?: string })?.code ?? "";
-    if (code === "42703" || code === "42P01") {
-      try {
-        return (await sql!`
-          select attendance_id, employee_id, work_date, status, null as day_code, 0 as overtime_hours, null as notes
-          from public.attendance_records
-          where employee_id = any(${sql.array(ids)}::uuid[])
-          order by work_date desc`) as Record<string, unknown>[];
-      } catch (_) {
-        return [];
-      }
-    }
-    throw err;
-  }
-}
-
 async function bootAction(actor: Actor): Promise<Response> {
   const ids = tagged(await scopedEmployeeIds(actor));
 
@@ -1121,7 +1091,9 @@ async function employeeSaveAction(
     return json({ ok: false, error: "invalid_employee" }, 400);
   }
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayVn = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date());
   if (dateOfBirth && isRealDate(dateOfBirth)) {
     const dob = new Date(`${dateOfBirth}T00:00:00Z`);
     const maxDobDate = new Date();
@@ -1139,7 +1111,7 @@ async function employeeSaveAction(
     }
   }
 
-  if (hireDate > todayIso) {
+  if (hireDate > todayVn) {
     return json({ ok: false, error: "invalid_hire_date" }, 400);
   }
   if (!(statusInput in EMPLOYMENT_STATUS))
@@ -1211,9 +1183,27 @@ async function employeeSaveAction(
       let employeeId = id;
 
       if (!employeeId) {
-        const code =
-          requestedEmployeeCode ||
-          `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+        let code = requestedEmployeeCode;
+        if (code) {
+          const [exists] = await tx`
+            select 1 from public.employees where employee_code = ${code}
+          `;
+          if (exists) {
+            const prefix = (/^[A-Z]+/i.exec(code)?.[0] || "NV").toUpperCase();
+            const allCodes = await tx`
+              select employee_code from public.employees where employee_code is not null
+            `;
+            const pattern = new RegExp(`^${prefix}(\\d+)$`, "i");
+            let highest = 0;
+            for (const r of allCodes as unknown as Array<{ employee_code: string }>) {
+              const m = pattern.exec(String(r.employee_code || ""));
+              if (m) highest = Math.max(highest, Number(m[1]));
+            }
+            code = `${prefix}${String(highest + 1).padStart(3, "0")}`;
+          }
+        } else {
+          code = `JW-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+        }
         const [created] = await tx`
           insert into public.employees
             (employee_code, full_name, email, hire_date, current_position_id,
@@ -1791,7 +1781,6 @@ async function payrollSaveAction(
   const month = Number(body.pay_month);
   const baseSalary = Number(body.base_salary);
   const allowance = Number(body.allowance ?? 0);
-  const overtimePay = 0;
   const workDays = Number(body.work_days ?? 0);
   const standardDays = Number(body.standard_days ?? 0);
   const insuranceAmount = Number(body.insurance_amount ?? 0);

@@ -158,22 +158,6 @@ function cellInput(cls, type, maxlength, value, extra = {}) {
   return td;
 }
 
-function cellSelect(cls, value) {
-  const td = document.createElement("td");
-  const select = document.createElement("select");
-  select.className = cls;
-  [["", "—"], ["Active", STATUS_LABELS.Active], ["OnLeave", STATUS_LABELS.OnLeave], ["Resigned", STATUS_LABELS.Resigned]]
-    .forEach(([val, label]) => {
-      const option = document.createElement("option");
-      option.value = val;
-      option.textContent = label;
-      select.append(option);
-    });
-  select.value = value || "";
-  td.append(select);
-  return td;
-}
-
 function deleteCell() {
   const td = document.createElement("td");
   const button = document.createElement("button");
@@ -243,16 +227,6 @@ function collectQualRows() {
     graduation_year: tr.querySelector(".q-year").value
   })).filter((row) => row.qualification_level || row.major_field || row.institution_name || row.graduation_year);
   if (rows.some((row) => !row.qualification_level)) return null;
-  return rows;
-}
-
-function collectStatusRows() {
-  const rows = [...document.querySelectorAll("#statusRows tr")].map((tr) => ({
-    effective_date: tr.querySelector(".s-date").value,
-    status: tr.querySelector(".s-status").value,
-    reason: tr.querySelector(".s-reason").value.trim()
-  })).filter((row) => row.status || row.effective_date);
-  if (rows.some((row) => Boolean(row.status) !== Boolean(row.effective_date))) return null;
   return rows;
 }
 

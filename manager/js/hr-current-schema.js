@@ -358,6 +358,7 @@ async function loadLookups() {
   payrollCache = data.payroll || [];
   attendanceCache = data.attendance || [];
   employmentStatusHistory = data.employment_status_history || [];
+  allEmployeeCodes = (data.all_employee_codes || []).map(String).filter(Boolean);
 }
 
 function latestPayroll(employeeId) {
@@ -724,20 +725,6 @@ function renderEmployees() {
   );
 }
 
-function renderEmployeePositionFilter() {
-  const select = document.getElementById("employeePositionFilter");
-  if (!select) return;
-  const selected = select.value || "all";
-  select.replaceChildren(
-    new Option("Tất cả chức vụ", "all"),
-    new Option("Nhân viên", "employee"),
-    new Option("Trưởng nhóm", "leader"),
-    new Option("Quản lý", "manager"),
-  );
-  select.value = ["all", "employee", "leader", "manager"].includes(selected)
-    ? selected
-    : "all";
-}
 // System roles hidden from assignment dropdowns.
 const hiddenRoleNames = ["admin", "manager", "quản lý", "hr_manager"];
 
@@ -813,7 +800,10 @@ function updateGeneratedEmployeeCode() {
     roleSelect?.selectedOptions?.[0]?.textContent || "Nhân viên";
   const prefix = employeeCodePrefix(roleName);
   const pattern = new RegExp("^" + prefix + "(\\d+)$", "i");
-  const pool = (allEmployeeCodes && allEmployeeCodes.length ? allEmployeeCodes : employees.map((e) => e.employee_code)).filter(Boolean);
+  const pool = [
+    ...(allEmployeeCodes || []),
+    ...employees.map((e) => e.employee_code),
+  ].filter(Boolean);
   const highest = pool.reduce((max, code) => {
     const match = pattern.exec(String(code || ""));
     return match ? Math.max(max, Number(match[1])) : max;
@@ -946,9 +936,9 @@ function showEmployeeForm(employee = null) {
     document.getElementById("employeeFormTitle").textContent =
       "Chi tiết hồ sơ nhân sự";
   } else {
-    form.elements.namedItem("hireDate").value = new Date()
-      .toISOString()
-      .slice(0, 10);
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    form.elements.namedItem("hireDate").value = todayIso;
     dateOfBirthInput.required = true;
     passwordInput.required = true;
     passwordInput.readOnly = true;
@@ -1348,11 +1338,26 @@ document
         errMsg = "Ngày vào làm không hợp lệ (không vượt quá ngày hiện tại).";
       } else if (result.error === "invalid_date_of_birth") {
         errMsg = "Ngày sinh không hợp lệ (nhân sự phải đủ 18 tuổi).";
+      } else if (result.error === "duplicate_key") {
+        const detail = String(result.detail || "");
+        if (detail.includes("email")) {
+          errMsg = "Email này đã được sử dụng bởi nhân sự khác.";
+        } else if (detail.includes("employee_code")) {
+          errMsg = "Mã nhân viên đã tồn tại trên hệ thống.";
+        } else {
+          errMsg = "Thông tin đã tồn tại trên hệ thống (email hoặc mã nhân viên).";
+        }
+      } else if (result.message) {
+        errMsg = result.message;
       }
       feedback("employeeFeedback", errMsg, true);
       return;
     }
     const wasNewEmployee = !values.id;
+    const newCode = values.employeeCode || document.getElementById("employeeCode")?.value;
+    if (wasNewEmployee && newCode) {
+      allEmployeeCodes.push(newCode);
+    }
     closeEmployeeModal();
     feedback("employeeFeedback", "");
     await loadLookups();

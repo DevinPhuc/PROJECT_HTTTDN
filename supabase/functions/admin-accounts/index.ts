@@ -113,8 +113,10 @@ function readProfile(body: Record<string, unknown>) {
   if (new Date(`${fields.hire_date}T00:00:00Z`).getTime() < earliest) {
     return { error: "under_min_age" } as const;
   }
-  const todayIso = new Date().toISOString().slice(0, 10);
-  if (fields.hire_date > todayIso) {
+  const todayVn = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date());
+  if (fields.hire_date > todayVn) {
     return { error: "invalid_hire_date" } as const;
   }
 
@@ -709,12 +711,30 @@ async function createAction(
   const submittedPassword = str(body.generated_password);
 
   const created = await sql!.begin(async (tx) => {
+    let code = fields.employee_code;
+    const [exists] = await tx`
+      select 1 from public.employees where employee_code = ${code}
+    `;
+    if (exists) {
+      const prefix = (/^[A-Z]+/i.exec(code)?.[0] || "NV").toUpperCase();
+      const allCodes = await tx`
+        select employee_code from public.employees where employee_code is not null
+      `;
+      const pattern = new RegExp(`^${prefix}(\\d+)$`, "i");
+      let highest = 0;
+      for (const r of allCodes as unknown as Array<{ employee_code: string }>) {
+        const m = pattern.exec(String(r.employee_code || ""));
+        if (m) highest = Math.max(highest, Number(m[1]));
+      }
+      code = `${prefix}${String(highest + 1).padStart(3, "0")}`;
+    }
+
     const [employee] = await tx`
       insert into public.employees
         (employee_code, full_name, date_of_birth, gender, email, hire_date,
          current_position_id, current_department_id, employment_status, phone_number, education)
       values
-        (${fields.employee_code}, ${fields.full_name}, ${fields.date_of_birth}, ${fields.gender},
+        (${code}, ${fields.full_name}, ${fields.date_of_birth}, ${fields.gender},
          ${fields.email}, ${fields.hire_date}, ${fields.position_id || null}::uuid,
          ${fields.department_id}::uuid, 'Active', ${fields.phone_number || null}, ${fields.education || null})
       returning employee_id`;

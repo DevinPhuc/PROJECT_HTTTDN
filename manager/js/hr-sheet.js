@@ -55,8 +55,7 @@
   const canSeeAllDepts = () => Boolean(currentActor?.is_hr);
   const ownDeptId = () => String(currentActor?.department_id ?? "");
 
-  /* ---------- Data: boot cache → overlay ---------- */
-  function cachedCode(row) {
+    function cachedCode(row) {
     return row.day_code || FALLBACK_BY_STATUS[String(row.status || "").toLowerCase()] || "";
   }
 
@@ -107,8 +106,7 @@
     return sums;
   }
 
-  /* ---------- Eligible employees (mirrors source app rules) ---------- */
-  // Admin role holders never appear on the code sheet (any viewer, any dept).
+    // Admin role holders never appear on the code sheet (any viewer, any dept).
   function isAdminHolder(eid) {
     const adminIds = roles.filter((r) => String(r.role_name || "").toLowerCase() === "admin").map((r) => r.role_id);
     return (roleAssignments.get(eid) || []).some((id) => adminIds.includes(id));
@@ -166,8 +164,7 @@
     }
   }
 
-  /* ---------- Persist ---------- */
-  async function persistChanges() {
+    async function persistChanges() {
     const items = [];
     const base = baseCodes(month);
     for (const [eid, perEmp] of overlay) {
@@ -231,8 +228,7 @@
     return changed;
   }
 
-  /* ---------- Actions ---------- */
-  function fillX() {
+    function fillX() {
     let count = 0;
     const today = isoNow();
     for (const employee of eligibleEmployees()) {
@@ -266,15 +262,12 @@
     persistChanges().then(render);
   }
 
-  /* ---------- Pager (ported pgState/pageSlice/pagerHTML/bindPager) ---------- */
-  function pageSlice(list) {
+    function pageSlice(list) {
     const pages = Math.max(1, Math.ceil(list.length / pg.size));
     if (pg.page >= pages) pg.page = pages - 1;
     if (pg.page < 0) pg.page = 0;
     return list.slice(pg.page * pg.size, pg.page * pg.size + pg.size);
   }
-
-  let pagerRedraw = () => {};
   function pagerHTML(total) {
     const pages = Math.max(1, Math.ceil(total / pg.size));
     const p = pg.page, from = total ? p * pg.size + 1 : 0, to = Math.min(total, (p + 1) * pg.size);
@@ -296,8 +289,7 @@
       + `</span>`;
   }
 
-  /* ---------- Render ---------- */
-  function paletteHTML() {
+    function paletteHTML() {
     return Object.entries(CODES).map(([k, c]) =>
       `<button type="button" class="cc-brush ${brush === k ? "on" : ""}" style="background:${c.bg};color:${c.c}" data-k="${k}">${k} <small>${c.n}</small></button>`
     ).join("")
@@ -398,8 +390,7 @@
     document.getElementById("mgrCcPager").innerHTML = pagerHTML(all.length);
   }
 
-  /* ---------- Excel export (minimal xlsx writer, recolored) ---------- */
-  const XL = (() => {
+    const XL = (() => {
     const T = new Uint32Array(256);
     for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; T[n] = c >>> 0; }
     const crc = (b) => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
@@ -539,8 +530,7 @@
     sheetFeedback("Đã xuất file Excel.");
   }
 
-  /* ---------- Print (landscape, legend, signature slots) ---------- */
-  function printSheet() {
+    function printSheet() {
     const ym = month, n = daysIn(month);
     const cols = exportColumns();
     const rows = exportRows();
@@ -582,8 +572,7 @@
     setTimeout(() => { window.print(); setTimeout(() => { if (document.body.classList.contains("is-printing")) done(); }, 800); }, 120);
   }
 
-  /* ---------- Static listeners (bound once) ---------- */
-  document.getElementById("mgrSheetMonth").addEventListener("change", async (event) => {
+    document.getElementById("mgrSheetMonth").addEventListener("change", async (event) => {
     month = event.target.value || month;
     pg.page = 0;
     if (typeof loadLookups === "function") {
@@ -658,8 +647,7 @@
     render();
   });
 
-  /* ---------- Lifecycle ---------- */
-  const load = () => {
+    const load = () => {
     month = month || ymNow(); // default: current system month
     rebuildOverlay();
     render();
@@ -682,8 +670,7 @@
   // already-active case synchronously.
   if (document.querySelector('[data-hr-panel="attendance-sheet"].active')) load();
 
-  /* ---------- Realtime Two-Way Sync with Leader & other clients ---------- */
-  if (window.sb) {
+    if (window.sb) {
     let syncTimer = null;
     try {
       window.sb

@@ -1,4 +1,3 @@
-/* Admin dashboard */
 :root {
   --admin-ink: #252b27;
   --admin-muted: #747b74;
@@ -923,7 +922,6 @@ body:has(.admin-page) {
   text-align: right;
 }
 
-/* Vai trò & Quyền */
 .role-tabs {
   display: flex;
   gap: 4px;
@@ -1068,7 +1066,6 @@ body:has(.admin-page) {
   padding: 9px 12px;
 }
 
-/* Beats the shared .admin-form label/input rules (higher specificity). */
 .admin-form .permission-item {
   display: flex;
   align-items: flex-start;
@@ -1086,7 +1083,6 @@ body:has(.admin-page) {
   padding: 0;
 }
 
-/* The role form floats over the page, like the account form. */
 #roleForm[hidden] {
   display: none;
 }
@@ -1262,7 +1258,6 @@ body:has(.admin-page) {
   width: 98px;
   height: 20px;
 }
-/* ---- BỔ SUNG CSS CHO DROPDOWN MENU TÀI KHOẢN ---- */
 .admin-profile-card {
   align-items: flex-start;
 }
@@ -1384,7 +1379,6 @@ body:has(.admin-page) {
   color: #abb7b0;
 }
 
-/* Live Activity Animation */
 @keyframes activityHighlight {
   0% {
     background-color: rgba(46, 125, 50, 0.22);
@@ -1413,7 +1407,6 @@ body:has(.admin-page) {
   gap: 12px;
 }
 
-/* Status select & locked fields in accountForm: dark gray and no dropdown arrow */
 #accountForm select[name="is_active"],
 #accountForm select[name="is_active"]:disabled,
 #accountForm select:disabled {
