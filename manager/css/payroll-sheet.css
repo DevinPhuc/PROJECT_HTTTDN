@@ -1,11 +1,8 @@
-/* Bảng lương: port từ Cham_cong_Tinh_luong_ThayDat_V2.html. Mọi class có tiền tố pl-
-   hoặc nằm trong #pl-print-root để không đụng Bootstrap / manager.css. */
 #plSheet,#pl-print-root{
   --pl-p:var(--admin-green,#345b4a);--pl-pd:var(--admin-green-dark,#244336);
   --pl-p50:var(--admin-green-soft,#e9f1eb);--pl-p100:#d3e4d8;
   --pl-acc:var(--admin-gold,#b18a4b);--pl-line:var(--admin-line,#e6e9e3);
 }
-/* Chặn bảng làm tràn trang: cột lưới phải co được, chỉ .pl-wrap cuộn ngang. */
 .hr-view[data-hr-panel="payroll"]{grid-template-columns:minmax(0,1fr)}
 #plSheet,.pl-card{min-width:0;max-width:100%}
 .pl-wrap{width:100%;overscroll-behavior:contain}
@@ -60,7 +57,6 @@
 .pl-dot{padding:0 4px;color:#94a3b8}
 @media (max-width:620px){.pl-search input{width:100%}.pl-search{flex:1 1 100%}.pl-head-tools{width:100%}}
 
-/* ===== In phiếu lương ===== */
 #pl-print-root{display:none}
 #pl-print-root .pr{color:#111;font-size:12px;font-family:'Segoe UI',Arial,sans-serif}
 #pl-print-root .pr-head{display:flex;gap:14px;align-items:center;border-bottom:2px solid var(--pl-p);padding-bottom:10px;margin-bottom:12px}

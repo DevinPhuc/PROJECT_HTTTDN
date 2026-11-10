@@ -272,7 +272,7 @@
         if (!targetUrl) targetUrl = loginUrl;
         if (targetUrl) window.location.replace(targetUrl);
       }
-      return { ok: false, status, error: payload?.error || "server_error", message: payload?.message };
+      return { ok: false, status, error: payload?.error || "server_error", message: payload?.message, detail: payload?.detail };
     }
 
     return { ok: false, status: 0, error: "network_error" };

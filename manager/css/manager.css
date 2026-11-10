@@ -1,4 +1,3 @@
-/* Admin dashboard */
 :root {
   --admin-ink: #252b27;
   --admin-muted: #747b74;
@@ -1403,7 +1402,6 @@ body:has(.admin-page) {
   cursor: not-allowed !important;
 }
 
-/* Remove native select dropdown indicator on disabled/locked status selects */
 #employeeStatus,
 #employeeForm select[name="employmentStatus"],
 #employeeForm select:disabled {
@@ -1541,7 +1539,6 @@ body:has(.admin-page) {
   }
 }
 
-/* ---------- Chấm công (clock card matching leader template) ---------- */
 .mgr-clock-card {
   display: flex;
   flex-direction: column;
@@ -1734,7 +1731,6 @@ body:has(.admin-page) {
   }
 }
 
-/* ---------- Bảng chấm công (code sheet) ---------- */
 .cc-tools {
   display: flex;
   flex-wrap: wrap;
@@ -1912,7 +1908,6 @@ table.cc {
   padding: 0 2px;
 }
 
-/* ---------- Print (runPrint: screen hides everything but #print-root) ---------- */
 #print-root {
   display: none;
 }
@@ -2245,7 +2240,6 @@ body.manager-ready .manager-loading {
   }
 }
 
-/* Global refresh button in manager topbar */
 .hr-global-refresh-btn {
   display: inline-flex;
   align-items: center;
@@ -2297,7 +2291,6 @@ body.manager-ready .manager-loading {
   cursor: not-allowed;
 }
 
-/* Requests approval table styles */
 .hr-requests-table {
   min-width: 960px;
 }
@@ -2479,7 +2472,6 @@ body.manager-ready .manager-loading {
   display: inline-block;
 }
 
-/* Reset and align embedded month picker inside period control badges */
 .hr-period-control,
 .cc-head-tools .hr-period-control,
 .pl-mp {

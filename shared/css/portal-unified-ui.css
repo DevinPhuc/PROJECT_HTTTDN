@@ -1,15 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Cormorant+Upright:wght@300;400;500;600;700&family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap");
 
-/* ==========================================================================
-   Portal Unified Design System
-   Matches Leader Portal UI (List views, Sidebar elements, 18px icons, Gold Active)
-   while PRESERVING distinct Sidebar Backgrounds:
-   - Admin:   Đen (Dark/Black #181e1b)
-   - Manager: Vàng (Rich Golden Amber #3a270f)
-   - Staff:   Xanh đậm (Deep Ocean Cyan/Teal #102a30)
-   ========================================================================== */
 
-/* 1. TYPOGRAPHY & HEADINGS */
 h1, h2, h3,
 .admin-topbar h1,
 .panel-heading h2,
@@ -41,7 +32,6 @@ h1, h2, h3,
   font-size: clamp(22px, 2.4vw, 28px) !important;
 }
 
-/* Eyebrows */
 .account-eyebrow,
 .admin-eyebrow,
 .staff-eyebrow {
@@ -53,7 +43,6 @@ h1, h2, h3,
   text-transform: uppercase !important;
 }
 
-/* 2. SIDEBAR STRUCTURE & DISTINCT PORTAL COLORS */
 .admin-sidebar {
   position: sticky !important;
   top: 0 !important;
@@ -68,7 +57,6 @@ h1, h2, h3,
   border-right: none !important;
 }
 
-/* Admin: Đen */
 [data-portal="admin"] .admin-sidebar,
 .portal-admin .admin-sidebar {
   background:
@@ -76,7 +64,6 @@ h1, h2, h3,
     #181e1b !important;
 }
 
-/* Manager: Vàng (Warm Rich Golden Amber) */
 [data-portal="manager"] .admin-sidebar,
 .portal-manager .admin-sidebar {
   background:
@@ -84,7 +71,6 @@ h1, h2, h3,
     #3a270f !important;
 }
 
-/* Staff: Xanh đậm (Deep Dark Cyan / Ocean Teal) */
 [data-portal="staff"] .admin-sidebar,
 .portal-staff .admin-sidebar {
   background:
@@ -92,7 +78,6 @@ h1, h2, h3,
     #102a30 !important;
 }
 
-/* Brand block */
 .admin-brand-block {
   display: flex !important;
   align-items: center !important;
@@ -139,7 +124,6 @@ h1, h2, h3,
   color: #ebd7a2 !important;
 }
 
-/* Profile card */
 .admin-profile-card {
   display: flex !important;
   align-items: flex-start !important;
@@ -182,7 +166,6 @@ h1, h2, h3,
   color: #d8c3a1 !important;
 }
 
-/* Logout button */
 .admin-logout-btn {
   display: flex !important;
   align-items: center !important;
@@ -205,7 +188,6 @@ h1, h2, h3,
   border-color: #f3dcd9 !important;
 }
 
-/* Section label in sidebar */
 .leader-nav-label {
   margin: 4px 8px -15px !important;
   color: #8eb6aa !important;
@@ -220,7 +202,6 @@ h1, h2, h3,
   color: #c9b183 !important;
 }
 
-/* Nav items */
 .admin-nav {
   display: grid !important;
   gap: 7px !important;
@@ -245,7 +226,6 @@ h1, h2, h3,
   color: #ebd9b8 !important;
 }
 
-/* 18px Monochrome Icons */
 .admin-nav-item .nav-png-icon {
   width: 18px !important;
   height: 18px !important;
@@ -273,7 +253,6 @@ h1, h2, h3,
   color: #fff !important;
 }
 
-/* Active Nav Item with Gold Inset Indicator */
 .admin-nav-item.is-active {
   border-color: rgba(255, 255, 255, 0.22) !important;
   background: rgba(255, 255, 255, 0.12) !important;
@@ -281,7 +260,6 @@ h1, h2, h3,
   box-shadow: inset 3px 0 #e6c982 !important;
 }
 
-/* Sidebar footer note */
 .leader-sidebar-note {
   display: flex !important;
   align-items: center !important;
@@ -313,7 +291,6 @@ h1, h2, h3,
   box-shadow: 0 0 0 4px rgb(233 190 101 / 18%) !important;
 }
 
-/* 3. GIAO DIỆN DANH SÁCH (TABLES & LISTS) */
 .admin-table-wrap,
 .hr-table-wrap,
 .staff-table-wrap,
@@ -377,7 +354,6 @@ tbody tr:hover,
   background: #f8fbf9 !important;
 }
 
-/* Inputs & Filter Controls */
 input[type="text"],
 input[type="search"],
 input[type="email"],
@@ -406,7 +382,6 @@ select:focus,
   box-shadow: 0 0 0 3px rgb(22 118 109 / 12%) !important;
 }
 
-/* Buttons */
 .admin-primary-btn,
 .staff-primary-btn,
 button.btn-primary,
@@ -459,9 +434,6 @@ button.btn-primary,
 }
 
 
-/* ==========================================================================
-   COMPACT & AUTO-HIDING SCROLLBARS (Sidebars, Tables, Lists, Viewports)
-   ========================================================================== */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(120, 120, 120, 0.25) transparent;
@@ -490,7 +462,6 @@ button.btn-primary,
   background: rgba(120, 120, 120, 0.6);
 }
 
-/* Dark Sidebars: Admin (#181e1b), Manager (#3a270f), Staff (#102a30), Leader (#143b3c) */
 .admin-sidebar,
 .manager-sidebar,
 .staff-sidebar,
@@ -544,7 +515,6 @@ button.btn-primary,
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* Scrollable tables and lists */
 .table-responsive,
 .admin-table-wrap,
 .staff-table-wrap,
@@ -603,9 +573,6 @@ button.btn-primary,
   background: rgba(0, 0, 0, 0.32);
 }
 
-/* ==========================================================================
-   UNIFIED LOGOUT MODAL STYLING (Manager, Staff, Admin, Leader)
-   ========================================================================== */
 .logout-modal {
   position: fixed !important;
   z-index: 10000 !important;
@@ -679,7 +646,6 @@ button.btn-primary,
   color: #ffffff !important;
 }
 
-/* Reset and align embedded month picker inside period control badges */
 .hr-period-control,
 .cc-head-tools .hr-period-control,
 .pl-mp {
@@ -726,12 +692,6 @@ button.btn-primary,
   box-shadow: 0 0 0 3px rgb(22 118 109 / 12%) !important;
 }
 
-/* ==========================================================================
-   Non-editable / Locked Fields in Add/Edit Employee Info Forms
-   Chỉ áp dụng cho các khung không thể sửa đổi của form thêm mới/chỉnh sửa thông tin nhân sự:
-   - Admin (#accountForm): Mã nhân viên, Mật khẩu đăng nhập, Trạng thái (khóa không chọn), Vai trò (khi khóa)
-   - Manager (#employeeForm): Mã nhân viên, Mật khẩu đăng nhập, Trạng thái (khóa không chọn), Phòng ban (khi khóa)
-   ========================================================================== */
 #accountForm input[readonly],
 #accountForm input:read-only,
 #accountForm input:disabled,
@@ -751,7 +711,6 @@ button.btn-primary,
   cursor: not-allowed !important;
 }
 
-/* Các trường được phép chỉnh sửa trong form thêm/sửa phải giữ nguyên nền trắng và con trỏ chuẩn */
 #accountForm input:not([readonly]):not(:disabled),
 #employeeForm input:not([readonly]):not(:disabled) {
   background-color: #ffffff !important;
@@ -768,7 +727,6 @@ button.btn-primary,
   cursor: pointer !important;
 }
 
-/* Ngăn outline/focus ring trên các ô bị khóa không được sửa đổi */
 #accountForm input[readonly]:focus,
 #accountForm input:read-only:focus,
 #accountForm input:disabled:focus,
@@ -787,7 +745,6 @@ button.btn-primary,
   outline: none !important;
 }
 
-/* Chữ gợi ý (placeholder) trong các ô bị khóa hiển thị rõ nét trên nền xám đậm */
 #accountForm input[readonly]::placeholder,
 #accountForm input:disabled::placeholder,
 #employeeForm input[readonly]::placeholder,
@@ -796,7 +753,6 @@ button.btn-primary,
   opacity: 1 !important;
 }
 
-/* Xóa biểu tượng tam giác 'v' ở khung trạng thái và các select bị khóa trong form nhân sự */
 #accountForm select[name="is_active"],
 #accountForm select[name="is_active"]:disabled,
 #employeeStatus,
@@ -810,10 +766,6 @@ button.btn-primary,
   padding-right: 12px !important;
 }
 
-/* ==========================================================================
-   Khung bộ lọc, dropdown phân trang trên toàn bộ hệ thống (Admin, Manager, Leader, Staff)
-   Đảm bảo luôn có nền trắng, viền rõ ràng, con trỏ chuột pointer và KHÔNG có biểu tượng cấm
-   ========================================================================== */
 select.admin-search,
 .admin-search select,
 .employee-list-filters select,
@@ -856,7 +808,6 @@ select:not(:disabled) {
   cursor: pointer !important;
 }
 
-/* Bỏ icon cấm khi di chuột vào các bộ lọc và pagination dropdowns */
 .employee-list-filters,
 .employee-list-filters *,
 .account-filter-panel,
@@ -891,9 +842,6 @@ select.admin-search,
   cursor: pointer !important;
 }
 
-/* ==========================================================================
-   Shared Timesheet (Bảng chấm công) Styles for Manager & Leader
-   ========================================================================== */
 .cc-tools {
   display: flex;
   flex-wrap: wrap;
@@ -1231,7 +1179,6 @@ select[data-psize] {
   cursor: not-allowed !important;
 }
 
-/* Attendance history filter bars (Manager, Leader, Staff) */
 .mgr-att-filters,
 .staff-att-filters,
 .leader-clock-filters {
@@ -1270,9 +1217,6 @@ select[data-psize] {
   cursor: pointer;
 }
 
-/* ==========================================================================
-   UNIFIED LOGOUT MODAL (Admin, Manager, Staff, Leader) - Exact Image 1 Style
-   ========================================================================== */
 .logout-modal {
   position: fixed !important;
   z-index: 10000 !important;
@@ -1368,7 +1312,6 @@ select[data-psize] {
   color: #ffffff !important;
 }
 
-/* Feedback messages for Timesheets */
 #mgrCcFeedback,
 #leaderCcFeedback {
   color: #166534 !important;
@@ -1382,9 +1325,6 @@ select[data-psize] {
   color: #dc2626 !important;
 }
 
-/* ==========================================================================
-   TIMESHEET PANEL HEADING & TOOLS (Exact Image 1 Style - Manager & Leader)
-   ========================================================================== */
 .leader-view[data-leader-panel="attendance-sheet"] .panel-heading,
 [data-hr-panel="attendance-sheet"] > .panel-heading,
 .panel-heading {
@@ -1510,10 +1450,6 @@ select[data-psize] {
   flex: 0 0 auto !important;
 }
 
-/* ==========================================================================
-   UNIFIED ROUNDED CORNERS FOR ALL PANELS & CARDS (Admin, Manager, Staff)
-   Matches the 14px card / 13px inner box design pattern from image 1
-   ========================================================================== */
 .admin-panel,
 .staff-panel,
 .pl-card,
@@ -1542,7 +1478,6 @@ select[data-psize] {
   border-radius: 12px !important;
 }
 
-/* Payroll search input fix: prevent search icon from overlapping input text */
 .pl-search input,
 .pl-search input[type="search"],
 .pl-search .pl-inp,
@@ -1555,7 +1490,6 @@ select[data-psize] {
 }
 
 
-/* Custom DatePicker Component */
 .custom-datepicker-wrap {
   position: relative;
   width: 100%;

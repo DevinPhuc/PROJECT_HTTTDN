@@ -9,8 +9,7 @@
 (() => {
   "use strict";
 
-  /* ---------- Thiết lập tính lương (sửa ở đây khi luật đổi) ---------- */
-  const CFG = {
+    const CFG = {
     congChuan: 26, gioCong: 8, heSoOT: 1.5,
     luongCoSo: 2530000, ltVung: 5310000,
     bhxhNLD: 8, bhytNLD: 1.5, bhtnNLD: 1,
@@ -24,20 +23,13 @@
   };
   const PAGE_SIZES = [10, 20, 50, 100];
 
-  /* ---------- Helpers ---------- */
-  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const round = (n) => Math.round(+n || 0);
   const sum = (list, f) => list.reduce((s, x) => s + (+(f ? f(x) : x) || 0), 0);
   const fmt = (n) => round(n).toLocaleString("vi-VN");
   const num = (n, d = 1) => (+n || 0).toLocaleString("vi-VN", { maximumFractionDigits: d });
-  const short = (n) => {
-    n = +n || 0; const a = Math.abs(n);
-    const f = (v, u) => (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString("vi-VN") + u;
-    return a >= 1e9 ? f(n / 1e9, " tỷ") : a >= 1e6 ? f(n / 1e6, " tr") : a >= 1e3 ? f(n / 1e3, "k") : String(round(n));
-  };
   const d10 = (v) => String(v ?? "").slice(0, 10);
   const fmtDate = (v) => { const s = d10(v); if (!s) return "-"; const [y, m, d] = s.split("-"); return d ? `${d}/${m}/${y}` : s; };
-  const monthLabel = (ym) => { const [y, m] = ym.split("-"); return `Tháng ${+m}/${y}`; };
   const initials = (name) => { const p = String(name || "?").trim().split(/\s+/); return ((p.length > 1 ? p[p.length - 2][0] : "") + p[p.length - 1][0]).toUpperCase(); };
   const parseMoney = (v) => { const s = String(v ?? "").replace(/[^\d]/g, ""); return s ? parseInt(s, 10) : 0; };
   const $ = (id) => document.getElementById(id);
@@ -74,8 +66,7 @@
     return s.charAt(0).toUpperCase() + s.slice(1) + " đồng";
   }
 
-  /* ---------- Công thức (khớp bản mẫu) ---------- */
-  function taxOf(tn) {
+    function taxOf(tn) {
     let t = 0, prev = 0;
     for (const b of CFG.bac) {
       const top = +b.den || Infinity;
@@ -162,8 +153,7 @@
     };
   }
 
-  /* ---------- Trạng thái ---------- */
-  const st = { ym: "", dept: "", q: "", page: 0, size: 10, bound: false, chain: Promise.resolve() };
+    const st = { ym: "", dept: "", q: "", page: 0, size: 10, bound: false, chain: Promise.resolve() };
 
   function allRows(ctx) {
     const end = ctx.ym + "-31";
@@ -179,8 +169,7 @@
       && (!q || `${x.ten} ${x.ma} ${x.phongBan}`.toLowerCase().includes(q)));
   }
 
-  /* ---------- Cột bảng ---------- */
-  const COLS = [
+    const COLS = [
     { k: "ma", l: "Mã NV", t: "text" }, { k: "ten", l: "Họ và tên", t: "text" }, { k: "phongBan", l: "Phòng ban", t: "text" },
     { k: "luongCB", l: "Lương cơ bản", t: "money", g: "Thu nhập", input: 1 },
     { k: "cong", l: "Công hưởng lương", t: "num", g: "Thu nhập" },
@@ -201,8 +190,7 @@
   const ICON_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
   const ICON_RECEIPT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>';
 
-  /* ---------- Giao diện ---------- */
-  function pagerHTML(total) {
+    function pagerHTML(total) {
     const pages = Math.max(1, Math.ceil(total / st.size)), p = st.page;
     const from = total ? p * st.size + 1 : 0, to = Math.min(total, (p + 1) * st.size);
     const nums = [], add = (i) => nums.push(`<button type="button" class="pl-pgn ${i === p ? "on" : ""}" data-pg="${i}">${i + 1}</button>`);
@@ -296,8 +284,7 @@
     bindOnce();
   }
 
-  /* ---------- Lưu ---------- */
-  function cacheShape(x, base = {}) {
+    function cacheShape(x, base = {}) {
     return {
       ...base, employee_id: x.id, pay_year: Number(st.ym.slice(0, 4)), pay_month: Number(st.ym.slice(5, 7)),
       base_salary: x.luongCB, allowance: x.pc, total_deductions: x.bhNLD + x.thue,
@@ -387,7 +374,7 @@
       try {
         const res = await callHr(payload(L[i]));
         if (res.ok) { putCache(L[i]); ok += 1; }
-      } catch { /* tiếp tục với dòng sau */ }
+      } catch {  }
     }
     if (button) button.disabled = false;
     const allMsg = `Đã lưu lương cho ${ok} nhân viên thành công!`;
@@ -396,8 +383,7 @@
     draw();
   }
 
-  /* ---------- In phiếu lương ---------- */
-  function printHTML(html, title) {
+    function printHTML(html, title) {
     document.querySelectorAll("#pl-print-root,#pl-print-page").forEach((n) => n.remove());
     const root = document.createElement("div"); root.id = "pl-print-root"; root.innerHTML = html; document.body.appendChild(root);
     const style = document.createElement("style"); style.id = "pl-print-page";
@@ -464,8 +450,7 @@
     printHTML(`<div class="pr">${L.map(slipHTML).join("")}</div>`, `Phieu luong ${st.ym}`);
   }
 
-  /* ---------- Sự kiện (gắn một lần) ---------- */
-  function bindOnce() {
+    function bindOnce() {
     if (st.bound) return;
     const root = $("plSheet"); if (!root) return;
     st.bound = true;
